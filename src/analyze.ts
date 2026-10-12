@@ -23,6 +23,29 @@ GROUPS: give the same "group" id to elements that must keep the same arrangement
 const ROLES = new Set(['headline', 'subheadline', 'body', 'caption', 'label', 'bullets', 'logo', 'photo', 'button', 'badge', 'hero', 'decor', 'brand']);
 const SHAPES = new Set(['circle', 'pill', 'rounded', 'rect', 'free', 'hero']);
 
+// גוגל מוציאה דגמים ישנים משימוש למפתחות חדשים, לכן שואלים את המפתח עצמו אילו דגמים זמינים:
+// יציבים לפני ניסיוניים, גרסה חדשה לפני ישנה, ודגם מלא לפני Lite.
+let discovered: string[] | null = null;
+export function rankGeminiModels(models: any[]): string[] {
+  const version = (n: string) => parseFloat(n.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? '0');
+  return models
+    .filter(m => (m?.supportedGenerationMethods ?? []).includes('generateContent'))
+    .map(m => String(m.name ?? '').replace(/^models\//, ''))
+    .filter(n => /^gemini-/.test(n) && /flash/.test(n) && !/image|tts|audio|live|embed|exp|thinking/.test(n))
+    .sort((x, y) => Number(/preview/.test(x)) - Number(/preview/.test(y)) || version(y) - version(x) || Number(/lite/.test(x)) - Number(/lite/.test(y)) || Number(/latest/.test(y)) - Number(/latest/.test(x)))
+    .slice(0, 4);
+}
+async function discoverModels(env: any, key: string, fetcher: typeof fetch): Promise<string[]> {
+  if (discovered && !env.GEMINI_NO_CACHE) return discovered;
+  try {
+    const r = await fetcher(`${env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com'}/v1beta/models?pageSize=200`, { headers: { 'x-goog-api-key': key }, signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return [];
+    const found = rankGeminiModels(((await r.json()) as any).models ?? []);
+    if (found.length) discovered = found;
+    return found;
+  } catch { return []; }
+}
+
 export type El = { id: string; role: string; box: number[]; group: string | null; lines?: string[]; shape?: string; style?: string; bullet?: string };
 
 // מנקה את תשובת ה-AI. המערך בא בסדר [ymin,xmin,ymax,xmax] והופך ל-[x1,y1,x2,y2].
@@ -54,15 +77,16 @@ function parseJson(text: string): any {
 export async function analyzeImage(env: any, imageBase64: string, fetcher: typeof fetch = fetch, userKey = ''): Promise<El[]> {
   const key = userKey || env.GEMINI_API_KEY;
   if (!key) throw new AnalyzeError(401, 'NEED_KEY', 'כדי להשתמש באתר צריך להדביק מפתח Gemini אישי (בחינם). ראו את שלב 1 בצד.');
-  // כשדגם עמוס (503) עוברים לדגם הבא, ואם כולם עמוסים מנסים שוב אחרי רגע.
-  const models = [...new Set([env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'].filter(Boolean))] as string[];
+  // כשדגם עמוס (503) או לא זמין (404) עוברים לדגם הבא, ואם כולם עמוסים מנסים שוב אחרי רגע.
+  const found = await discoverModels(env, key, fetcher);
+  const models = [...new Set([env.GEMINI_MODEL, ...found, 'gemini-flash-latest', 'gemini-3.5-flash-lite'].filter(Boolean))] as string[];
   // חשיבה מינימלית: הזיהוי הוא משימת ראייה פשוטה, וחשיבה ארוכה רק מאריכה את ההמתנה בלי לשפר.
   const thinking = (model: string) => (/gemini-2/.test(model) ? { thinkingBudget: 0 } : { thinkingLevel: 'low' });
   const bodyFor = (model: string, withThinking: boolean) => JSON.stringify({
     contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }, { text: PROMPT }] }],
     generationConfig: { temperature: 0, maxOutputTokens: 8000, responseMimeType: 'application/json', ...(withThinking ? { thinkingConfig: thinking(model) } : {}) },
   });
-  let lastStatus = 0, lastDetail = '';
+  let lastStatus = 0, lastDetail = '', sawBusy = false;
   for (let round = 0; round < 2; round++) {
   if (round) await new Promise(res => setTimeout(res, env.GEMINI_RETRY_MS ?? 2000));
   for (const model of models) {
@@ -84,7 +108,7 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     if (r.status === 401 || r.status === 403) console.error('gemini auth', model, r.status, (await r.clone().text().catch(() => '')).slice(0, 200));
     if (r.status === 401 || r.status === 403) throw new AnalyzeError(userKey ? 401 : 503, 'AUTH', 'מפתח ה-API של גוגל לא תקין או חסרות לו הרשאות. בדקו שהעתקתם אותו במלואו.');
     if (r.status === 429) throw new AnalyzeError(429, 'LIMIT', 'חרגתם ממכסת הבקשות של גוגל כרגע. נסו שוב בעוד דקה.');
-    if ([500, 502, 503, 504].includes(r.status)) { lastStatus = r.status; lastDetail = `${model}: ${r.status} ${(await r.text().catch(() => '')).slice(0, 200)}`; console.error('gemini busy', lastDetail); continue; }
+    if ([500, 502, 503, 504].includes(r.status)) { sawBusy = true; lastStatus = r.status; lastDetail = `${model}: ${r.status} ${(await r.text().catch(() => '')).slice(0, 200)}`; console.error('gemini busy', lastDetail); continue; }
     if (r.status === 404 || r.status === 400) { lastStatus = r.status; lastDetail = `${model}: ${r.status} ${(await r.text().catch(() => '')).slice(0, 200)}`; continue; } // דגם לא קיים: מנסים את הבא
     if (!r.ok) {
       const t = (await r.text().catch(() => '')).slice(0, 220);
@@ -99,5 +123,5 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     return els;
   }
   }
-  throw new AnalyzeError(lastStatus >= 500 ? 503 : 502, lastStatus >= 500 ? 'BUSY' : 'MODEL', lastStatus >= 500 ? 'גוגל עמוסה כרגע ולא הצליחה לענות. נסו שוב בעוד דקה.' : lastStatus === 404 ? 'דגם ה-AI שהוגדר לא קיים. בדקו את GEMINI_MODEL.' : 'לא הצלחתי לדבר עם גוגל. נסו שוב בעוד רגע.', lastDetail);
+  throw new AnalyzeError(sawBusy ? 503 : 502, sawBusy ? 'BUSY' : 'MODEL', sawBusy ? 'גוגל עמוסה כרגע ולא הצליחה לענות. נסו שוב בעוד דקה.' : lastStatus === 404 ? 'דגם ה-AI שהוגדר לא קיים. בדקו את GEMINI_MODEL.' : 'לא הצלחתי לדבר עם גוגל. נסו שוב בעוד רגע.', lastDetail);
 }

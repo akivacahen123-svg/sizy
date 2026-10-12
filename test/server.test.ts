@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import worker from '../src/index.ts';
-import { cleanElements, analyzeImage } from '../src/analyze.ts';
+import { cleanElements, analyzeImage, rankGeminiModels } from '../src/analyze.ts';
 const assets = { fetch: async (r: Request) => new Response('asset:' + new URL(r.url).pathname) };
 const env: any = { APP_PASSWORD: 'correct horse', GEMINI_API_KEY: 'K', ASSETS: assets };
 const gemini = (calls: any[]) => async (url: any, init: any) => {
+  if (String(url).includes('?pageSize')) return Response.json({ models: [] });
   calls.push({ url: String(url), init });
   const els = { elements: [{ id: 'h', role: 'headline', box: [100, 200, 300, 800], lines: ['שלום'], group: null }, { id: 'x', role: 'photo', box: [0, 0, 1, 1] }] };
   return Response.json({ candidates: [{ content: { parts: [{ thought: true, text: 'hmm' }, { text: '```json\n' + JSON.stringify(els) + '\n```' }] } }] });
@@ -48,10 +49,13 @@ const bodies: any[] = []; let k = 0;
 const noThink = async (_u: any, init: any) => { bodies.push(JSON.parse(init.body)); return k++ === 0 ? new Response('{}', { status: 400 }) : gemini([])('', {}); };
 assert.equal((await analyzeImage(env, img, noThink as any)).length, 1);
 assert(bodies[0].generationConfig.thinkingConfig && !bodies[1].generationConfig.thinkingConfig);
+// בחירת דגמים: יציב לפני ניסיוני, חדש לפני ישן, מלא לפני Lite, בלי דגמי תמונה/שמע.
+const listed = ['gemini-2.5-flash', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash-preview', 'gemini-2.5-flash-image', 'gemini-2.5-pro', 'gemini-flash-latest'].map(name => ({ name: 'models/' + name, supportedGenerationMethods: ['generateContent'] }));
+assert.equal(rankGeminiModels(listed)[0], 'gemini-3.5-flash'); assert(!rankGeminiModels(listed).some(n => /image|pro/.test(n)));
 // גוגל עמוסה (503): עוברים לדגם הבא ומצליחים; אם הכול עמוס, הודעה ברורה.
 const seen503: string[] = []; let c503 = 0;
-const busy = async (u: any) => { seen503.push(String(u).split('/models/')[1].split(':')[0]); return c503++ < 2 ? new Response('{"error":{"code":503}}', { status: 503 }) : gemini([])('', {}); };
-assert.equal((await analyzeImage({ ...env, GEMINI_RETRY_MS: 0 }, img, busy as any)).length, 1); assert.deepEqual(seen503, ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']);
+const busy = async (u: any) => { if (String(u).includes('?pageSize')) return Response.json({ models: [] }); seen503.push(String(u).split('/models/')[1].split(':')[0]); return c503++ < 2 ? new Response('{"error":{"code":503}}', { status: 503 }) : gemini([])('', {}); };
+assert.equal((await analyzeImage({ ...env, GEMINI_RETRY_MS: 0 }, img, busy as any)).length, 1); assert.deepEqual(seen503, ['gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-flash-latest']);
 await assert.rejects(() => analyzeImage({ ...env, GEMINI_RETRY_MS: 0 }, img, (async () => new Response('{}', { status: 503 })) as any), /עמוסה/);
 await assert.rejects(() => analyzeImage(env, img, (async () => new Response('{}', { status: 403 })) as any), /מפתח/);
 await assert.rejects(() => analyzeImage({}, img), /מפתח Gemini/);
