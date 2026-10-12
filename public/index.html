@@ -92,7 +92,7 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
 </section>
 <div class="layout">
   <aside class="panel">
-    <div class="card">
+    <div class="card" id="keycard" hidden>
       <h2><span class="n">1</span>המפתח שלי ל-Gemini (פעם אחת)</h2>
       <p class="sub" style="margin:0 0 10px">כל משתמש עובד עם החשבון של עצמו בגוגל, חינם. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--acc)">לחצו כאן ליצירת מפתח</a>, לחצו Create API key, העתיקו והדביקו כאן. המפתח נשמר רק בדפדפן שלכם.</p>
       <input type="text" id="key" placeholder="AIza..." autocomplete="off" spellcheck="false">
@@ -144,7 +144,7 @@ const keyOk=v=>/^[A-Za-z0-9_-]{20,120}$/.test(v.trim());
 function paintKey(){const v=$('#key').value.trim();$('#keyst').textContent=v?(keyOk(v)?'✅ המפתח נשמר בדפדפן הזה':'⚠️ המפתח לא נראה תקין. העתיקו אותו שוב במלואו.'):(serverAI?'':'עוד לא הוכנס מפתח.');
   $('#mode').textContent=(keyOk(v)||serverAI)?'✅ מחובר ל-AI: פירוק חכם זמין':'⚠️ צריך להדביק מפתח Gemini אישי (שלב 1)'}
 $('#key').value=LS.get('sizy_key');$('#key').addEventListener('input',()=>{LS.set('sizy_key',$('#key').value.trim());paintKey()});
-fetch('/api/status').then(r=>r.json()).then(j=>{serverAI=!!j.ai;paintKey()}).catch(()=>{$('#mode').textContent='⚠️ אין חיבור'});paintKey();
+fetch('/api/status').then(r=>r.json()).then(j=>{serverAI=!!j.ai;$('#keycard').hidden=serverAI;if(!serverAI)$('#keycard').hidden=false;if(serverAI){document.querySelectorAll('.card:not([hidden]) .n').forEach((n,i)=>{n.textContent=i+1})}paintKey()}).catch(()=>{$('#mode').textContent='⚠️ אין חיבור'});paintKey();
 
 GROUPS.forEach(([name,list])=>{
   const g=document.createElement('div');g.className='grp';

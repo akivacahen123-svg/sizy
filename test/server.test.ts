@@ -27,13 +27,14 @@ assert.equal((await call('/api/status', { headers: { Cookie: cookie } }, { ...en
 const img = 'A'.repeat(200), post = (body: any, extra: any = {}) => ({ method: 'POST', headers: { Cookie: cookie, Origin: 'https://sizy.example', 'Content-Type': 'application/json', ...extra }, body: JSON.stringify(body) });
 assert.equal((await call('/api/analyze', post({ image: img }, { Origin: 'https://evil.example' }))).status, 403);
 assert.equal((await call('/api/analyze', post({ image: 'x' }), env, gemini([]))).status, 400);
-// משתמש אנונימי (אתר פתוח) בלי מפתח אישי לא רוכב על המפתח של בעל האתר.
+// אתר פתוח: מבקר אנונימי משתמש במפתח של בעל האתר; בלי מפתח בשרת ובלי מפתח אישי מקבלים בקשה להדביק מפתח.
 const open = { ...env, PUBLIC_ACCESS: 'true' }, anon = (extra: any = {}) => ({ method: 'POST', headers: { Origin: 'https://sizy.example', 'Content-Type': 'application/json', ...extra }, body: JSON.stringify({ image: img }) });
-r = await call('/api/analyze', anon(), open, gemini([])); assert.equal(r.status, 401); assert.equal(((await r.json()) as any).code, 'NEED_KEY');
+r = await call('/api/analyze', anon(), { ...open, GEMINI_API_KEY: '' }, gemini([])); assert.equal(r.status, 401); assert.equal(((await r.json()) as any).code, 'NEED_KEY');
+const shared: any[] = []; r = await call('/api/analyze', anon(), open, gemini(shared)); assert.equal(r.status, 200); assert.equal(shared[0].init.headers['x-goog-api-key'], 'K');
 const own: any[] = []; r = await call('/api/analyze', anon({ 'X-Gemini-Key': 'USERKEY_12345678901234567890' }), open, gemini(own)); assert.equal(r.status, 200);
 assert.equal(own[0].init.headers['x-goog-api-key'], 'USERKEY_12345678901234567890');
 assert.equal((await call('/api/analyze', anon({ 'X-Gemini-Key': 'bad key!' }), open, gemini([]))).status, 400);
-assert.deepEqual(await (await call('/api/status', {}, open)).json(), { ai: false, ownKey: true });
+assert.deepEqual(await (await call('/api/status', {}, open)).json(), { ai: true, ownKey: true });
 const calls: any[] = [];
 r = await call('/api/analyze', post({ image: img }), env, gemini(calls)); assert.equal(r.status, 200);
 const body: any = await r.json(); assert.equal(body.elements.length, 1);

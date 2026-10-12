@@ -7,11 +7,11 @@
   // כל בקשה עוברת קודם דרך ה-Worker, כך שכל האתר נעול מאחורי הסיסמה.
   "assets": { "directory": "public", "binding": "ASSETS", "run_worker_first": true },
   "observability": { "enabled": true },
-  // מגביל כמה ניתוחים מותר לכל משתמש בדקה (כל ניתוח עולה כסף על המפתח של גוגל).
-  "ratelimits": [{ "name": "LIMITER", "namespace_id": "1002", "simple": { "limit": 6, "period": 60 } }],
+  // מגביל כמה ניתוחים מותר לכל משתמש בדקה, כדי שאף אחד לא ינצל את המפתח שלך.
+  "ratelimits": [{ "name": "LIMITER", "namespace_id": "1002", "simple": { "limit": 3, "period": 60 } }],
   "vars": {
-    // "true": כל אחד נכנס בלי סיסמה, וכל משתמש עובד עם מפתח Gemini אישי משלו (בלי עלות לבעל האתר).
-    // "false": נדרשת סיסמה.
+    // "true": כל אחד נכנס בלי סיסמה ועובד עם המפתח שלך (GEMINI_API_KEY).
+    // "false": נדרשת סיסמה (APP_PASSWORD).
     "PUBLIC_ACCESS": "true",
     // מזהה לקוח של Google OAuth (לא סוד). אם מוגדר, נכנסים עם חשבון Google.
     "GOOGLE_CLIENT_ID": "",
