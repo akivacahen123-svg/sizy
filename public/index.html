@@ -216,7 +216,7 @@ function addCard(w,h,blob){
 
 // ---- יצירת באנרים
 function jpegB64(){
-  const s=Math.min(1,1568/Math.max(srcCanvas.width,srcCanvas.height)),c=document.createElement('canvas');
+  const s=Math.min(1,1280/Math.max(srcCanvas.width,srcCanvas.height)),c=document.createElement('canvas');
   c.width=Math.round(srcCanvas.width*s);c.height=Math.round(srcCanvas.height*s);const x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(srcCanvas,0,0,c.width,c.height);
   return c.toDataURL('image/jpeg',.9).split(',')[1];
 }
@@ -229,7 +229,7 @@ $('#go').onclick=async()=>{
   busy=true;$('#go').disabled=true;
   try{
     if(!built){
-      st.textContent='ה-AI מסתכל על הבאנר ומזהה את האלמנטים… זה לוקח כחצי דקה.';
+      st.textContent='ה-AI מסתכל על הבאנר ומזהה את האלמנטים… זה לוקח כמה שניות.';
       const r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json','X-Gemini-Key':$('#key').value.trim()},body:JSON.stringify({image:jpegB64()})});
       if(!r.ok){st.textContent=await errMsg(r);return}
       const {elements}=await r.json();

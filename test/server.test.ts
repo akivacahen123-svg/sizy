@@ -43,6 +43,11 @@ assert.equal(calls[0].init.headers['x-goog-api-key'], 'K'); assert(calls[0].url.
 // דגם לא קיים: עוברים לדגם הבא. מפתח שגוי: הודעה בעברית.
 let n = 0; const flaky = async () => (n++ === 0 ? new Response('{}', { status: 404 }) : gemini([])('', {}));
 assert.equal((await analyzeImage(env, img, flaky as any)).length, 1); assert.equal(n, 2);
+// דגם שלא תומך בהגדרת החשיבה (400): מנסים שוב באותו דגם בלי ההגדרה.
+const bodies: any[] = []; let k = 0;
+const noThink = async (_u: any, init: any) => { bodies.push(JSON.parse(init.body)); return k++ === 0 ? new Response('{}', { status: 400 }) : gemini([])('', {}); };
+assert.equal((await analyzeImage(env, img, noThink as any)).length, 1);
+assert(bodies[0].generationConfig.thinkingConfig && !bodies[1].generationConfig.thinkingConfig);
 await assert.rejects(() => analyzeImage(env, img, (async () => new Response('{}', { status: 403 })) as any), /מפתח/);
 await assert.rejects(() => analyzeImage({}, img), /מפתח Gemini/);
 assert.equal(cleanElements([{ box: [0, 0, 1, 1] }, { box: 'x' }, null, { box: [10, 20, 30, 40], role: 'weird', shape: 'circle', group: 'null' }]).length, 1);

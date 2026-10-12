@@ -55,19 +55,25 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
   const key = userKey || env.GEMINI_API_KEY;
   if (!key) throw new AnalyzeError(401, 'NEED_KEY', 'כדי להשתמש באתר צריך להדביק מפתח Gemini אישי (בחינם). ראו את שלב 1 בצד.');
   const models = [...new Set([env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash'].filter(Boolean))] as string[];
-  const body = JSON.stringify({
+  // חשיבה מינימלית: הזיהוי הוא משימת ראייה פשוטה, וחשיבה ארוכה רק מאריכה את ההמתנה בלי לשפר.
+  const thinking = (model: string) => (/gemini-2/.test(model) ? { thinkingBudget: 0 } : { thinkingLevel: 'low' });
+  const bodyFor = (model: string, withThinking: boolean) => JSON.stringify({
     contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }, { text: PROMPT }] }],
-    generationConfig: { temperature: 0, maxOutputTokens: 16000, responseMimeType: 'application/json' },
+    generationConfig: { temperature: 0, maxOutputTokens: 8000, responseMimeType: 'application/json', ...(withThinking ? { thinkingConfig: thinking(model) } : {}) },
   });
   let lastStatus = 0;
   for (const model of models) {
-    let r: Response;
-    try {
-      r = await fetcher(`${env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com'}/v1beta/models/${model}:generateContent`, {
-        method: 'POST', body, signal: AbortSignal.timeout(90_000),
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      });
-    } catch { throw new AnalyzeError(504, 'TIMEOUT', 'ה-AI לא ענה בזמן. נסו שוב בעוד רגע.'); }
+    let r: Response | undefined;
+    for (const withThinking of [true, false]) {
+      try {
+        r = await fetcher(`${env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com'}/v1beta/models/${model}:generateContent`, {
+          method: 'POST', body: bodyFor(model, withThinking), signal: AbortSignal.timeout(90_000),
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        });
+      } catch { throw new AnalyzeError(504, 'TIMEOUT', 'ה-AI לא ענה בזמן. נסו שוב בעוד רגע.'); }
+      if (r.status !== 400) break; // 400: הדגם לא תומך בהגדרת החשיבה, מנסים בלי
+    }
+    if (!r) continue;
     if (r.status === 401 || r.status === 403) throw new AnalyzeError(userKey ? 401 : 503, 'AUTH', 'מפתח ה-API של גוגל לא תקין או חסרות לו הרשאות. בדקו שהעתקתם אותו במלואו.');
     if (r.status === 429) throw new AnalyzeError(429, 'LIMIT', 'חרגתם ממכסת הבקשות של גוגל כרגע. נסו שוב בעוד דקה.');
     if (r.status === 404 || r.status === 400) { lastStatus = r.status; continue; } // דגם לא קיים: מנסים את הבא
