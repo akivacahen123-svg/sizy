@@ -1,0 +1,26 @@
+// בדיקת מנוע על באנר סינתטי: ניתוק טקסט מרקע, פריסה לכמה גדלים, בלי ערכים לא תקינים.
+import assert from 'node:assert/strict';
+await import('../public/engine.js');
+const E = globalThis.SizyEngine;
+const W = 600, H = 400, rgba = new Uint8ClampedArray(W * H * 4);
+for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = (y * W + x) * 4; rgba[i] = 30 + x / 8; rgba[i + 1] = 50 + y / 8; rgba[i + 2] = 120; rgba[i + 3] = 255; }
+const rect = (x0, y0, x1, y1, c) => { for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = (y * W + x) * 4; rgba[i] = c[0]; rgba[i + 1] = c[1]; rgba[i + 2] = c[2]; } };
+for (let k = 0; k < 8; k++) rect(150 + k * 38, 80, 150 + k * 38 + 26, 140, [255, 255, 255]); // "כותרת"
+rect(220, 300, 380, 350, [250, 200, 40]);                                                      // כפתור
+const n = (v, t) => Math.round(v / t * 1000);
+const els = [
+  { id: 'h', role: 'headline', box: [n(145, W), n(75, H), n(455, W), n(145, H)], lines: ['שלום'], group: 'g' },
+  { id: 'b', role: 'button', shape: 'rounded', style: 'filled', box: [n(220, W), n(300, H), n(380, W), n(350, H)], group: 'g2' },
+];
+const sc = E.buildScene(E.fromRGBA(rgba, W, H), els);
+assert.equal(sc.leaves.length, 2);
+// הכותרת הלבנה הוסרה מהרקע (לא נשארו רוחות רפאים)
+const p = (x, y) => sc.plate.d[(y * W + x) * 3];
+assert(p(160, 110) < 150, 'plate still has white text: ' + p(160, 110));
+for (const [w, h, k] of [[300, 600, 1], [728, 90, 1], [300, 250, 2]]) {
+  const r = E.render(sc, w, h, k);
+  assert.equal(r.w, w * k); assert.equal(r.h, h * k); assert.equal(r.rgba.length, w * k * h * k * 4);
+  let white = 0; for (let i = 0; i < r.rgba.length; i += 4) if (r.rgba[i] > 235 && r.rgba[i + 1] > 235 && r.rgba[i + 2] > 235) white++;
+  assert(white > 50, `headline missing at ${w}x${h}`);
+}
+console.log('Passed: text cut from background, plate cleaned, renders at 3 sizes.');

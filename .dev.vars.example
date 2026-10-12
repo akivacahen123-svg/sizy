@@ -1,0 +1,3 @@
+# מעתיקים ל-.dev.vars להרצה מקומית. ב-Cloudflare מגדירים אותם כ-Secrets.
+APP_PASSWORD=
+GEMINI_API_KEY=
