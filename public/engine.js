@@ -1016,18 +1016,14 @@ function layoutTall(W, H, units, sw, sh) {
     }
     return { u: pick.a, cap: Math.min(1.9, pick.f) };
   });
-  let f = list.map(({ u, cap }) => { const lg = u.kids.some(k => k.role === 'logo') && u.kids.length === 1 && u.w / u.h > 2.2; return Math.min(aw / u.w, cap, lg ? 0.6 * W / u.w : 9); });
+  let f = list.map(({ u, cap }) => { const lg = u.kids.some(k => k.role === 'logo') && u.kids.length === 1 && u.w / u.h > 2.2; return Math.min(aw / u.w, cap, lg ? 0.6 * W / u.w : u.kids.some(k => k.role === 'logo') ? 0.5 * W / u.w : 9); });
   const gmin = Math.max(5, H * 0.025), nGap = Math.max(0, list.length - 1);
   const tot = () => list.reduce((a, { u }, i) => a + u.h * f[i], 0);
-  if (tot() + gmin * nGap > ah) { // חוסר מקום: קודם מקטינים כותרות ולוגו (עד 55%), את התמונות הקטנות שומרים גדולות ככל האפשר
-    const small = list.map(({ u }) => !!u.cards), f0 = f.slice();
-    for (const floor of [0.75, 0.5]) {
-      const bigT = list.reduce((a, { u }, i) => a + (small[i] ? 0 : u.h * f[i]), 0), smallT = list.reduce((a, { u }, i) => a + (small[i] ? u.h * f[i] : 0), 0);
-      const need = ah - gmin * nGap - smallT;
-      if (bigT > 0 && need > 0) { const g = Math.max(floor, Math.min(1, need / bigT)); f = f.map((v, i) => small[i] ? v : v * g); }
-      if (tot() + gmin * nGap <= ah) break;
-    }
-    if (tot() + gmin * nGap > ah) { const g = (ah - gmin * nGap) / tot(); f = f.map(v => v * g); }
+  if (tot() + gmin * nGap > ah) { // חוסר מקום: מכווצים הכול, אבל תמונות קטנות מתכווצות פחות כדי שלא ייעלמו
+    const f0 = f.slice(), small = list.map(({ u }) => !!u.cards);
+    let lo = 0.05, hi = 1;
+    for (let it = 0; it < 30; it++) { const g = (lo + hi) / 2; f = f0.map((v, i) => v * (small[i] ? Math.pow(g, 0.6) : g)); if (tot() + gmin * nGap > ah) hi = g; else lo = g; }
+    f = f0.map((v, i) => v * (small[i] ? Math.pow(lo, 0.6) : lo));
   }
   const gap = nGap ? Math.min(H * 0.09, (ah - tot()) / nGap) : 0, used = tot() + gap * nGap;
   let y = m + Math.max(0, (ah - used) / 2);
