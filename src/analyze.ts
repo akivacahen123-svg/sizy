@@ -51,8 +51,9 @@ function parseJson(text: string): any {
   try { return JSON.parse(t.slice(a, b + 1)); } catch { throw new AnalyzeError(502, 'INVALID', 'ה-AI לא החזיר ניתוח תקין. נסו שוב.'); }
 }
 
-export async function analyzeImage(env: any, imageBase64: string, fetcher: typeof fetch = fetch): Promise<El[]> {
-  if (!env.GEMINI_API_KEY) throw new AnalyzeError(503, 'NO_KEY', 'האתר עדיין לא מחובר ל-AI. צריך להגדיר GEMINI_API_KEY בהגדרות של Cloudflare.');
+export async function analyzeImage(env: any, imageBase64: string, fetcher: typeof fetch = fetch, userKey = ''): Promise<El[]> {
+  const key = userKey || env.GEMINI_API_KEY;
+  if (!key) throw new AnalyzeError(401, 'NEED_KEY', 'כדי להשתמש באתר צריך להדביק מפתח Gemini אישי (בחינם). ראו את שלב 1 בצד.');
   const models = [...new Set([env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash'].filter(Boolean))] as string[];
   const body = JSON.stringify({
     contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }, { text: PROMPT }] }],
@@ -64,10 +65,10 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     try {
       r = await fetcher(`${env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com'}/v1beta/models/${model}:generateContent`, {
         method: 'POST', body, signal: AbortSignal.timeout(90_000),
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
       });
     } catch { throw new AnalyzeError(504, 'TIMEOUT', 'ה-AI לא ענה בזמן. נסו שוב בעוד רגע.'); }
-    if (r.status === 401 || r.status === 403) throw new AnalyzeError(503, 'AUTH', 'מפתח ה-API של גוגל לא תקין או חסרות לו הרשאות.');
+    if (r.status === 401 || r.status === 403) throw new AnalyzeError(userKey ? 401 : 503, 'AUTH', 'מפתח ה-API של גוגל לא תקין או חסרות לו הרשאות. בדקו שהעתקתם אותו במלואו.');
     if (r.status === 429) throw new AnalyzeError(429, 'LIMIT', 'חרגתם ממכסת הבקשות של גוגל כרגע. נסו שוב בעוד דקה.');
     if (r.status === 404 || r.status === 400) { lastStatus = r.status; continue; } // דגם לא קיים: מנסים את הבא
     if (!r.ok) throw new AnalyzeError(502, 'UPSTREAM', 'לא הצלחתי לדבר עם גוגל. נסו שוב בעוד רגע.');

@@ -18,7 +18,8 @@ async function login(request: Request, env: any) {
   return new Response(null, { status: 303, headers: { Location: '/', 'Set-Cookie': cookie } });
 }
 
-async function analyzeRoute(request: Request, env: any, user: string, fetcher: typeof fetch) {
+// המפתח של בעל האתר משמש רק משתמשים שנכנסו עם סיסמה. כל השאר חייבים להביא מפתח משלהם.
+async function analyzeRoute(request: Request, env: any, user: string, fetcher: typeof fetch, owner: boolean) {
   if (request.method !== 'POST') return json({ error: 'הבקשה אינה תקינה.' }, 405);
   if (request.headers.get('Origin') !== new URL(request.url).origin) return json({ error: 'הבקשה אינה מהאתר.' }, 403);
   if (!request.headers.get('Content-Type')?.includes('application/json')) return json({ error: 'פורמט הבקשה אינו תקין.' }, 415);
@@ -30,7 +31,9 @@ async function analyzeRoute(request: Request, env: any, user: string, fetcher: t
     let image: unknown;
     try { image = JSON.parse(text).image; } catch { return json({ error: 'הבקשה אינה תקינה.' }, 400); }
     if (typeof image !== 'string' || image.length < 100 || !/^[A-Za-z0-9+/=]+$/.test(image)) return json({ error: 'התמונה אינה תקינה.' }, 400);
-    return json({ elements: await analyzeImage(env, image, fetcher) });
+    const userKey = (request.headers.get('X-Gemini-Key') ?? '').trim();
+    if (userKey && !/^[A-Za-z0-9_-]{20,120}$/.test(userKey)) return json({ error: 'המפתח לא נראה תקין. העתיקו אותו שוב במלואו.' }, 400);
+    return json({ elements: await analyzeImage(owner ? env : { ...env, GEMINI_API_KEY: '' }, image, fetcher, userKey) });
   } catch (e) {
     if (e instanceof AnalyzeError) return json({ error: e.message, code: e.code }, e.status);
     return json({ error: 'הניתוח לא הושלם. נסו שוב.' }, 500);
@@ -55,13 +58,13 @@ export default {
     const user = signedIn?.who ?? (open ? 'ip:' + (request.headers.get('CF-Connecting-IP') ?? 'unknown') : null);
     if (!user) return pathname.startsWith('/api/') ? json({ error: 'יש להיכנס עם הסיסמה כדי להמשיך.' }, 401) : Response.redirect(new URL('/login', request.url).toString(), 303);
 
-    if (pathname === '/api/status') return json({ ai: Boolean(env.GEMINI_API_KEY) });
+    if (pathname === '/api/status') return json({ ai: Boolean(env.GEMINI_API_KEY) && Boolean(signedIn), ownKey: true });
     if (pathname === '/api/analyze') {
-      if (env.LIMITER && !signedIn?.owner) {
+      if (env.LIMITER && !signedIn) {
         const { success } = await env.LIMITER.limit({ key: user });
         if (!success) return json({ error: 'נשלחו הרבה בקשות בזמן קצר. נסו שוב בעוד דקה.' }, 429);
       }
-      return analyzeRoute(request, env, user, fetcher);
+      return analyzeRoute(request, env, user, fetcher, Boolean(signedIn));
     }
     if (pathname.startsWith('/api/')) return json({ error: 'לא נמצא.' }, 404);
     const response = await env.ASSETS.fetch(request);

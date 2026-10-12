@@ -93,13 +93,19 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
 <div class="layout">
   <aside class="panel">
     <div class="card">
-      <h2><span class="n">1</span>העלאת באנר</h2>
+      <h2><span class="n">1</span>המפתח שלי ל-Gemini (פעם אחת)</h2>
+      <p class="sub" style="margin:0 0 10px">כל משתמש עובד עם החשבון של עצמו בגוגל, חינם. <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--acc)">לחצו כאן ליצירת מפתח</a>, לחצו Create API key, העתיקו והדביקו כאן. המפתח נשמר רק בדפדפן שלכם.</p>
+      <input type="text" id="key" placeholder="AIza..." autocomplete="off" spellcheck="false">
+      <p id="keyst" class="sub" style="margin:8px 0 0"></p>
+    </div>
+    <div class="card">
+      <h2><span class="n">2</span>העלאת באנר</h2>
       <div id="drop">גררו לכאן קובץ תמונה או לחצו לבחירה (JPG / PNG)</div>
       <input type="file" id="file" accept="image/*" hidden>
       <div id="pv"><img id="pi" alt="הבאנר המקורי"></div>
     </div>
     <div class="card">
-      <h2><span class="n">2</span>גדלים (רוחב × גובה)</h2>
+      <h2><span class="n">3</span>גדלים (רוחב × גובה)</h2>
       <input type="text" id="sz" placeholder="לדוגמה: 1200x300, 300x250">
       <div style="margin-top:8px"><button class="chip" id="clr">נקה הכל</button></div>
       <div id="chips"></div>
@@ -132,7 +138,13 @@ const setSizes=a=>{$('#sz').value=a.join(', ');paintChips()};
 function paintChips(){const cur=new Set(sizesIn());document.querySelectorAll('.chip[data-s]').forEach(b=>b.classList.toggle('on',cur.has(b.dataset.s)));$('#cnt').textContent=cur.size?cur.size+' גדלים נבחרו':''}
 let file=null,srcCanvas=null,built=false,made=[],busy=false,worker=null,nextId=1;const pending=new Map();
 
-fetch('/api/status').then(r=>r.json()).then(j=>{$('#mode').textContent=j.ai?'✅ מחובר ל-AI: פירוק חכם זמין':'⚠️ האתר לא מחובר ל-AI (חסר מפתח). פנו למי שהקים את האתר.'}).catch(()=>{$('#mode').textContent='⚠️ אין חיבור'});
+let serverAI=false;
+const LS={get(k){try{return localStorage.getItem(k)||''}catch(e){return ''}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const keyOk=v=>/^[A-Za-z0-9_-]{20,120}$/.test(v.trim());
+function paintKey(){const v=$('#key').value.trim();$('#keyst').textContent=v?(keyOk(v)?'✅ המפתח נשמר בדפדפן הזה':'⚠️ המפתח לא נראה תקין. העתיקו אותו שוב במלואו.'):(serverAI?'':'עוד לא הוכנס מפתח.');
+  $('#mode').textContent=(keyOk(v)||serverAI)?'✅ מחובר ל-AI: פירוק חכם זמין':'⚠️ צריך להדביק מפתח Gemini אישי (שלב 1)'}
+$('#key').value=LS.get('sizy_key');$('#key').addEventListener('input',()=>{LS.set('sizy_key',$('#key').value.trim());paintKey()});
+fetch('/api/status').then(r=>r.json()).then(j=>{serverAI=!!j.ai;paintKey()}).catch(()=>{$('#mode').textContent='⚠️ אין חיבור'});paintKey();
 
 GROUPS.forEach(([name,list])=>{
   const g=document.createElement('div');g.className='grp';
@@ -210,6 +222,7 @@ function jpegB64(){
 }
 $('#go').onclick=async()=>{
   if(busy)return;const st=$('#st');
+  if(!keyOk($('#key').value)&&!serverAI){st.textContent='קודם מדביקים מפתח Gemini אישי (שלב 1).';return}
   if(!file){st.textContent='קודם מעלים באנר.';return}
   const sizes=sizesIn().map(s=>s.split('x').map(Number)).filter(([w,h])=>w>=16&&h>=16&&w<=4000&&h<=4000).slice(0,40);
   if(!sizes.length){st.textContent='כתבו גודל, למשל 1200x300.';return}
@@ -217,7 +230,7 @@ $('#go').onclick=async()=>{
   try{
     if(!built){
       st.textContent='ה-AI מסתכל על הבאנר ומזהה את האלמנטים… זה לוקח כחצי דקה.';
-      const r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image:jpegB64()})});
+      const r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json','X-Gemini-Key':$('#key').value.trim()},body:JSON.stringify({image:jpegB64()})});
       if(!r.ok){st.textContent=await errMsg(r);return}
       const {elements}=await r.json();
       const ctx=srcCanvas.getContext('2d'),id=ctx.getImageData(0,0,srcCanvas.width,srcCanvas.height);

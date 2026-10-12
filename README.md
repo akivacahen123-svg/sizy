@@ -10,10 +10,8 @@
 1. נרשמים ב־https://dash.cloudflare.com/sign-up
 2. **Workers & Pages** ← **Create** ← **Import a repository**. מחברים את GitHub ובוחרים את המאגר `sizy`. משאירים את ההגדרות כמו שהן ולוחצים **Deploy**.
 3. מפתח של גוגל: נכנסים ל־https://aistudio.google.com/apikey ויוצרים מפתח.
-4. ב־Cloudflare: **Settings ← Variables and Secrets** ומוסיפים כ־**Secret**:
-   - `APP_PASSWORD`: הסיסמה שתבחר לאתר
-   - `GEMINI_API_KEY`: המפתח מגוגל
-5. לוחצים **Deploy** שוב. האתר זמין בכתובת שמסתיימת ב־`workers.dev`.
+4. **אין צורך להגדיר שום מפתח או סיסמה.** כל משתמש מדביק באתר מפתח Gemini אישי משלו (חינם), והוא נשמר רק בדפדפן שלו. כך אף אחד לא משתמש במפתח של בעל האתר.
+5. אופציונלי: אם רוצים אתר פרטי עם מפתח משותף, מגדירים כ־**Secret** את `APP_PASSWORD` ואת `GEMINI_API_KEY` ומשנים `PUBLIC_ACCESS` ל־`"false"`. רק מי שנכנס עם הסיסמה משתמש במפתח המשותף.
 
 מעכשיו כל שינוי שנשמר ב־GitHub עולה לאתר לבד.
 
