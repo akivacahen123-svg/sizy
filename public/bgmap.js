@@ -26,16 +26,19 @@
     for (let y = 0; y < H - 1; y++) { let t = 0; for (let x = 0; x < W - 1; x += 2) t += Math.abs(lum(x, y) - lum(x + 1, y)) + Math.abs(lum(x, y) - lum(x, y + 1)); e[y] = t / (W / 2); }
     return e;
   }
-  // התחלת חלון חיתוך (בשורות מקור) באורך vis שמכיל הכי הרבה פרטים, עם נטייה קלה למרכז
-  function pickTop(e, H, vis) {
+  // התחלת חלון חיתוך (בשורות מקור) באורך vis שמכיל הכי הרבה פרטים, בלי אזורים שנחתכו מהם אלמנטים גדולים (חורים ממולאים נראים כמריחה), עם נטייה קלה למרכז
+  function pickTop(e, H, vis, holes) {
     const maxT = Math.max(0, H - vis); if (maxT <= 0) return 0;
-    const pre = new Float64Array(H + 1); for (let i = 0; i < H; i++) pre[i + 1] = pre[i] + e[i];
-    let best = maxT / 2, bs = -1;
-    for (let t = 0; t <= maxT; t += Math.max(1, Math.floor(H / 200))) {
-      const hi = Math.min(H, Math.round(t + vis)), sc = (pre[hi] - pre[Math.round(t)]) * (1 - 0.18 * Math.abs(t - maxT / 2) / (maxT / 2 + 1e-6));
-      if (sc > bs) { bs = sc; best = t; }
+    const pe = new Float64Array(H + 1), ph = new Float64Array(H + 1);
+    for (let i = 0; i < H; i++) { pe[i + 1] = pe[i] + e[i]; ph[i + 1] = ph[i] + (holes ? holes[i] : 0); }
+    const step = Math.max(1, Math.floor(H / 200)), cands = [];
+    for (let t = 0; t <= maxT; t += step) {
+      const a = Math.round(t), b = Math.min(H, Math.round(t + vis)), n = Math.max(1, b - a);
+      cands.push({ t, hole: (ph[b] - ph[a]) / n, sc: (pe[b] - pe[a]) * (1 - 0.18 * Math.abs(t - maxT / 2) / (maxT / 2 + 1e-6)) });
     }
-    return best;
+    const ok = cands.filter(c => c.hole < 0.12);
+    const pool = ok.length ? ok : cands.sort((p, q) => p.hole - q.hole).slice(0, 3);
+    return pool.reduce((p, q) => (q.sc > p.sc ? q : p)).t;
   }
   G.SizyBg = { map, rowEnergy, pickTop };
 })(globalThis);

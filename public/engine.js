@@ -732,6 +732,10 @@ function buildScene(img, elements, onProgress) {
     if (!e.text) continue;
     const L = textLayer(img, e.px, e.role === 'button' ? 2 : Math.max(1, e.lines.length), 4, e.role === 'button', !!e.bullet, holes);
     if (!L) continue;
+    if (['caption', 'body', 'label'].includes(e.role)) { // פס רקע שנחתך במקום אותיות: שורה שכמעט כולה אטומה
+      let rm = 0; for (let j = 0; j < L.lh; j++) { let r = 0; for (let i = 0; i < L.lw; i++) if (L.a[j * L.lw + i] > 0.5) r++; rm = Math.max(rm, r / L.lw); }
+      if (rm > 0.8) continue;
+    }
     e.layer = L; if (['caption', 'subheadline', 'body'].includes(e.role)) centerLines(L, e.lines.length); leaves.push(e);
   }
   tell('מנקה את הרקע…');
@@ -822,7 +826,9 @@ function buildScene(img, elements, onProgress) {
     if (u.role === 'hero' || u.w < W * 0.85) continue;
     if (u.y + u.h >= H * 0.9) u.pin = 'bottom'; else if (u.y + u.h <= H * 0.12) u.pin = 'top';
   }
-  return { W, H, plate, units, leaves, boxes: leaves.map(e => ({ id: e.id, role: e.role, x: e.x / W, y: e.y / H, w: e.w / W, h: e.h / H })) };
+  const holeRows = new Float32Array(H);
+  for (let y = 0; y < H; y++) { let c = 0; for (let x = 0; x < W; x++) c += holes2[y * W + x]; holeRows[y] = c / W; }
+  return { W, H, plate, units, leaves, holeRows, boxes: leaves.map(e => ({ id: e.id, role: e.role, x: e.x / W, y: e.y / H, w: e.w / W, h: e.h / H })) };
 }
 
 // ---------------------------------------------------------------- גלריה
@@ -879,6 +885,25 @@ function layout(W, H, units, sw, sh, forceWide) {
   const hero = heroes.length ? heroes.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)) : null;
   const wideMode = forceWide || W / H >= 1.6;
   let tx = units.filter(u => u !== hero && u.role !== 'hero').sort(wideMode ? ((a, b) => rankOf(a, sh, true) - rankOf(b, sh, true) || a.y - b.y) : ((a, b) => a.y - b.y));
+  if (wideMode && tx.length > 2) { // בבאנר רחב וצר מאוד: מוותרים על מה שהיה נהיה קטן מדי לקריאה (הערות שוליים, כיתובים), ומשאירים כותרת, כפתור ולוגו
+    const m0 = Math.max(5, H * 0.05), heroW = hero ? hero.w * Math.min((H - m0) / hero.h, W * 0.32 / hero.w, 1.2) + m0 : 0;
+    const essential = u => u.kids.some(k => ['headline', 'button', 'logo', 'brand'].includes(k.role));
+    const minTextH = u => { const hs = u.kids.filter(k => k.text).map(k => k.h / Math.max(1, (k.lines || []).length || 1)); return hs.length ? Math.min(...hs) : Infinity; };
+    const solveS = list => {
+      let best = 0;
+      for (const sp of splits(Math.min(list.length, 9), W / H >= 5 ? 9 : 4)) {
+        const cols = sp.map(g => ({ w: Math.max(...g.map(i => list[i].w)), h: g.reduce((a, i) => a + list[i].h, 0) }));
+        const sv = Math.min((W - 3 * m0 - heroW - (cols.length - 1) * m0 * 1.6) / cols.reduce((a, c) => a + c.w, 0), ...cols.map(c => (H - 2 * m0) / c.h), 1.15);
+        if (sv > best) best = sv;
+      }
+      return best;
+    };
+    for (let it = 0; it < 6 && tx.length > 2; it++) {
+      const sv = solveS(tx), bad = tx.filter(u => !essential(u) && minTextH(u) * sv < 5.5).sort((a, b) => minTextH(a) - minTextH(b));
+      if (!bad.length) break;
+      tx = tx.filter(u => u !== bad[0]);
+    }
+  }
   let n = tx.length; if (n > 14) { tx = tx.slice(0, 14); n = 14; }
   const gp = tx.map((t, i) => i >= n - 1 ? 0 : Math.min(Math.max(0, tx[i + 1].y - (t.y + t.h)), sh * 0.1));
   const gh = g => g.reduce((s, i) => s + tx[i].h, 0) + g.slice(0, -1).reduce((s, i) => s + gp[i], 0);
@@ -895,9 +920,9 @@ function layout(W, H, units, sw, sh, forceWide) {
       out.push([hero, hx, (H - hh) / 2, hw, hh]);
       if (right) ax1 = hx - m; else ax0 = hx + hw + m;
     }
-    const aw = ax1 - ax0, cg = m * 1.6;
+    const aw = ax1 - ax0, cg = Math.max(m * 1.6, H * 0.1);
     let best = null;
-    if (n) for (const sp of splits(n, 4)) {
+    if (n) for (const sp of splits(n, W / H >= 5 ? n : 4)) {
       const cols = sp.map(g => ({ g, w: Math.max(...g.map(i => tx[i].w)), h: gh(g) }));
       const s = Math.min((aw - (cols.length - 1) * cg) / cols.reduce((a, c) => a + c.w, 0), ...cols.map(c => (H - 2 * m) / c.h), 1.15);
       const score = s * (1 - 0.03 * cols.length);
@@ -979,7 +1004,7 @@ function layoutTall(W, H, units, sw, sh) {
   const rank = u => rankOf(u, sh, false);
   const fine = units.filter(u => finePrint(u, sh)), out0 = [];
   let yb = H - m * 0.7;
-  for (const u of fine) { const f0 = Math.min(aw / u.w, 1.5), w0 = u.w * f0, h0 = u.h * f0; yb -= h0; out0.push([u, (W - w0) / 2, yb, w0, h0]); yb -= m * 0.5; }
+  for (const u of fine) { const f0 = Math.min(aw / u.w, 1.5), w0 = u.w * f0, h0 = u.h * f0; if (h0 < 5) continue; yb -= h0; out0.push([u, (W - w0) / 2, yb, w0, h0]); yb -= m * 0.5; }
   const ah = yb - m;
   let list = units.filter(u => u.role !== 'hero' && !fine.includes(u)).sort((p, q) => rank(p) - rank(q) || p.y - q.y).slice(0, 14);
   list = list.map(u => {
@@ -1054,7 +1079,7 @@ function render(sc, W, H, K) {
     bg = resize(sc.plate, nw, nh, s < 1 ? 'area' : 'cubic'); ox = Math.floor((nw - Wk) / 2); oy = Math.floor((nh - Hk) / 2);
     if (G.SizyBg && nh > Hk + 2) { // חיתוך אנכי: שומרים את החלק העשיר בפרטים
       if (!sc.energy) sc.energy = G.SizyBg.rowEnergy(sc.plate.d, 3, sc.W, sc.H);
-      oy = Math.max(0, Math.min(nh - Hk, Math.round(G.SizyBg.pickTop(sc.energy, sc.H, Hk / s) * s)));
+      oy = Math.max(0, Math.min(nh - Hk, Math.round(G.SizyBg.pickTop(sc.energy, sc.H, Hk / s, sc.holeRows) * s)));
     }
   }
   const out = new Float32Array(Wk * Hk * 3);
@@ -1123,7 +1148,7 @@ function exportScene(sc) {
     const frame = e.role === 'button' ? extractFrame(L, rgba) : null;
     return { z: e.z, frame, id: e.id, role: e.role, text: e.text, lines: e.lines, lw: L.lw, lh: L.lh, w: e.w, h: e.h, rgba, color: wsum ? [r / wsum, g / wsum, b / wsum].map(Math.round) : [255, 255, 255] };
   });
-  return { W: sc.W, H: sc.H, plate, leaves };
+  return { W: sc.W, H: sc.H, plate, leaves, holeRows: sc.holeRows };
 }
 function placements(sc, W, H) {
   return autoplace(sc, W, H).map(([k, x, y, w, h]) => {
