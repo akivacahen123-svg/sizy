@@ -576,7 +576,7 @@ function wordsOf(e) {
   e._w = null;
   const L = e.layer; if (!L || !e.lines || !e.lines.length) return null;
   const per = e.lines.map(l => String(l).trim().split(/\s+/).filter(Boolean)), n = per.length, total = per.reduce((a, p) => a + p.length, 0);
-  if (total < 2 || total > 14) return null;
+  if (total < 2 || total > 30) return null;
   const bands = lineBands(L, n); if (!bands) return null;
   const { lw: w, a } = L, rtl = HEB.test(e.lines.join('')), words = [], splitGaps = [];
   for (let i = 0; i < n; i++) {
@@ -618,8 +618,8 @@ function reflowLeaf(e, bw, bh) {
   const { words, gap, bandH, pitch, lineGap, rtl, P, brk } = W, n = words.length, up = e.layer.up || 1;
   const ww = words.map(x => x.x1 - x.x0 + 1);
   let best = null;
-  const rec = (start, acc) => {
-    if (start === n) {
+  const consider = acc => {
+    {
       const k = acc.length;
       if (k >= P && P > 1) for (const [s, t] of acc) for (let i = s + 1; i < t; i++) if (words[i].ph !== words[s].ph) return;
       const lws = acc.map(([s, t]) => { let v = (t - s - 1) * gap; for (let i = s; i < t; i++) v += ww[i]; return v; }), lw = Math.max(...lws);
@@ -630,11 +630,25 @@ function reflowLeaf(e, bw, bh) {
       const cuts = new Set(acc.slice(0, -1).map(([, t]) => t)); let same = cuts.size === brk.size; if (same) for (const c of cuts) if (!brk.has(c)) same = false;
       const s = Math.min(bw / (lw / up), bh / (lh / up)) * (1 - 0.12 * rag) * (same ? 1.04 : 1);
       if (!best || s > best.s * 1.01) best = { s, acc: acc.slice(), lws, lhs, lw, lh, extra };
-      return;
     }
+  };
+  const rec = (start, acc) => {
+    if (start === n) { consider(acc); return; }
     for (let end = start + 1; end <= n; end++) { acc.push([start, end]); rec(end, acc); acc.pop(); }
   };
-  rec(0, []);
+  if (n <= 12) rec(0, []);
+  else { // טקסט ארוך (פסקה): חלוקה חמדנית לשורות בערך שוות לכל מספר שורות אפשרי
+    const tot = ww.reduce((p, q) => p + q, 0) + gap * (n - 1);
+    for (let k = 1; k <= Math.min(n, 14); k++) {
+      const acc = [], target = tot / k; let st = 0;
+      for (let li = 0; li < k && st < n; li++) {
+        let en = st, wsum = 0;
+        while (en < n && (en === st || (li === k - 1) || wsum + ww[en] + (en > st ? gap : 0) <= target * 1.03 || Math.abs(wsum + ww[en] - target) < Math.abs(wsum - target))) { wsum += ww[en] + (en > st ? gap : 0); en++; }
+        acc.push([st, en]); st = en;
+      }
+      if (st === n && acc.length === k) consider(acc);
+    }
+  }
   if (!best) return null;
   const pad = 3, W2 = Math.ceil(best.lw) + 2 * pad, H2 = Math.ceil(best.lh) + 2 * pad, src = e.layer, sw = src.lw;
   const a = new Float32Array(W2 * H2), rgb = new Float32Array(W2 * H2 * 3);
@@ -661,13 +675,13 @@ function reflowLeaf(e, bw, bh) {
 // יחידה (למשל כותרת + שורת פתיחה) אחרי שבירת השורות מחדש. מחזיר את היחידה המקורית אם אין מה לשנות.
 function reflowUnit(u, W, H) {
   if (!u.kids.every(k => k.text && ['headline', 'subheadline', 'body'].includes(k.role))) return u;
-  const heads = u.kids.filter(k => (k.role === 'headline' || (k.role === 'subheadline' && W / H < 1.15)) && wordsOf(k)); if (!heads.length) return u;
+  const heads = u.kids.filter(k => (k.role === 'headline' || ((k.role === 'subheadline' || k.role === 'body') && W / H < 1.15)) && wordsOf(k)); if (!heads.length) return u;
   const m = Math.min(W, H) * 0.07, wide = W / H >= 1.6;
   const bw = wide ? W * 0.46 : W - 2 * m, bh = (wide ? (H - 2 * m) * 0.8 : H * 0.42) * (u.kids.length > 1 ? 0.85 : 1);
   const orig = u.kids.slice().sort((p, q) => p.y - q.y);
   const kids = orig.map(k => {
     if (!heads.includes(k)) return k;
-    const L2 = reflowLeaf(k, bw, k.role === 'headline' ? bh : H * 0.16); if (!L2) return k;
+    const L2 = reflowLeaf(k, bw, k.role === 'headline' ? bh : k.role === 'body' ? H * 0.3 : H * 0.16); if (!L2) return k;
     return { ...k, layer: L2, w: L2.lw / L2.up, h: L2.lh / L2.up, reflowed: true };
   });
   if (kids.every((k, i) => k === orig[i])) return u;
@@ -916,10 +930,15 @@ function layout(W, H, units, sw, sh) {
 }
 // פריסה לבאנר צר וגבוה: כל יחידה מתאימה את עצמה לרוחב הבאנר (כותרת הכי גדולה, תמונות קטנות יותר), הסדר מלמעלה:
 // כותרת, תמונות, לוגו עם כתובת, ובסוף כפתור. המרווח שנשאר מתחלק בין היחידות כך שהבאנר מתמלא.
+const finePrint = (u, sh) => u.kids.every(k => k.text && ['caption', 'body', 'label'].includes(k.role)) && u.h < 0.06 * sh && u.pin === 'bottom';
 function layoutTall(W, H, units, sw, sh) {
-  const m = Math.min(W, H) * 0.07, aw = W - 2 * m, ah = H - 2 * m, rtl = units.some(u => HEB.test((u.lines || []).join('')));
-  const rank = u => { const r = u.kids.map(k => k.role); if (r.includes('headline')) return 0; if (r.includes('button')) return 3; if (r.includes('logo') || r.includes('badge') || r.includes('brand')) return 2; if (u.cards || r.includes('photo')) return 1; return 1.5; };
-  let list = units.filter(u => u.role !== 'hero').sort((p, q) => rank(p) - rank(q) || p.y - q.y).slice(0, 14);
+  const m = Math.min(W, H) * 0.07, aw = W - 2 * m, rtl = units.some(u => HEB.test((u.lines || []).join('')));
+  const rank = u => { const r = u.kids.map(k => k.role); if ((r.includes('logo') || r.includes('brand')) && !r.includes('headline') && u.y + u.h / 2 < 0.22 * sh) return -1; if (r.includes('headline')) return 0; if (r.includes('button')) return 3; if (r.includes('logo') || r.includes('badge') || r.includes('brand')) return 2; if (u.cards || r.includes('photo')) return 1; return 1.5; };
+  const fine = units.filter(u => finePrint(u, sh)), out0 = [];
+  let yb = H - m * 0.7;
+  for (const u of fine) { const f0 = Math.min(aw / u.w, 1.5), w0 = u.w * f0, h0 = u.h * f0; yb -= h0; out0.push([u, (W - w0) / 2, yb, w0, h0]); yb -= m * 0.5; }
+  const ah = yb - m;
+  let list = units.filter(u => u.role !== 'hero' && !fine.includes(u)).sort((p, q) => rank(p) - rank(q) || p.y - q.y).slice(0, 14);
   list = list.map(u => {
     if (!u.cards) return { u, cap: rank(u) === 0 ? 3.2 : 2.2 };
     let pick = null; const total = u.cards.length;
@@ -929,13 +948,13 @@ function layoutTall(W, H, units, sw, sh) {
     }
     return { u: pick.a, cap: 2.4 };
   });
-  let f = list.map(({ u, cap }) => Math.min(aw / u.w, cap));
+  let f = list.map(({ u, cap }) => { const lg = u.kids.some(k => k.role === 'logo') && u.kids.length === 1 && u.w / u.h > 2.2; return Math.min(aw / u.w, cap, lg ? 0.6 * W / u.w : 9); });
   const gmin = Math.max(5, H * 0.025), nGap = Math.max(0, list.length - 1);
   const tot = () => list.reduce((a, { u }, i) => a + u.h * f[i], 0);
   if (tot() + gmin * nGap > ah) { const g = (ah - gmin * nGap) / tot(); f = f.map(v => v * g); }
   const gap = nGap ? Math.min(H * 0.09, (ah - tot()) / nGap) : 0, used = tot() + gap * nGap;
   let y = m + Math.max(0, (ah - used) / 2);
-  const out = [];
+  const out = out0;
   list.forEach(({ u }, i) => { const w = u.w * f[i], h = u.h * f[i]; out.push([u, (W - w) / 2, y, w, h]); y += h + gap; });
   return out;
 }
