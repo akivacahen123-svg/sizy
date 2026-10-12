@@ -87,6 +87,10 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(60,100,255,.45)}50%{box-shadow:0 0 0 12px rgba(60,100,255,0)}}
 @keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
 @media (prefers-reduced-motion:reduce){#sp .lg,#sp .lg svg,#sp .dots i{animation:none}}
+.ctl .al{min-width:34px;padding:5px 9px}.ctl .sep{width:1px;height:22px;background:var(--line)}
+.ob.hid{opacity:.4;border:1px dashed var(--mut)}.ob .tg{position:absolute;top:-1px;right:-1px;background:var(--acc);color:#fff;font-size:10px;padding:0 4px;border-radius:0 0 0 4px;display:none;white-space:nowrap;pointer-events:none}.ob.sel .tg{display:block}
+.txt select{padding:6px 8px;font:inherit;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.stage{cursor:default}.help{color:var(--mut);font-size:13px;margin:0 0 8px}
 </style>
 <link rel="icon" href="/favicon.svg">
 </head>
@@ -130,7 +134,7 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
   </aside>
   <section class="results">
     <div class="rhead"><h2>התוצאות</h2><div id="bulk" hidden><button class="chip" id="selall">בחר הכל</button><button class="chip" id="selnone">נקה בחירה</button><button class="go" id="dlall">הורדת הנבחרים (ZIP)</button></div></div>
-    <p class="sub" id="hint" hidden style="margin-bottom:12px">כל באנר נבנה מחדש מהאלמנטים של המקור. אפשר להוריד כל באנר בנפרד, או לבחור כמה ולהוריד אותם יחד ב-ZIP.</p>
+    <p class="sub" id="hint" hidden style="margin-bottom:12px">כל באנר נבנה מחדש מהאלמנטים של המקור. לחצו על אלמנט כדי להזיז, להגדיל, למרכז או לערוך אותו. אפשר להוריד כל באנר בנפרד, או לבחור כמה ולהוריד אותם יחד ב-ZIP.</p>
     <div id="empty"><svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m3 15 5-5 4 4 3-3 6 6"/></svg><b>הבאנרים יופיעו כאן</b><span>העלו באנר, בחרו גדלים ולחצו "צור באנרים".</span></div>
     <div id="out"></div>
   </section>
@@ -214,14 +218,112 @@ function dlBlob(b,name){const u=URL.createObjectURL(b),a=document.createElement(
 const scale=()=>+$('#q').value===2?2:1;
 const fname=(w,h)=>`banner_${w}x${h}${scale()===2?'@2x':''}.png`;
 
-function toBlob(r){const c=document.createElement('canvas');c.width=r.w;c.height=r.h;c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(r.rgba),r.w,r.h),0,0);return new Promise(res=>c.toBlob(res,'image/png'))}
-function addCard(w,h,blob){
-  const url=URL.createObjectURL(blob),d=document.createElement('div');d.className='card res'+(w/h>=2.2?' wide':'');
-  d.innerHTML=`<div class="rh"><div class="ttl"><label class="pick" title="בחירה להורדה"><input type="checkbox" checked></label><h3>${w} × ${h}</h3></div><div class="bt"><button class="ghost">הורדת PNG</button></div></div><div class="cv"><img alt="${w}×${h}" style="max-width:100%;height:auto;display:block;border-radius:8px;border:1px solid var(--line)"></div>`;
-  d.querySelector('img').src=url;
-  d.querySelector('button').onclick=()=>dlBlob(blob,fname(w,h));
-  const pick=d.querySelector('input');pick.onchange=updBulk;
-  $('#out').appendChild(d);made.push({w,h,pick,blob,name:fname(w,h)});
+// ---- מנוע הציור והעורך (בדפדפן)
+const mk=(w,h)=>{const c=document.createElement('canvas');c.width=Math.max(1,Math.round(w));c.height=Math.max(1,Math.round(h));return c};
+const FONTS=['Heebo','Rubik','Assistant','Frank Ruhl Libre','Suez One','Secular One'];
+let SC=null; // {W,H,plateCanvas,leaves:Map(z→leaf)}
+function setScene(ex){
+  const plate=mk(ex.W,ex.H);plate.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(ex.plate),ex.W,ex.H),0,0);
+  const leaves=new Map();
+  ex.leaves.forEach(l=>{const c=mk(l.lw,l.lh);c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(l.rgba),l.lw,l.lh),0,0);leaves.set(l.z,{...l,rgba:null,canvas:c,cache:new Map()})});
+  SC={W:ex.W,H:ex.H,plate,leaves,pcache:new Map()};
+}
+// הקטנה איכותית: חצייה בשלבים כדי שהקווים יישארו חדים
+function scaled(src,tw,th){
+  tw=Math.max(1,Math.round(tw));th=Math.max(1,Math.round(th));
+  let cur=src;
+  while(cur.width>tw*2||cur.height>th*2){const n=mk(Math.max(tw,Math.ceil(cur.width/2)),Math.max(th,Math.ceil(cur.height/2)));const x=n.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(cur,0,0,n.width,n.height);cur=n}
+  if(cur.width===tw&&cur.height===th)return cur;
+  const n=mk(tw,th),x=n.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(cur,0,0,tw,th);return n;
+}
+function cached(map,key,fn){if(map.has(key))return map.get(key);const v=fn();map.set(key,v);if(map.size>14)map.delete(map.keys().next().value);return v}
+function drawText(ctx,it,K){
+  const lines=String(it.tm.text||'').split('\n').filter((l,i,a)=>l.length||a.length===1);if(!lines.length||!lines.some(l=>l.trim()))return;
+  const fam='"'+it.tm.font+'",sans-serif',wt=it.tm.bold?800:500;
+  ctx.save();ctx.direction='rtl';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle=it.tm.color;
+  ctx.font=`${wt} 100px ${fam}`;const mw=Math.max(...lines.map(l=>ctx.measureText(l).width))||1;
+  const fs=Math.max(4,Math.min(it.w/mw*100,it.h/(lines.length*1.18)));
+  ctx.font=`${wt} ${fs*K}px ${fam}`;const lh=fs*1.18*K,top=it.y*K+(it.h*K-lh*lines.length)/2;
+  lines.forEach((l,i)=>ctx.fillText(l,(it.x+it.w/2)*K,top+lh*(i+.5)));ctx.restore();
+}
+function compose(st,K,canvas){
+  const Wk=Math.round(st.w*K),Hk=Math.round(st.h*K);canvas.width=Wk;canvas.height=Hk;
+  const ctx=canvas.getContext('2d');ctx.imageSmoothingQuality='high';
+  const s=Math.max(Wk/SC.W,Hk/SC.H),nw=Math.round(SC.W*s),nh=Math.round(SC.H*s);
+  const bg=cached(SC.pcache,nw+'x'+nh,()=>s<1?scaled(SC.plate,nw,nh):(()=>{const c=mk(nw,nh),x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(SC.plate,0,0,nw,nh);return c})());
+  ctx.drawImage(bg,Math.floor((Wk-nw)/2),Math.floor((Hk-nh)/2));
+  for(const it of st.items){
+    if(it.hidden)continue;
+    if(it.tm){drawText(ctx,it,K);continue}
+    const tw=Math.max(1,Math.round(it.w*K)),th=Math.max(1,Math.round(it.h*K));if(it.w<1||it.h<1)continue;
+    const img=cached(it.leaf.cache,tw+'x'+th,()=>scaled(it.leaf.canvas,tw,th));
+    ctx.drawImage(img,Math.round(it.x*K),Math.round(it.y*K),tw,th);
+  }
+}
+const dispK=()=>Math.min(2,Math.max(1,window.devicePixelRatio||1));
+const toBlobC=c=>new Promise(res=>c.toBlob(res,'image/png'));
+async function ensureFonts(){try{await Promise.all(FONTS.map(f=>document.fonts.load('700 40px "'+f+'"','אבג')))}catch(e){}}
+const label=it=>it.leaf.text&&it.leaf.lines&&it.leaf.lines[0]?'"'+it.leaf.lines[0].slice(0,18)+'"':(ROLES[it.leaf.role]||it.leaf.role);
+
+function addCard(w,h,placed){
+  const st={w,h,items:placed.map(p=>{const leaf=SC.leaves.get(p.z);return{z:p.z,leaf,x:p.x,y:p.y,w:p.w,h:p.h,o:{x:p.x,y:p.y,w:p.w,h:p.h},hidden:false,tm:null}})};
+  st.items=st.items.filter(i=>i.leaf);
+  const d=document.createElement('div');d.className='card res wide';
+  d.innerHTML=`<div class="rh"><div class="ttl"><label class="pick" title="בחירה להורדה"><input type="checkbox" checked></label><h3>${w} × ${h}</h3></div><div class="bt"><button class="ghost" data-a="reset">איפוס הכל</button><button class="ghost" data-a="dl">הורדת PNG</button></div></div>
+  <p class="help">לחצו על אלמנט כדי לבחור אותו: גררו להזזה, משכו את הפינה לשינוי גודל, או השתמשו בכפתורים.</p>
+  <div class="ctl" hidden><b class="nm"></b><input type="range" class="sc" min="30" max="300" value="100" title="גודל"><span class="sep"></span>
+   <button class="chip al" data-c="l" title="יישור לשמאל">⇤</button><button class="chip al" data-c="hc" title="מרכוז אופקי">↔</button><button class="chip al" data-c="r" title="יישור לימין">⇥</button><button class="chip al" data-c="t" title="יישור למעלה">⤒</button><button class="chip al" data-c="vc" title="מרכוז אנכי">↕</button><button class="chip al" data-c="b" title="יישור למטה">⤓</button><button class="chip al" data-c="c" title="מרכוז לאמצע הבאנר">✛ מרכז</button><span class="sep"></span>
+   <button class="chip" data-c="txt">✎ עריכת טקסט</button><button class="chip" data-c="hide">הסתר</button><button class="chip" data-c="orig">אפס אלמנט</button></div>
+  <div class="txt" hidden><textarea dir="rtl"></textarea><div class="lvr"><select class="ff">${FONTS.map(f=>'<option>'+f+'</option>').join('')}</select><label>צבע <input type="color" class="cl"></label><label><input type="checkbox" class="bd" checked> מודגש</label><button class="chip" data-c="back">חזרה למקור</button></div></div>
+  <div class="cv"><div class="stage" tabindex="0"><canvas></canvas></div></div>`;
+  const canvas=d.querySelector('canvas'),stage=d.querySelector('.stage'),ctl=d.querySelector('.ctl'),txt=d.querySelector('.txt');
+  let sel=null,raf=0;
+  const draw=()=>{raf=0;compose(st,dispK(),canvas);canvas.style.width='100%';canvas.style.maxWidth=w+'px'};
+  const redraw=()=>{if(!raf)raf=requestAnimationFrame(draw)};
+  const pos=it=>{const o=it.ob;o.style.left=it.x/w*100+'%';o.style.top=it.y/h*100+'%';o.style.width=it.w/w*100+'%';o.style.height=it.h/h*100+'%';o.classList.toggle('hid',it.hidden)};
+  const hex=c=>'#'+c.map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('');
+  function select(it){
+    sel=it;st.items.forEach(i=>i.ob.classList.toggle('sel',i===it));ctl.hidden=!it;txt.hidden=!(it&&it.tm);
+    if(!it)return;
+    ctl.querySelector('.nm').textContent=label(it);ctl.querySelector('.sc').value=Math.round(it.w/it.o.w*100);
+    ctl.querySelector('[data-c=txt]').hidden=!it.leaf.text;ctl.querySelector('[data-c=hide]').textContent=it.hidden?'הצג':'הסתר';
+    if(it.tm){txt.querySelector('textarea').value=it.tm.text;txt.querySelector('.ff').value=it.tm.font;txt.querySelector('.cl').value=it.tm.color;txt.querySelector('.bd').checked=it.tm.bold}
+  }
+  st.items.forEach(it=>{
+    const o=document.createElement('div');o.className='ob';o.innerHTML='<span class="tg"></span><div class="hd"></div>';o.querySelector('.tg').textContent=label(it);it.ob=o;stage.appendChild(o);pos(it);
+    o.addEventListener('pointerdown',e=>{
+      e.preventDefault();stage.focus({preventScroll:true});select(it);
+      const resizing=e.target.classList.contains('hd'),r=stage.getBoundingClientRect(),k=w/r.width,sx=e.clientX,sy=e.clientY,s0={x:it.x,y:it.y,w:it.w,h:it.h};
+      o.setPointerCapture(e.pointerId);
+      const mv=ev=>{const dx=(ev.clientX-sx)*k,dy=(ev.clientY-sy)*k;
+        if(resizing){const nw=Math.max(8,s0.w+dx),f=nw/s0.w;it.w=nw;it.h=s0.h*f;ctl.querySelector('.sc').value=Math.round(it.w/it.o.w*100)}
+        else{let nx=s0.x+dx,ny=s0.y+dy;const cx=nx+it.w/2,cy=ny+it.h/2;if(Math.abs(cx-w/2)<5)nx=w/2-it.w/2;if(Math.abs(cy-h/2)<5)ny=h/2-it.h/2;it.x=nx;it.y=ny}
+        pos(it);redraw()};
+      const up=()=>{o.removeEventListener('pointermove',mv);o.removeEventListener('pointerup',up);o.removeEventListener('pointercancel',up)};
+      o.addEventListener('pointermove',mv);o.addEventListener('pointerup',up);o.addEventListener('pointercancel',up);
+    });
+  });
+  stage.addEventListener('pointerdown',e=>{if(e.target===stage||e.target===canvas)select(null)});
+  stage.addEventListener('keydown',e=>{if(!sel||e.target!==stage)return;const n=e.shiftKey?10:1;
+    const m={ArrowLeft:[-n,0],ArrowRight:[n,0],ArrowUp:[0,-n],ArrowDown:[0,n]}[e.key];
+    if(m){e.preventDefault();sel.x+=m[0];sel.y+=m[1];pos(sel);redraw()}else if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();sel.hidden=!sel.hidden;pos(sel);select(sel);redraw()}});
+  ctl.querySelector('.sc').addEventListener('input',e=>{if(!sel)return;const f=e.target.value/100,cx=sel.x+sel.w/2,cy=sel.y+sel.h/2;sel.w=sel.o.w*f;sel.h=sel.o.h*f;sel.x=cx-sel.w/2;sel.y=cy-sel.h/2;pos(sel);redraw()});
+  const mg=Math.round(Math.min(w,h)*.04);
+  ctl.addEventListener('click',async e=>{const c=e.target.closest('[data-c]')?.dataset.c;if(!c||!sel)return;
+    if(c==='l')sel.x=mg;else if(c==='r')sel.x=w-mg-sel.w;else if(c==='t')sel.y=mg;else if(c==='b')sel.y=h-mg-sel.h;
+    else if(c==='hc')sel.x=(w-sel.w)/2;else if(c==='vc')sel.y=(h-sel.h)/2;else if(c==='c'){sel.x=(w-sel.w)/2;sel.y=(h-sel.h)/2}
+    else if(c==='hide')sel.hidden=!sel.hidden;
+    else if(c==='orig'){Object.assign(sel,{x:sel.o.x,y:sel.o.y,w:sel.o.w,h:sel.o.h,hidden:false,tm:null})}
+    else if(c==='txt'){await ensureFonts();if(!sel.tm)sel.tm={text:(sel.leaf.lines||[]).join('\n'),font:'Heebo',color:hex(sel.leaf.color),bold:true}}
+    pos(sel);select(sel);redraw()});
+  txt.addEventListener('input',()=>{if(!sel||!sel.tm)return;sel.tm.text=txt.querySelector('textarea').value;sel.tm.font=txt.querySelector('.ff').value;sel.tm.color=txt.querySelector('.cl').value;sel.tm.bold=txt.querySelector('.bd').checked;redraw()});
+  txt.querySelector('[data-c=back]').onclick=()=>{if(sel){sel.tm=null;select(sel);redraw()}};
+  const blobFor=async()=>{await ensureFonts();const c=mk(1,1);compose(st,scale(),c);return toBlobC(c)};
+  d.querySelector('[data-a=dl]').onclick=async()=>dlBlob(await blobFor(),fname(w,h));
+  d.querySelector('[data-a=reset]').onclick=()=>{st.items.forEach(i=>{Object.assign(i,{x:i.o.x,y:i.o.y,w:i.o.w,h:i.o.h,hidden:false,tm:null});pos(i)});select(null);redraw()};
+  const pick=d.querySelector('.pick input');pick.onchange=updBulk;
+  $('#out').appendChild(d);made.push({w,h,pick,blobFor,name:fname(w,h)});
+  draw();
 }
 
 // ---- יצירת באנרים
@@ -245,17 +347,17 @@ $('#go').onclick=async()=>{
       const {elements}=await r.json();
       const ctx=srcCanvas.getContext('2d'),id=ctx.getImageData(0,0,srcCanvas.width,srcCanvas.height);
       const res=await ask({type:'build',w:srcCanvas.width,h:srcCanvas.height,rgba:id.data.buffer,elements},[id.data.buffer],t=>st.textContent=t);
-      built=true;showBoxes(res.boxes);
+      setScene(res.scene);built=true;showBoxes(res.boxes);
     }
     $('#out').innerHTML='';made.length=0;$('#hint').hidden=false;$('#empty').hidden=true;$('#bulk').hidden=true;
-    const k=scale();
     for(const[w,h]of sizes){
       st.textContent=`בונה ${w}×${h}…`;
-      const r=await ask({type:'render',w,h,k});
-      addCard(w,h,await toBlob(r));
+      const r=await ask({type:'place',w,h});
+      addCard(w,h,r.items);
+      await new Promise(r=>setTimeout(r,0));
     }
-    $('#bulk').hidden=false;updBulk();st.textContent='מוכן.';
-  }catch(e){st.textContent='משהו השתבש בבניית הבאנר. נסו שוב, ואם זה חוזר נסו קובץ אחר.'}
+    $('#bulk').hidden=false;updBulk();st.textContent='מוכן. אפשר ללחוץ על כל אלמנט כדי להזיז, להגדיל או לערוך אותו.';
+  }catch(e){console.error(e);st.textContent='משהו השתבש בבניית הבאנר. נסו שוב, ואם זה חוזר נסו קובץ אחר.'}
   finally{busy=false;$('#go').disabled=false;$('#sp').hidden=true}
 };
 
@@ -277,7 +379,7 @@ function makeZip(files){
 }
 $('#dlall').onclick=async()=>{
   const chosen=made.filter(m=>m.pick.checked);if(!chosen.length)return;$('#dlall').disabled=true;
-  try{const files=[];for(const m of chosen)files.push({name:m.name,data:new Uint8Array(await m.blob.arrayBuffer())});dlBlob(makeZip(files),'sizes.zip')}
+  try{const files=[];for(const m of chosen)files.push({name:m.name,data:new Uint8Array(await (await m.blobFor()).arrayBuffer())});dlBlob(makeZip(files),'sizes.zip')}
   catch(e){$('#st').textContent='לא הצלחתי להוריד את הקובץ.'}
   finally{updBulk()}
 };

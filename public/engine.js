@@ -596,12 +596,57 @@ function buildScene(img, elements, onProgress) {
     const x2 = Math.max(...ks.map(k => k.x + k.w)), y2 = Math.max(...ks.map(k => k.y + k.h));
     units.push({ role: 'unit', kids: ks, x: x1, y: y1, w: x2 - x1, h: y2 - y1, lines: ks.flatMap(k => k.lines) });
   }
+  // מרכוז: טקסטים שכמעט במרכז היחידה מיושרים בדיוק למרכז שלה (תיבות ה-AI אינן מדויקות לפיקסל)
+  for (const u of units) {
+    if (u.kids.length < 2) continue;
+    const ucx = u.x + u.w / 2;
+    for (const k of u.kids) { if (!k.text) continue; const d = ucx - (k.x + k.w / 2); if (Math.abs(d) < 0.05 * u.w) k.x += d; }
+  }
+  // גלריה: שורת תמונות עם כיתובים (כרטיסים) שאפשר לסדר מחדש בשורות, כדי שיהיו גדולות יותר בבאנר צר וגבוה
+  for (const u of units) { const c = u.role === 'unit' ? makeCards(u) : null; if (c) u.cards = c; }
   for (const u of units) {
     u.pin = null;
     if (u.role === 'hero' || u.w < W * 0.85) continue;
     if (u.y + u.h >= H * 0.9) u.pin = 'bottom'; else if (u.y + u.h <= H * 0.12) u.pin = 'top';
   }
   return { W, H, plate, units, leaves, boxes: leaves.map(e => ({ id: e.id, role: e.role, x: e.x / W, y: e.y / H, w: e.w / W, h: e.h / H })) };
+}
+
+// ---------------------------------------------------------------- גלריה
+function makeCards(u) {
+  const photos = u.kids.filter(k => !k.text && k.role === 'photo');
+  if (photos.length < 3) return null;
+  const cards = photos.map(p => ({ kids: [p] }));
+  for (const t of u.kids) {
+    if (t.text) {
+      const cx = t.x + t.w / 2; let best = null, bd = 1e9;
+      for (const c of cards) { const p = c.kids[0], d = Math.abs(cx - (p.x + p.w / 2)); if (d < bd) { bd = d; best = c; } }
+      if (!best || bd > best.kids[0].w * 1.3 || t.y < best.kids[0].y) return null;
+      best.kids.push(t);
+    } else if (t.role !== 'photo') return null;
+  }
+  for (const c of cards) {
+    c.x = Math.min(...c.kids.map(k => k.x)); c.y = Math.min(...c.kids.map(k => k.y));
+    c.w = Math.max(...c.kids.map(k => k.x + k.w)) - c.x; c.h = Math.max(...c.kids.map(k => k.y + k.h)) - c.y;
+  }
+  const ys = cards.map(c => c.y), hs = cards.map(c => c.h);
+  if (Math.max(...ys) - Math.min(...ys) > 0.5 * Math.max(...hs)) return null; // לא שורה אחת
+  return cards;
+}
+// מסדר את הכרטיסים ברשת עם cols עמודות. סדר הקריאה: מימין לשמאל בעברית.
+function arrange(u, cols, rtl) {
+  const cards = u.cards.slice().sort((a, b) => rtl ? (b.x + b.w / 2) - (a.x + a.w / 2) : (a.x + a.w / 2) - (b.x + b.w / 2));
+  const n = cards.length, rows = Math.ceil(n / cols);
+  const cw = Math.max(...cards.map(c => c.w)), ch = Math.max(...cards.map(c => c.h)), gx = cw * 0.22, gy = ch * 0.2;
+  const W = cols * cw + (cols - 1) * gx, H = rows * ch + (rows - 1) * gy, rel = new Map();
+  cards.forEach((c, i) => {
+    const r = Math.floor(i / cols), inRow = Math.min(cols, n - r * cols), idx = i % cols;
+    const rowW = inRow * cw + (inRow - 1) * gx, off = (W - rowW) / 2;
+    const col = rtl ? inRow - 1 - idx : idx; // בעברית העמודה הראשונה בצד ימין
+    const cx = off + col * (cw + gx) + (cw - c.w) / 2, cy = r * (ch + gy);
+    for (const k of c.kids) rel.set(k, [cx + (k.x - c.x), cy + (k.y - c.y)]);
+  });
+  return { ...u, w: W, h: H, rel, cols, boost: 1 };
 }
 
 // ---------------------------------------------------------------- פריסה
@@ -624,7 +669,7 @@ function layout(W, H, units, sw, sh) {
   const gh = g => g.reduce((s, i) => s + tx[i].h, 0) + g.slice(0, -1).reduce((s, i) => s + gp[i], 0);
   const rtl = units.some(u => HEB.test(u.lines.join('')));
   let gm = 1;
-  const put = (g, s, x0, slot, y) => { for (const i of g) { const it = tx[i], w = it.w * s, h = it.h * s; out.push([it, x0 + (slot - w) / 2, y, w, h]); y += h + gp[i] * s * gm; } };
+  const put = (g, s, x0, slot, y) => { for (const i of g) { const it = tx[i], b = it.boost || 1, w = it.w * s * b, h = it.h * s * b; out.push([it, x0 + (slot - w) / 2, y, w, h]); y += h + gp[i] * s * gm; } };
   if (W / H >= 1.6) {
     const m = Math.max(5, H * 0.05);
     let ax0 = m * 1.5, ax1 = W - m * 1.5;
@@ -662,17 +707,37 @@ function layout(W, H, units, sw, sh) {
     }
   } else {
     const m = Math.min(W, H) * 0.05, vg = H * 0.03, aw = W - 2 * m, allg = tx.map((_, i) => i);
-    const mw = tx.length ? Math.max(...tx.map(u => u.w)) : 1, tH = n ? gh(allg) : 1;
-    let best = null;
-    for (const fr of (hero ? [0.42, 0.34, 0.26] : [0])) {
-      const hs = hero ? Math.min(fr * H / hero.h, aw / hero.w, 1.2) : 0, hh = hero ? hero.h * hs : 0;
-      const th = H - 2 * m - hh - (hero ? vg * 2 : 0), s = Math.min(aw / mw, th / tH, 1.15);
-      const score = hero ? Math.min(s, hs) : s;
-      if (!best || score > best[0]) best = [score, hs, hh, s, th];
+    const eff = u => u.boost || 1;
+    const plan = () => {
+      const mw = tx.length ? Math.max(...tx.map(u => u.w)) : 1, tH = n ? gh(allg) : 1;
+      let best = null;
+      for (const fr of (hero ? [0.42, 0.34, 0.26] : [0])) {
+        const hs = hero ? Math.min(fr * H / hero.h, aw / hero.w, 1.2) : 0, hh = hero ? hero.h * hs : 0;
+        const th = H - 2 * m - hh - (hero ? vg * 2 : 0), s = Math.min(aw / mw, th / tH, 1.15);
+        const score = hero ? Math.min(s, hs) : s;
+        if (!best || score > best[0]) best = [score, hs, hh, s, th];
+      }
+      return best;
+    };
+    // גלריות: בוחרים כמה עמודות ואיזו הגדלה נותנות תמונות גדולות ככל האפשר בלי לחרוג מהבאנר
+    for (const gi of tx.map((u, i) => (u.cards ? i : -1)).filter(i => i >= 0)) {
+      const orig = tx[gi], total = orig.cards.length;
+      let pick = null;
+      for (const cols of [...new Set([total, Math.ceil(total / 2), 2])].filter(c => c >= 1 && c <= total)) {
+        tx[gi] = arrange(orig, cols, rtl);
+        const [, , , s, th] = plan(), u2 = tx[gi];
+        const left = th - s * gh(allg);
+        const b = Math.max(1, Math.min(1.6, aw / (u2.w * s), 1 + 0.85 * left / (u2.h * s), 1.5 / s));
+        const score = s * b;
+        if (!pick || score > pick.score * 1.04) pick = { u2, b, score };
+      }
+      tx[gi] = pick.u2; tx[gi].boost = pick.b;
     }
-    const [, hs, hh, s, th] = best;
-    let used = s * tH; const tg = gp.slice(0, -1).reduce((a, b) => a + b, 0);
-    if (tg > 0) { gm = Math.max(1, Math.min(2.2, 1 + (th - used) / (tg * s))); used = s * (tH - tg) + s * tg * gm; }
+    const [, hs, hh, s, th] = plan();
+    const tg = gp.slice(0, -1).reduce((a, b) => a + b, 0);
+    const tHb = tx.reduce((a, u) => a + u.h * eff(u), 0) + tg;
+    let used = s * tHb;
+    if (tg > 0) { gm = Math.max(1, Math.min(2.2, 1 + (th - used) / (tg * s))); used = s * (tHb - tg) + s * tg * gm; }
     const bottom = !hero || (hero.y + hero.h / 2) / sh > 0.35;
     const y0 = bottom ? m + (th - used) / 2 : m + hh + vg * 2 + (th - used) / 2;
     put(allg, s, 0, W, y0);
@@ -682,7 +747,7 @@ function layout(W, H, units, sw, sh) {
 }
 function autoplace(sc, W, H) {
   const pl = [];
-  const add = (u, x, y, w, h) => { const s = w / u.w; for (const k of u.kids) pl.push([k, x + (k.x - u.x) * s, y + (k.y - u.y) * s, k.w * s, k.h * s]); };
+  const add = (u, x, y, w, h) => { const s = w / u.w; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * s, y + dy * s, k.w * s, k.h * s]); } };
   const pins = [], rest = [];
   for (const u of sc.units) { if (u.pin) { const k = Math.min(W / u.w, 1.4); pins.push([u, k, u.h * k, u.w * k]); } else rest.push(u); }
   const topH = pins.filter(p => p[0].pin === 'top').reduce((a, p) => a + p[2], 0);
@@ -732,5 +797,24 @@ function fromRGBA(rgba, w, h) {
   return { w, h, c: 3, d };
 }
 
-G.SizyEngine = { buildScene, render, fromRGBA, layout, autoplace, resize, blur, _t: { textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+
+
+// נתוני הסצנה לעורך: הרקע, כל שכבה כ-RGBA, וצבע הטקסט המשוער
+function exportScene(sc) {
+  const plate = new Uint8ClampedArray(sc.W * sc.H * 4);
+  for (let i = 0; i < sc.W * sc.H; i++) { plate[i * 4] = sc.plate.d[i * 3]; plate[i * 4 + 1] = sc.plate.d[i * 3 + 1]; plate[i * 4 + 2] = sc.plate.d[i * 3 + 2]; plate[i * 4 + 3] = 255; }
+  const leaves = sc.leaves.map(e => {
+    const L = e.layer, n = L.lw * L.lh, rgba = new Uint8ClampedArray(n * 4);
+    let r = 0, g = 0, b = 0, wsum = 0;
+    for (let i = 0; i < n; i++) {
+      rgba[i * 4] = L.rgb[i * 3]; rgba[i * 4 + 1] = L.rgb[i * 3 + 1]; rgba[i * 4 + 2] = L.rgb[i * 3 + 2]; rgba[i * 4 + 3] = L.a[i] * 255;
+      if (L.a[i] > 0.8) { r += L.rgb[i * 3]; g += L.rgb[i * 3 + 1]; b += L.rgb[i * 3 + 2]; wsum++; }
+    }
+    return { z: e.z, id: e.id, role: e.role, text: e.text, lines: e.lines, lw: L.lw, lh: L.lh, w: e.w, h: e.h, rgba, color: wsum ? [r / wsum, g / wsum, b / wsum].map(Math.round) : [255, 255, 255] };
+  });
+  return { W: sc.W, H: sc.H, plate, leaves };
+}
+function placements(sc, W, H) { return autoplace(sc, W, H).map(([k, x, y, w, h]) => ({ z: k.z, x, y, w, h })); }
+
+G.SizyEngine = { buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);

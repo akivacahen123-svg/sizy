@@ -7,7 +7,12 @@ onmessage = e => {
     if (m.type === 'build') {
       const img = SizyEngine.fromRGBA(new Uint8ClampedArray(m.rgba), m.w, m.h);
       scene = SizyEngine.buildScene(img, m.elements, text => postMessage({ type: 'progress', id: m.id, text }));
-      postMessage({ type: 'built', id: m.id, boxes: scene.boxes });
+      const ex = SizyEngine.exportScene(scene);
+      const bufs = [ex.plate.buffer, ...ex.leaves.map(l => l.rgba.buffer)];
+      postMessage({ type: 'built', id: m.id, boxes: scene.boxes, scene: ex }, bufs);
+    } else if (m.type === 'place') {
+      if (!scene) throw new Error('no scene');
+      postMessage({ type: 'placed', id: m.id, items: SizyEngine.placements(scene, m.w, m.h) });
     } else if (m.type === 'render') {
       if (!scene) throw new Error('no scene');
       const r = SizyEngine.render(scene, m.w, m.h, m.k);
