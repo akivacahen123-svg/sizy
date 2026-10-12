@@ -67,11 +67,26 @@ export function cleanElements(raw: any): El[] {
   return out.slice(0, 60);
 }
 
+// קורא את תשובת ה-AI גם כשהיא חתוכה או עטופה בטקסט: אוסף את כל האובייקטים השלמים שבמערך elements.
 function parseJson(text: string): any {
   const t = text.replace(/```json|```/g, '').trim();
   const a = t.indexOf('{'), b = t.lastIndexOf('}');
-  if (a < 0 || b < 0) throw new AnalyzeError(502, 'INVALID', 'ה-AI לא החזיר ניתוח תקין. נסו שוב.');
-  try { return JSON.parse(t.slice(a, b + 1)); } catch { throw new AnalyzeError(502, 'INVALID', 'ה-AI לא החזיר ניתוח תקין. נסו שוב.'); }
+  if (a >= 0 && b > a) { try { return JSON.parse(t.slice(a, b + 1)); } catch { /* ממשיכים לשחזור חלקי */ } }
+  const k = t.indexOf('"elements"');
+  const start = k >= 0 ? t.indexOf('[', k) : t.indexOf('[');
+  const out: any[] = [];
+  if (start >= 0) {
+    let depth = 0, inStr = false, esc = false, from = -1;
+    for (let i = start + 1; i < t.length; i++) {
+      const c = t[i];
+      if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+      if (c === '"') inStr = true;
+      else if (c === '{') { if (depth++ === 0) from = i; }
+      else if (c === '}' && --depth === 0 && from >= 0) { try { out.push(JSON.parse(t.slice(from, i + 1))); } catch { /* מדלגים */ } from = -1; }
+    }
+  }
+  if (out.length) return { elements: out };
+  throw new AnalyzeError(502, 'INVALID', 'ה-AI לא החזיר ניתוח תקין. נסו שוב.', 'תשובה: ' + t.slice(0, 200));
 }
 
 export async function analyzeImage(env: any, imageBase64: string, fetcher: typeof fetch = fetch, userKey = ''): Promise<El[]> {
@@ -84,9 +99,9 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
   const thinking = (model: string) => (parseFloat(model.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? '0') >= 3 ? { thinkingLevel: 'minimal' } : { thinkingBudget: 0 });
   const bodyFor = (model: string, withThinking: boolean) => JSON.stringify({
     contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }, { text: PROMPT }] }],
-    generationConfig: { temperature: 0, maxOutputTokens: 8000, responseMimeType: 'application/json', ...(withThinking ? { thinkingConfig: thinking(model) } : {}) },
+    generationConfig: { temperature: 0, maxOutputTokens: 16000, responseMimeType: 'application/json', ...(withThinking ? { thinkingConfig: thinking(model) } : {}) },
   });
-  let lastStatus = 0, lastDetail = '', sawBusy = false;
+  let lastStatus = 0, lastDetail = '', sawBusy = false, sawInvalid = false;
   // Cloudflare מנתקת בקשה שלא נענתה כ-100 שניות, לכן מגבילים את כל הניסיונות ל-85 שניות.
   const t0 = Date.now();
   for (let round = 0; round < 2; round++) {
@@ -123,10 +138,14 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     const data: any = await r.json().catch(() => null);
     const parts = data?.candidates?.[0]?.content?.parts;
     if (!Array.isArray(parts)) throw new AnalyzeError(422, 'EMPTY', 'גוגל לא החזיר תשובה לבאנר הזה. נסו תמונה אחרת.');
-    const els = cleanElements(parseJson(parts.filter((p: any) => !p.thought).map((p: any) => p.text ?? '').join('')).elements);
+    const reply = parts.filter((p: any) => !p.thought).map((p: any) => p.text ?? '').join('');
+    console.log('gemini reply', model, data?.candidates?.[0]?.finishReason, reply.length);
+    let els: El[];
+    try { els = cleanElements(parseJson(reply).elements); } catch (e: any) { if (e instanceof AnalyzeError) { e.detail = `${model} ${data?.candidates?.[0]?.finishReason ?? ''}: ${e.detail}`; sawInvalid = true; lastDetail = e.detail; continue; } throw e; }
     if (!els.length) throw new AnalyzeError(422, 'NONE', 'ה-AI לא זיהה אלמנטים בבאנר. נסו תמונה אחרת.');
     return els;
   }
   }
+  if (sawInvalid && !sawBusy) throw new AnalyzeError(502, 'INVALID', 'ה-AI לא החזיר ניתוח תקין. נסו שוב.', lastDetail);
   throw new AnalyzeError(sawBusy ? 503 : 502, sawBusy ? 'BUSY' : 'MODEL', sawBusy ? 'גוגל עמוסה או איטית כרגע ולא הצליחה לענות. נסו שוב בעוד דקה.' : lastStatus === 404 ? 'דגם ה-AI שהוגדר לא קיים. בדקו את GEMINI_MODEL.' : 'לא הצלחתי לדבר עם גוגל. נסו שוב בעוד רגע.', lastDetail);
 }

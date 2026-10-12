@@ -57,6 +57,9 @@ const seen503: string[] = []; let c503 = 0;
 const busy = async (u: any) => { if (String(u).includes('?pageSize')) return Response.json({ models: [] }); seen503.push(String(u).split('/models/')[1].split(':')[0]); return c503++ < 2 ? new Response('{"error":{"code":503}}', { status: 503 }) : gemini([])('', {}); };
 assert.equal((await analyzeImage({ ...env, GEMINI_RETRY_MS: 0 }, img, busy as any)).length, 1); assert.deepEqual(seen503, ['gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-flash-latest']);
 await assert.rejects(() => analyzeImage({ ...env, GEMINI_RETRY_MS: 0 }, img, (async () => new Response('{}', { status: 503 })) as any), /עמוסה/);
+// תשובה חתוכה באמצע (MAX_TOKENS): נקראים האלמנטים השלמים בלבד.
+const cut = async (u: any) => String(u).includes('?pageSize') ? Response.json({ models: [] }) : Response.json({ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '{"elements":[{"id":"a","role":"headline","box":[10,20,30,40],"lines":["שלום"]},{"id":"b","role":"photo","box":[50,60,70,80],"shape":"circle"},{"id":"c","role":"logo","box":[1,2' }] } }] });
+const partial = await analyzeImage(env, img, cut as any); assert.equal(partial.length, 2); assert.deepEqual(partial[0].box, [20, 10, 40, 30]);
 // דגם איטי (timeout): עוברים לדגם הבא ולא נכשלים.
 let slow = 0; const slowFirst = async (u: any, init: any) => { if (String(u).includes('?pageSize')) return Response.json({ models: [] }); if (slow++ === 0) { const e: any = new Error('timed out'); e.name = 'TimeoutError'; throw e; } return gemini([])(u, init); };
 assert.equal((await analyzeImage(env, img, slowFirst as any)).length, 1); assert.equal(slow, 2);
