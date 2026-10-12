@@ -517,8 +517,16 @@ function graphicLayer(clean, e, grad) {
     const { df, cw, x0, y0 } = ringDiff(clean, [x, y, w, h], Math.max(6, Math.floor(Math.min(w, h) * 0.2)));
     const sub = new Float32Array(w * h);
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) sub[j * w + i] = clp((df[(y - y0 + j) * cw + (x - x0 + i)] - 10) / 26, 0, 1);
-    const cl = boxMin(boxMax(sub, w, h, 2), w, h, 2);
+    const r0 = Math.max(2, Math.round(Math.min(w, h) * 0.04));
+    const cl = boxMin(boxMax(sub, w, h, r0), w, h, r0);
     for (let i = 0; i < w * h; i++) a[i] = clp(cl[i], 0, 1);
+    if (e.role === 'logo' || e.role === 'badge') { // ממלאים חורים פנימיים (למשל רקע לבן בתוך הלוגו) – כל מה שלא מחובר לשפה נשאר בפנים
+      const out = new Uint8Array(w * h), st = [];
+      const push = (i, j) => { const k = j * w + i; if (!out[k] && a[k] < 0.5) { out[k] = 1; st.push(k); } };
+      for (let i = 0; i < w; i++) { push(i, 0); push(i, h - 1); } for (let j = 0; j < h; j++) { push(0, j); push(w - 1, j); }
+      while (st.length) { const k = st.pop(), i = k % w, j = (k / w) | 0; if (i > 0) push(i - 1, j); if (i < w - 1) push(i + 1, j); if (j > 0) push(i, j - 1); if (j < h - 1) push(i, j + 1); }
+      for (let k = 0; k < w * h; k++) if (!out[k]) a[k] = 1;
+    }
   } else {
     const f = shape === 'hero' ? Math.max(28, Math.min(w, h) * 0.1) : 3;
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) a[j * w + i] = clp(Math.min(i, j, w - 1 - i, h - 1 - j) / f, 0, 1);
@@ -526,6 +534,33 @@ function graphicLayer(clean, e, grad) {
   return { rgb: crop.d, a, lw: w, lh: h, up: 1, x, y, w, h };
 }
 
+// ממרכז שורות של כיתוב רב-שורתי בתוך השכבה (בכיתוב המקורי השורות לא תמיד באמצע)
+function centerLines(L, n) {
+  const { lw: w, lh: h, a, rgb } = L; if (n < 2) return;
+  const rows = new Float32Array(h);
+  for (let j = 0; j < h; j++) { let c = 0; for (let i = 0; i < w; i++) if (a[j * w + i] > 0.5) c++; rows[j] = c; }
+  const bands = []; let st = -1;
+  for (let j = 0; j <= h; j++) { const on = j < h && rows[j] > 0; if (on && st < 0) st = j; else if (!on && st >= 0) { bands.push([st, j]); st = -1; } }
+  const mx = Math.max(...bands.map(b => b[1] - b[0]), 1), merged = [];
+  for (const b of bands) { const last = merged[merged.length - 1]; if (last && (b[0] - last[1] <= Math.max(2, mx * 0.12)) && (b[1] - b[0] < mx * 0.45 || last[1] - last[0] < mx * 0.45)) last[1] = b[1]; else merged.push([b[0], b[1]]); }
+  if (merged.length < n && bands.length) { // שורות שנוגעות זו בזו: חותכים בעמק הדל ביותר ליד המקום הצפוי
+    const t0 = bands[0][0], t1 = bands[bands.length - 1][1], lh = (t1 - t0) / n, cuts = [t0];
+    for (let k = 1; k < n; k++) { let bj = Math.round(t0 + k * lh), bv = 1e9; for (let j = Math.round(t0 + k * lh - lh * 0.28); j <= Math.round(t0 + k * lh + lh * 0.28); j++) { const v = rows[Math.max(0, Math.min(h - 1, j))]; if (v < bv) { bv = v; bj = j; } } cuts.push(bj); }
+    cuts.push(t1); merged.length = 0; for (let k = 0; k < n; k++) merged.push([cuts[k], cuts[k + 1]]);
+  }
+  if (merged.length !== n) return;
+  const ext = merged.map(([y0, y1]) => { let lo = w, hi = -1; for (let j = y0; j < y1; j++) for (let i = 0; i < w; i++) if (a[j * w + i] > 0.5) { if (i < lo) lo = i; if (i > hi) hi = i; } return [lo, hi]; });
+  const cx = (Math.min(...ext.map(e => e[0])) + Math.max(...ext.map(e => e[1]))) / 2;
+  merged.forEach(([y0, y1], k) => {
+    let d = Math.round(cx - (ext[k][0] + ext[k][1]) / 2); d = Math.max(-ext[k][0], Math.min(w - 1 - ext[k][1], d));
+    if (!d) return;
+    const y0b = Math.max(0, y0 - 2), y1b = Math.min(h, y1 + 2);
+    for (let j = y0b; j < y1b; j++) {
+      const ra = a.slice(j * w, j * w + w), rr = rgb.slice(j * w * 3, j * w * 3 + w * 3);
+      for (let i = 0; i < w; i++) { const si = Math.max(0, Math.min(w - 1, i - d)); a[j * w + i] = ra[si]; rgb[(j * w + i) * 3] = rr[si * 3]; rgb[(j * w + i) * 3 + 1] = rr[si * 3 + 1]; rgb[(j * w + i) * 3 + 2] = rr[si * 3 + 2]; }
+    }
+  });
+}
 // ---------------------------------------------------------------- סצנה
 function buildScene(img, elements, onProgress) {
   const W = img.w, H = img.h, tell = m => onProgress && onProgress(m);
@@ -547,7 +582,7 @@ function buildScene(img, elements, onProgress) {
     if (!e.text) continue;
     const L = textLayer(img, e.px, e.role === 'button' ? 2 : Math.max(1, e.lines.length), 4, e.role === 'button', !!e.bullet, holes);
     if (!L) continue;
-    e.layer = L; leaves.push(e);
+    e.layer = L; if (['caption', 'subheadline', 'body'].includes(e.role)) centerLines(L, e.lines.length); leaves.push(e);
   }
   tell('מנקה את הרקע…');
   const clean = msFill(img, holes);
@@ -583,6 +618,24 @@ function buildScene(img, elements, onProgress) {
     for (const r of leaves) {
       if (r.text || !['decor', 'badge', 'button'].includes(r.role)) continue;
       if (r.x < cx && cx < r.x + r.w && r.y < cy && cy < r.y + r.h && r.w * r.h > t.w * t.h) { r.group = r.group || 'auto_' + r.id; t.group = r.group; break; }
+    }
+  }
+  // גלריה בלי תלות בקבוצות של ה-AI: תמונות עגולות/ריבועיות דומות בשורה אחת + הכיתובים שמתחתיהן
+  {
+    const ph = leaves.filter(e => !e.text && e.role === 'photo');
+    if (ph.length >= 3) {
+      const med = a => a.slice().sort((x, y) => x - y)[a.length >> 1];
+      const mw = med(ph.map(p => p.w)), mcy = med(ph.map(p => p.y + p.h / 2)), mh = med(ph.map(p => p.h));
+      const row = ph.filter(p => Math.abs(p.w - mw) < 0.35 * mw && Math.abs(p.y + p.h / 2 - mcy) < 0.5 * mh);
+      if (row.length >= 3) {
+        for (const p of row) p.group = 'gal_auto';
+        for (const t of leaves) {
+          if (!t.text || !['caption', 'body', 'label', 'subheadline'].includes(t.role)) continue;
+          const cx = t.x + t.w / 2; let best = null, bd = 1e9;
+          for (const p of row) { const d = Math.abs(cx - (p.x + p.w / 2)); if (d < bd) { bd = d; best = p; } }
+          if (best && bd < best.w * 1.1 && t.y >= best.y + best.h * 0.5 && t.y - (best.y + best.h) < best.h * 1.6) t.group = 'gal_auto';
+        }
+      }
     }
   }
   const groups = new Map();
@@ -625,6 +678,7 @@ function makeCards(u) {
       best.kids.push(t);
     } else if (t.role !== 'photo') return null;
   }
+  for (const c of cards) { const p = c.kids[0], pc = p.x + p.w / 2; for (const t of c.kids) if (t.text) { const d = pc - (t.x + t.w / 2); if (Math.abs(d) < 0.7 * p.w) t.x += d; const g = t.y - (p.y + p.h), tg = p.h * 0.14; if (g > tg) t.y -= g - tg; } }
   for (const c of cards) {
     c.x = Math.min(...c.kids.map(k => k.x)); c.y = Math.min(...c.kids.map(k => k.y));
     c.w = Math.max(...c.kids.map(k => k.x + k.w)) - c.x; c.h = Math.max(...c.kids.map(k => k.y + k.h)) - c.y;
@@ -748,13 +802,14 @@ function layout(W, H, units, sw, sh) {
 function autoplace(sc, W, H) {
   const pl = [];
   const add = (u, x, y, w, h) => { const s = w / u.w; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * s, y + dy * s, k.w * s, k.h * s]); } };
-  const pins = [], rest = [];
-  for (const u of sc.units) { if (u.pin) { const k = Math.min(W / u.w, 1.4); pins.push([u, k, u.h * k, u.w * k]); } else rest.push(u); }
-  const topH = pins.filter(p => p[0].pin === 'top').reduce((a, p) => a + p[2], 0);
-  const botH = pins.filter(p => p[0].pin === 'bottom').reduce((a, p) => a + p[2], 0);
+  const pins = [], rest = [], mg = Math.min(W, H) * 0.06;
+  for (const u of sc.units) { if (u.pin) { const k = Math.min((W - 2 * mg) / u.w, 1.4); pins.push([u, k, u.h * k, u.w * k]); } else rest.push(u); }
+  const hasTop = pins.some(p => p[0].pin === 'top'), hasBot = pins.some(p => p[0].pin === 'bottom');
+  const topH = pins.filter(p => p[0].pin === 'top').reduce((a, p) => a + p[2], 0) + (hasTop ? mg : 0);
+  const botH = pins.filter(p => p[0].pin === 'bottom').reduce((a, p) => a + p[2], 0) + (hasBot ? mg : 0);
   const avail = Math.max(20, H - topH - botH);
   for (const [u, x, y0, w, h] of layout(W, avail, rest, sc.W, sc.H)) add(u, x, Math.max(0, Math.min(avail - h, y0)) + topH, w, h);
-  let yt = 0, yb = H;
+  let yt = mg, yb = H - mg;
   for (const [u, , h, w] of pins) { let y; if (u.pin === 'top') { y = yt; yt += h; } else { y = yb - h; yb -= h; } add(u, (W - w) / 2, y, w, h); }
   pl.sort((a, b) => (a[0].role === 'hero' ? 0 : 1) - (b[0].role === 'hero' ? 0 : 1) || a[0].z - b[0].z);
   return pl;
