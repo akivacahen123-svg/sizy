@@ -733,8 +733,8 @@ function buildScene(img, elements, onProgress) {
     const L = textLayer(img, e.px, e.role === 'button' ? 2 : Math.max(1, e.lines.length), 4, e.role === 'button', !!e.bullet, holes);
     if (!L) continue;
     if (['caption', 'body', 'label'].includes(e.role)) { // פס רקע שנחתך במקום אותיות: שורה שכמעט כולה אטומה
-      let rm = 0; for (let j = 0; j < L.lh; j++) { let r = 0; for (let i = 0; i < L.lw; i++) if (L.a[j * L.lw + i] > 0.5) r++; rm = Math.max(rm, r / L.lw); }
-      if (rm > 0.8) continue;
+      let rm = 0; for (let j = 0; j < L.lh; j++) { let r = 0; for (let i = 0; i < L.lw; i++) { if (L.a[j * L.lw + i] > 0.5) { r++; if (r > rm) rm = r; } else r = 0; } }
+      if (rm > 0.4 * L.lw && L.lw > 6 * L.lh) continue;
     }
     e.layer = L; if (['caption', 'subheadline', 'body'].includes(e.role)) centerLines(L, e.lines.length); leaves.push(e);
   }
@@ -1011,15 +1011,24 @@ function layoutTall(W, H, units, sw, sh) {
     if (!u.cards) return { u, cap: rank(u) === 0 ? 3.2 : 2.2 };
     let pick = null; const total = u.cards.length;
     for (const cols of [...new Set([total, Math.ceil(total / 2), 2, 1])].filter(c => c >= 1 && c <= total)) {
-      const a = arrange(u, cols, rtl), f = Math.min(aw / a.w, 2.4, (0.36 * H) / a.h);
+      const a = arrange(u, cols, rtl), f = Math.min(aw / a.w, 1.7, (0.3 * H) / a.h);
       if (!pick || f > pick.f * 1.04) pick = { a, f };
     }
-    return { u: pick.a, cap: 2.4 };
+    return { u: pick.a, cap: Math.min(1.9, pick.f) };
   });
   let f = list.map(({ u, cap }) => { const lg = u.kids.some(k => k.role === 'logo') && u.kids.length === 1 && u.w / u.h > 2.2; return Math.min(aw / u.w, cap, lg ? 0.6 * W / u.w : 9); });
   const gmin = Math.max(5, H * 0.025), nGap = Math.max(0, list.length - 1);
   const tot = () => list.reduce((a, { u }, i) => a + u.h * f[i], 0);
-  if (tot() + gmin * nGap > ah) { const g = (ah - gmin * nGap) / tot(); f = f.map(v => v * g); }
+  if (tot() + gmin * nGap > ah) { // חוסר מקום: קודם מקטינים כותרות ולוגו (עד 55%), את התמונות הקטנות שומרים גדולות ככל האפשר
+    const small = list.map(({ u }) => !!u.cards), f0 = f.slice();
+    for (const floor of [0.75, 0.5]) {
+      const bigT = list.reduce((a, { u }, i) => a + (small[i] ? 0 : u.h * f[i]), 0), smallT = list.reduce((a, { u }, i) => a + (small[i] ? u.h * f[i] : 0), 0);
+      const need = ah - gmin * nGap - smallT;
+      if (bigT > 0 && need > 0) { const g = Math.max(floor, Math.min(1, need / bigT)); f = f.map((v, i) => small[i] ? v : v * g); }
+      if (tot() + gmin * nGap <= ah) break;
+    }
+    if (tot() + gmin * nGap > ah) { const g = (ah - gmin * nGap) / tot(); f = f.map(v => v * g); }
+  }
   const gap = nGap ? Math.min(H * 0.09, (ah - tot()) / nGap) : 0, used = tot() + gap * nGap;
   let y = m + Math.max(0, (ah - used) / 2);
   const out = out0;
