@@ -726,6 +726,18 @@ function buildScene(img, elements, onProgress) {
     if (role === 'button' && e.style === 'outline') isText = true;
     els.push({ id: e.id || 'e' + i, role, lines, text: isText, shape, group: role === 'hero' ? null : (e.group || null), px: [x1, y1, x2 - x1, y2 - y1], z: i, bullet: e.bullet || null, phrases: e.phrases || null });
   });
+  // תיבות טקסט שחופפות (הזיהוי חתך אותו כיתוב לשני חלקים): מאחדים לתיבה אחת
+  for (let i = 0; i < els.length; i++) for (let j = els.length - 1; j > i; j--) {
+    const a = els[i], b = els[j];
+    if (!a.text || !b.text || a.role === 'button' || b.role === 'button' || a.role === 'headline' || b.role === 'headline') continue;
+    const ix = Math.min(a.px[0] + a.px[2], b.px[0] + b.px[2]) - Math.max(a.px[0], b.px[0]), iy = Math.min(a.px[1] + a.px[3], b.px[1] + b.px[3]) - Math.max(a.px[1], b.px[1]);
+    if (ix <= 0 || iy <= 0) continue;
+    if (ix * iy < 0.3 * Math.min(a.px[2] * a.px[3], b.px[2] * b.px[3])) continue;
+    const x1 = Math.min(a.px[0], b.px[0]), y1 = Math.min(a.px[1], b.px[1]), x2 = Math.max(a.px[0] + a.px[2], b.px[0] + b.px[2]), y2 = Math.max(a.px[1] + a.px[3], b.px[1] + b.px[3]);
+    a.px = [x1, y1, x2 - x1, y2 - y1];
+    const big = a.lines.join('').length >= b.lines.join('').length ? a.lines : b.lines;
+    a.lines = big; a.phrases = null; els.splice(j, 1);
+  }
   const leaves = [], holes = new Uint8Array(W * H);
   tell('חותך את הטקסטים…');
   for (const e of els) {
