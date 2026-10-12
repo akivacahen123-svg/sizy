@@ -48,6 +48,11 @@ const bodies: any[] = []; let k = 0;
 const noThink = async (_u: any, init: any) => { bodies.push(JSON.parse(init.body)); return k++ === 0 ? new Response('{}', { status: 400 }) : gemini([])('', {}); };
 assert.equal((await analyzeImage(env, img, noThink as any)).length, 1);
 assert(bodies[0].generationConfig.thinkingConfig && !bodies[1].generationConfig.thinkingConfig);
+// גוגל עמוסה (503): עוברים לדגם הבא ומצליחים; אם הכול עמוס, הודעה ברורה.
+const seen503: string[] = []; let c503 = 0;
+const busy = async (u: any) => { seen503.push(String(u).split('/models/')[1].split(':')[0]); return c503++ < 2 ? new Response('{"error":{"code":503}}', { status: 503 }) : gemini([])('', {}); };
+assert.equal((await analyzeImage({ ...env, GEMINI_RETRY_MS: 0 }, img, busy as any)).length, 1); assert.deepEqual(seen503, ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite']);
+await assert.rejects(() => analyzeImage({ ...env, GEMINI_RETRY_MS: 0 }, img, (async () => new Response('{}', { status: 503 })) as any), /עמוסה/);
 await assert.rejects(() => analyzeImage(env, img, (async () => new Response('{}', { status: 403 })) as any), /מפתח/);
 await assert.rejects(() => analyzeImage({}, img), /מפתח Gemini/);
 assert.equal(cleanElements([{ box: [0, 0, 1, 1] }, { box: 'x' }, null, { box: [10, 20, 30, 40], role: 'weird', shape: 'circle', group: 'null' }]).length, 1);

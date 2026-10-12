@@ -54,7 +54,8 @@ function parseJson(text: string): any {
 export async function analyzeImage(env: any, imageBase64: string, fetcher: typeof fetch = fetch, userKey = ''): Promise<El[]> {
   const key = userKey || env.GEMINI_API_KEY;
   if (!key) throw new AnalyzeError(401, 'NEED_KEY', 'כדי להשתמש באתר צריך להדביק מפתח Gemini אישי (בחינם). ראו את שלב 1 בצד.');
-  const models = [...new Set([env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash'].filter(Boolean))] as string[];
+  // כשדגם עמוס (503) עוברים לדגם הבא, ואם כולם עמוסים מנסים שוב אחרי רגע.
+  const models = [...new Set([env.GEMINI_MODEL, 'gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'].filter(Boolean))] as string[];
   // חשיבה מינימלית: הזיהוי הוא משימת ראייה פשוטה, וחשיבה ארוכה רק מאריכה את ההמתנה בלי לשפר.
   const thinking = (model: string) => (/gemini-2/.test(model) ? { thinkingBudget: 0 } : { thinkingLevel: 'low' });
   const bodyFor = (model: string, withThinking: boolean) => JSON.stringify({
@@ -62,6 +63,8 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     generationConfig: { temperature: 0, maxOutputTokens: 8000, responseMimeType: 'application/json', ...(withThinking ? { thinkingConfig: thinking(model) } : {}) },
   });
   let lastStatus = 0, lastDetail = '';
+  for (let round = 0; round < 2; round++) {
+  if (round) await new Promise(res => setTimeout(res, env.GEMINI_RETRY_MS ?? 2000));
   for (const model of models) {
     let r: Response | undefined;
     for (const withThinking of [true, false]) {
@@ -81,6 +84,7 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     if (r.status === 401 || r.status === 403) console.error('gemini auth', model, r.status, (await r.clone().text().catch(() => '')).slice(0, 200));
     if (r.status === 401 || r.status === 403) throw new AnalyzeError(userKey ? 401 : 503, 'AUTH', 'מפתח ה-API של גוגל לא תקין או חסרות לו הרשאות. בדקו שהעתקתם אותו במלואו.');
     if (r.status === 429) throw new AnalyzeError(429, 'LIMIT', 'חרגתם ממכסת הבקשות של גוגל כרגע. נסו שוב בעוד דקה.');
+    if ([500, 502, 503, 504].includes(r.status)) { lastStatus = r.status; lastDetail = `${model}: ${r.status} ${(await r.text().catch(() => '')).slice(0, 200)}`; console.error('gemini busy', lastDetail); continue; }
     if (r.status === 404 || r.status === 400) { lastStatus = r.status; lastDetail = `${model}: ${r.status} ${(await r.text().catch(() => '')).slice(0, 200)}`; continue; } // דגם לא קיים: מנסים את הבא
     if (!r.ok) {
       const t = (await r.text().catch(() => '')).slice(0, 220);
@@ -94,5 +98,6 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     if (!els.length) throw new AnalyzeError(422, 'NONE', 'ה-AI לא זיהה אלמנטים בבאנר. נסו תמונה אחרת.');
     return els;
   }
-  throw new AnalyzeError(502, 'MODEL', lastStatus === 404 ? 'דגם ה-AI שהוגדר לא קיים. בדקו את GEMINI_MODEL.' : 'לא הצלחתי לדבר עם גוגל. נסו שוב בעוד רגע.', lastDetail);
+  }
+  throw new AnalyzeError(lastStatus >= 500 ? 503 : 502, lastStatus >= 500 ? 'BUSY' : 'MODEL', lastStatus >= 500 ? 'גוגל עמוסה כרגע ולא הצליחה לענות. נסו שוב בעוד דקה.' : lastStatus === 404 ? 'דגם ה-AI שהוגדר לא קיים. בדקו את GEMINI_MODEL.' : 'לא הצלחתי לדבר עם גוגל. נסו שוב בעוד רגע.', lastDetail);
 }
