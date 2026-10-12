@@ -57,6 +57,9 @@ const seen503: string[] = []; let c503 = 0;
 const busy = async (u: any) => { if (String(u).includes('?pageSize')) return Response.json({ models: [] }); seen503.push(String(u).split('/models/')[1].split(':')[0]); return c503++ < 2 ? new Response('{"error":{"code":503}}', { status: 503 }) : gemini([])('', {}); };
 assert.equal((await analyzeImage({ ...env, GEMINI_RETRY_MS: 0 }, img, busy as any)).length, 1); assert.deepEqual(seen503, ['gemini-flash-latest', 'gemini-3.5-flash-lite', 'gemini-flash-latest']);
 await assert.rejects(() => analyzeImage({ ...env, GEMINI_RETRY_MS: 0 }, img, (async () => new Response('{}', { status: 503 })) as any), /עמוסה/);
+// דגם איטי (timeout): עוברים לדגם הבא ולא נכשלים.
+let slow = 0; const slowFirst = async (u: any, init: any) => { if (String(u).includes('?pageSize')) return Response.json({ models: [] }); if (slow++ === 0) { const e: any = new Error('timed out'); e.name = 'TimeoutError'; throw e; } return gemini([])(u, init); };
+assert.equal((await analyzeImage(env, img, slowFirst as any)).length, 1); assert.equal(slow, 2);
 await assert.rejects(() => analyzeImage(env, img, (async () => new Response('{}', { status: 403 })) as any), /מפתח/);
 await assert.rejects(() => analyzeImage({}, img), /מפתח Gemini/);
 assert.equal(cleanElements([{ box: [0, 0, 1, 1] }, { box: 'x' }, null, { box: [10, 20, 30, 40], role: 'weird', shape: 'circle', group: 'null' }]).length, 1);

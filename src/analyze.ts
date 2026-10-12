@@ -81,30 +81,35 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
   const found = await discoverModels(env, key, fetcher);
   const models = [...new Set([env.GEMINI_MODEL, ...found, 'gemini-flash-latest', 'gemini-3.5-flash-lite'].filter(Boolean))] as string[];
   // חשיבה מינימלית: הזיהוי הוא משימת ראייה פשוטה, וחשיבה ארוכה רק מאריכה את ההמתנה בלי לשפר.
-  const thinking = (model: string) => (/gemini-2/.test(model) ? { thinkingBudget: 0 } : { thinkingLevel: 'low' });
+  const thinking = (model: string) => (parseFloat(model.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? '0') >= 3 ? { thinkingLevel: 'minimal' } : { thinkingBudget: 0 });
   const bodyFor = (model: string, withThinking: boolean) => JSON.stringify({
     contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }, { text: PROMPT }] }],
     generationConfig: { temperature: 0, maxOutputTokens: 8000, responseMimeType: 'application/json', ...(withThinking ? { thinkingConfig: thinking(model) } : {}) },
   });
   let lastStatus = 0, lastDetail = '', sawBusy = false;
+  // Cloudflare מנתקת בקשה שלא נענתה כ-100 שניות, לכן מגבילים את כל הניסיונות ל-85 שניות.
+  const t0 = Date.now();
   for (let round = 0; round < 2; round++) {
   if (round) await new Promise(res => setTimeout(res, env.GEMINI_RETRY_MS ?? 2000));
   for (const model of models) {
+    const left = 85_000 - (Date.now() - t0);
+    if (left < 8_000) break;
     let r: Response | undefined;
     for (const withThinking of [true, false]) {
       try {
         r = await fetcher(`${env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com'}/v1beta/models/${model}:generateContent`, {
-          method: 'POST', body: bodyFor(model, withThinking), signal: AbortSignal.timeout(75_000),
+          method: 'POST', body: bodyFor(model, withThinking), signal: AbortSignal.timeout(Math.min(Number(env.GEMINI_ATTEMPT_MS) || 30_000, left)),
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
         });
       } catch (e: any) {
         console.error('gemini fetch failed', model, e?.name, e?.message);
-        if (e?.name === 'TimeoutError' || e?.name === 'AbortError') throw new AnalyzeError(504, 'TIMEOUT', 'ה-AI לא ענה בזמן. נסו שוב בעוד רגע.', model);
-        throw new AnalyzeError(502, 'NETWORK', 'לא הצלחתי להתחבר לגוגל. נסו שוב בעוד רגע.', `${model}: ${e?.name ?? ''} ${String(e?.message ?? '').slice(0, 160)}`);
+        // דגם איטי או שהחיבור אליו נכשל: לא נתקעים עליו, עוברים לדגם הבא.
+        sawBusy = true; lastDetail = `${model}: ${e?.name ?? ''} ${String(e?.message ?? '').slice(0, 160)}`; r = undefined; break;
       }
       if (r.status !== 400) break; // 400: הדגם לא תומך בהגדרת החשיבה, מנסים בלי
     }
     if (!r) continue;
+    console.log('gemini', model, r.status);
     if (r.status === 401 || r.status === 403) console.error('gemini auth', model, r.status, (await r.clone().text().catch(() => '')).slice(0, 200));
     if (r.status === 401 || r.status === 403) throw new AnalyzeError(userKey ? 401 : 503, 'AUTH', 'מפתח ה-API של גוגל לא תקין או חסרות לו הרשאות. בדקו שהעתקתם אותו במלואו.');
     if (r.status === 429) throw new AnalyzeError(429, 'LIMIT', 'חרגתם ממכסת הבקשות של גוגל כרגע. נסו שוב בעוד דקה.');
@@ -123,5 +128,5 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     return els;
   }
   }
-  throw new AnalyzeError(sawBusy ? 503 : 502, sawBusy ? 'BUSY' : 'MODEL', sawBusy ? 'גוגל עמוסה כרגע ולא הצליחה לענות. נסו שוב בעוד דקה.' : lastStatus === 404 ? 'דגם ה-AI שהוגדר לא קיים. בדקו את GEMINI_MODEL.' : 'לא הצלחתי לדבר עם גוגל. נסו שוב בעוד רגע.', lastDetail);
+  throw new AnalyzeError(sawBusy ? 503 : 502, sawBusy ? 'BUSY' : 'MODEL', sawBusy ? 'גוגל עמוסה או איטית כרגע ולא הצליחה לענות. נסו שוב בעוד דקה.' : lastStatus === 404 ? 'דגם ה-AI שהוגדר לא קיים. בדקו את GEMINI_MODEL.' : 'לא הצלחתי לדבר עם גוגל. נסו שוב בעוד רגע.', lastDetail);
 }
