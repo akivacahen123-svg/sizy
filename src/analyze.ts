@@ -101,7 +101,7 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }, { text: PROMPT }] }],
     generationConfig: { temperature: 0, maxOutputTokens: 16000, responseMimeType: 'application/json', ...(withThinking ? { thinkingConfig: thinking(model) } : {}) },
   });
-  let lastStatus = 0, lastDetail = '', sawBusy = false, sawInvalid = false;
+  let lastStatus = 0, lastDetail = '', sawBusy = false, sawInvalid = false, sawLimit = false;
   // Cloudflare מנתקת בקשה שלא נענתה כ-100 שניות, לכן מגבילים את כל הניסיונות ל-85 שניות.
   const t0 = Date.now();
   for (let round = 0; round < 2; round++) {
@@ -127,7 +127,7 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     console.log('gemini', model, r.status);
     if (r.status === 401 || r.status === 403) console.error('gemini auth', model, r.status, (await r.clone().text().catch(() => '')).slice(0, 200));
     if (r.status === 401 || r.status === 403) throw new AnalyzeError(userKey ? 401 : 503, 'AUTH', 'מפתח ה-API של גוגל לא תקין או חסרות לו הרשאות. בדקו שהעתקתם אותו במלואו.');
-    if (r.status === 429) throw new AnalyzeError(429, 'LIMIT', 'חרגתם ממכסת הבקשות של גוגל כרגע. נסו שוב בעוד דקה.');
+    if (r.status === 429) { sawLimit = true; lastDetail = `${model}: 429 ${(await r.text().catch(() => '')).slice(0, 200)}`; console.error('gemini limit', lastDetail); continue; } // למכסה יש גבול נפרד לכל דגם: עוברים לדגם הבא
     if ([500, 502, 503, 504].includes(r.status)) { sawBusy = true; lastStatus = r.status; lastDetail = `${model}: ${r.status} ${(await r.text().catch(() => '')).slice(0, 200)}`; console.error('gemini busy', lastDetail); continue; }
     if (r.status === 404 || r.status === 400) { lastStatus = r.status; lastDetail = `${model}: ${r.status} ${(await r.text().catch(() => '')).slice(0, 200)}`; continue; } // דגם לא קיים: מנסים את הבא
     if (!r.ok) {
@@ -146,6 +146,7 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     return els;
   }
   }
+  if (sawLimit && !sawInvalid) throw new AnalyzeError(429, 'LIMIT', 'מכסת הבקשות החינמית של גוגל התמלאה כרגע. נסו שוב בעוד דקה.', lastDetail);
   if (sawInvalid && !sawBusy) throw new AnalyzeError(502, 'INVALID', 'ה-AI לא החזיר ניתוח תקין. נסו שוב.', lastDetail);
   throw new AnalyzeError(sawBusy ? 503 : 502, sawBusy ? 'BUSY' : 'MODEL', sawBusy ? 'גוגל עמוסה או איטית כרגע ולא הצליחה לענות. נסו שוב בעוד דקה.' : lastStatus === 404 ? 'דגם ה-AI שהוגדר לא קיים. בדקו את GEMINI_MODEL.' : 'לא הצלחתי לדבר עם גוגל. נסו שוב בעוד רגע.', lastDetail);
 }
