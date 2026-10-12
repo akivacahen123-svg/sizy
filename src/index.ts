@@ -35,7 +35,8 @@ async function analyzeRoute(request: Request, env: any, user: string, fetcher: t
     if (userKey && !/^[A-Za-z0-9_-]{20,120}$/.test(userKey)) return json({ error: 'המפתח לא נראה תקין. העתיקו אותו שוב במלואו.' }, 400);
     return json({ elements: await analyzeImage(env, image, fetcher, userKey) });
   } catch (e) {
-    if (e instanceof AnalyzeError) return json({ error: e.message, code: e.code }, e.status);
+    if (e instanceof AnalyzeError) return json({ error: e.message, code: e.code, detail: e.detail }, e.status);
+    console.error('analyze failed', (e as any)?.message);
     return json({ error: 'הניתוח לא הושלם. נסו שוב.' }, 500);
   } finally { running.delete(user); }
 }

@@ -78,6 +78,15 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
 #bulk{gap:8px;flex-wrap:wrap}
 @media (pointer:coarse){.hd{width:24px;height:24px;right:-12px;bottom:-12px;border-radius:6px}.chip,button.ghost{min-height:40px}button.go{min-height:46px}}
 @media (max-width:560px){.card{border-radius:14px}.brand i{display:none}.rh{align-items:flex-start}.bt{width:100%}.bt button{flex:1}button.go{width:100%}.ctl .nm{width:100%}}
+#sp{display:flex;align-items:center;gap:10px;margin:12px 0 0;color:var(--mut)}#sp[hidden]{display:none}
+#sp .lg{width:38px;height:38px;border-radius:11px;background:linear-gradient(135deg,var(--acc),#8a63ff);display:grid;place-items:center;animation:pulse 1.4s ease-in-out infinite}
+#sp .lg svg{animation:spin 1.6s linear infinite}
+#sp .dots i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--acc);margin-inline-end:4px;animation:bounce 1.2s infinite ease-in-out}
+#sp .dots i:nth-child(2){animation-delay:.15s}#sp .dots i:nth-child(3){animation-delay:.3s}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(60,100,255,.45)}50%{box-shadow:0 0 0 12px rgba(60,100,255,0)}}
+@keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
+@media (prefers-reduced-motion:reduce){#sp .lg,#sp .lg svg,#sp .dots i{animation:none}}
 </style>
 <link rel="icon" href="/favicon.svg">
 </head>
@@ -115,6 +124,7 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
       <div style="margin-top:14px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <button class="go" id="go">צור באנרים</button>
       </div>
+      <div id="sp" hidden><span class="lg"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 15v5h-5M4 4l7 7M20 20l-7-7"/></svg></span><span class="dots"><i></i><i></i><i></i></span></div>
       <p id="st"></p>
     </div>
   </aside>
@@ -196,7 +206,7 @@ function showBoxes(boxes){const pv=$('#pv');pv.querySelectorAll('.bx').forEach(n
 
 async function errMsg(r){
   if(r.status===401)return 'פג תוקף הכניסה. רעננו את הדף והיכנסו שוב.';
-  try{const j=await r.json();return j.error||('שגיאה '+r.status)}catch(e){return 'שגיאה '+r.status}}
+  try{const j=await r.json();return (j.error||('שגיאה '+r.status))+(j.detail?' (פרטים טכניים: '+j.detail+')':'')}catch(e){return 'שגיאה '+r.status}}
 function updBulk(){const n=made.filter(m=>m.pick.checked).length;$('#dlall').textContent='הורדת הנבחרים ('+n+') ZIP';$('#dlall').disabled=!n}
 $('#selall').onclick=()=>{made.forEach(m=>m.pick.checked=true);updBulk()};
 $('#selnone').onclick=()=>{made.forEach(m=>m.pick.checked=false);updBulk()};
@@ -226,7 +236,7 @@ $('#go').onclick=async()=>{
   if(!file){st.textContent='קודם מעלים באנר.';return}
   const sizes=sizesIn().map(s=>s.split('x').map(Number)).filter(([w,h])=>w>=16&&h>=16&&w<=4000&&h<=4000).slice(0,40);
   if(!sizes.length){st.textContent='כתבו גודל, למשל 1200x300.';return}
-  busy=true;$('#go').disabled=true;
+  busy=true;$('#go').disabled=true;$('#sp').hidden=false;
   try{
     if(!built){
       st.textContent='ה-AI מסתכל על הבאנר ומזהה את האלמנטים… זה לוקח כמה שניות.';
@@ -246,7 +256,7 @@ $('#go').onclick=async()=>{
     }
     $('#bulk').hidden=false;updBulk();st.textContent='מוכן.';
   }catch(e){st.textContent='משהו השתבש בבניית הבאנר. נסו שוב, ואם זה חוזר נסו קובץ אחר.'}
-  finally{busy=false;$('#go').disabled=false}
+  finally{busy=false;$('#go').disabled=false;$('#sp').hidden=true}
 };
 
 // ---- ZIP (ללא דחיסה)

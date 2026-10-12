@@ -1,7 +1,7 @@
 // זיהוי אלמנטים בבאנר באמצעות Gemini של גוגל. ה-AI רק "מסתכל": הוא מחזיר תיבות ותוכן הטקסט,
 // והמנוע בדפדפן (public/engine.js) חותך ומרכיב מחדש את הפיקסלים המקוריים.
 export class AnalyzeError extends Error {
-  constructor(public status: number, public code: string, message: string) { super(message); }
+  constructor(public status: number, public code: string, message: string, public detail = '') { super(message); }
 }
 
 export const PROMPT = `You are analysing an advertising banner so that it can be rebuilt at other sizes. List EVERY visual element and return ONLY JSON, no other text:
@@ -61,23 +61,32 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }, { text: PROMPT }] }],
     generationConfig: { temperature: 0, maxOutputTokens: 8000, responseMimeType: 'application/json', ...(withThinking ? { thinkingConfig: thinking(model) } : {}) },
   });
-  let lastStatus = 0;
+  let lastStatus = 0, lastDetail = '';
   for (const model of models) {
     let r: Response | undefined;
     for (const withThinking of [true, false]) {
       try {
         r = await fetcher(`${env.GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com'}/v1beta/models/${model}:generateContent`, {
-          method: 'POST', body: bodyFor(model, withThinking), signal: AbortSignal.timeout(90_000),
+          method: 'POST', body: bodyFor(model, withThinking), signal: AbortSignal.timeout(75_000),
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
         });
-      } catch { throw new AnalyzeError(504, 'TIMEOUT', 'ה-AI לא ענה בזמן. נסו שוב בעוד רגע.'); }
+      } catch (e: any) {
+        console.error('gemini fetch failed', model, e?.name, e?.message);
+        if (e?.name === 'TimeoutError' || e?.name === 'AbortError') throw new AnalyzeError(504, 'TIMEOUT', 'ה-AI לא ענה בזמן. נסו שוב בעוד רגע.', model);
+        throw new AnalyzeError(502, 'NETWORK', 'לא הצלחתי להתחבר לגוגל. נסו שוב בעוד רגע.', `${model}: ${e?.name ?? ''} ${String(e?.message ?? '').slice(0, 160)}`);
+      }
       if (r.status !== 400) break; // 400: הדגם לא תומך בהגדרת החשיבה, מנסים בלי
     }
     if (!r) continue;
+    if (r.status === 401 || r.status === 403) console.error('gemini auth', model, r.status, (await r.clone().text().catch(() => '')).slice(0, 200));
     if (r.status === 401 || r.status === 403) throw new AnalyzeError(userKey ? 401 : 503, 'AUTH', 'מפתח ה-API של גוגל לא תקין או חסרות לו הרשאות. בדקו שהעתקתם אותו במלואו.');
     if (r.status === 429) throw new AnalyzeError(429, 'LIMIT', 'חרגתם ממכסת הבקשות של גוגל כרגע. נסו שוב בעוד דקה.');
-    if (r.status === 404 || r.status === 400) { lastStatus = r.status; continue; } // דגם לא קיים: מנסים את הבא
-    if (!r.ok) throw new AnalyzeError(502, 'UPSTREAM', 'לא הצלחתי לדבר עם גוגל. נסו שוב בעוד רגע.');
+    if (r.status === 404 || r.status === 400) { lastStatus = r.status; lastDetail = `${model}: ${r.status} ${(await r.text().catch(() => '')).slice(0, 200)}`; continue; } // דגם לא קיים: מנסים את הבא
+    if (!r.ok) {
+      const t = (await r.text().catch(() => '')).slice(0, 220);
+      console.error('gemini upstream', model, r.status, t);
+      throw new AnalyzeError(502, 'UPSTREAM', 'לא הצלחתי לדבר עם גוגל. נסו שוב בעוד רגע.', `${model}: ${r.status} ${t}`);
+    }
     const data: any = await r.json().catch(() => null);
     const parts = data?.candidates?.[0]?.content?.parts;
     if (!Array.isArray(parts)) throw new AnalyzeError(422, 'EMPTY', 'גוגל לא החזיר תשובה לבאנר הזה. נסו תמונה אחרת.');
@@ -85,5 +94,5 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     if (!els.length) throw new AnalyzeError(422, 'NONE', 'ה-AI לא זיהה אלמנטים בבאנר. נסו תמונה אחרת.');
     return els;
   }
-  throw new AnalyzeError(502, 'MODEL', lastStatus === 404 ? 'דגם ה-AI שהוגדר לא קיים. בדקו את GEMINI_MODEL.' : 'לא הצלחתי לדבר עם גוגל. נסו שוב בעוד רגע.');
+  throw new AnalyzeError(502, 'MODEL', lastStatus === 404 ? 'דגם ה-AI שהוגדר לא קיים. בדקו את GEMINI_MODEL.' : 'לא הצלחתי לדבר עם גוגל. נסו שוב בעוד רגע.', lastDetail);
 }
