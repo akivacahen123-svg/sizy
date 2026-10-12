@@ -42,7 +42,7 @@ button.ghost{background:transparent;color:var(--acc);border:1px solid var(--acc)
 .ob{position:absolute;border:1px dashed transparent;cursor:move;touch-action:none;box-sizing:border-box}
 .ob:hover{border-color:var(--acc)}.ob.sel{border:2px solid var(--acc);background:rgba(31,111,235,.08)}
 .hd{display:none;position:absolute;right:-7px;bottom:-7px;width:13px;height:13px;background:var(--acc);border:2px solid #fff;border-radius:3px;cursor:nwse-resize}
-.ob.sel .hd{display:block}
+.ob.sel .hd{display:block}.multi .ob.sel .hd{display:none}.mq{position:absolute;border:1px solid var(--acc);background:rgba(31,111,235,.12);pointer-events:none}
 .ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;background:var(--soft);border-radius:12px}
 .ctl[hidden]{display:none}.ctl .sc{flex:1;min-width:110px;accent-color:var(--acc)}.ctl .nm{min-width:64px}
 p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
@@ -141,6 +141,7 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
 </div>
 <p class="foot"><a href="/logout" style="color:inherit">יציאה</a> · סייזי · Sizes</p>
 
+<script src="/bgmap.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const ROLES={caption:'כיתוב',label:'טקסט כפתור',photo:'תמונה',button:'כפתור',badge:'תגית',decor:'עיטור',headline:'כותרת',subheadline:'תת־כותרת',bullets:'יתרונות',brand:'מותג',body:'טקסט',logo:'לוגו',hero:'ויזואל'};
@@ -249,9 +250,14 @@ function drawText(ctx,it,K){
 function compose(st,K,canvas){
   const Wk=Math.round(st.w*K),Hk=Math.round(st.h*K);canvas.width=Wk;canvas.height=Hk;
   const ctx=canvas.getContext('2d');ctx.imageSmoothingQuality='high';
+  const xs=cached(SC.pcache,'xs'+Wk+'x'+Hk,()=>window.SizyBg.map(SC.W,SC.H,Wk,Hk)||0);
+  if(xs){
+    const tall=cached(SC.pcache,'t'+Hk,()=>scaled(SC.plate,SC.W,Hk));
+    for(let u=0;u<Wk;u++){const a=xs[u],b=Math.max(xs[u+1],a+.5);ctx.drawImage(tall,a,0,b-a,Hk,u,0,1,Hk)}
+  }else{
   const s=Math.max(Wk/SC.W,Hk/SC.H),nw=Math.round(SC.W*s),nh=Math.round(SC.H*s);
   const bg=cached(SC.pcache,nw+'x'+nh,()=>s<1?scaled(SC.plate,nw,nh):(()=>{const c=mk(nw,nh),x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(SC.plate,0,0,nw,nh);return c})());
-  ctx.drawImage(bg,Math.floor((Wk-nw)/2),Math.floor((Hk-nh)/2));
+  ctx.drawImage(bg,Math.floor((Wk-nw)/2),Math.floor((Hk-nh)/2));}
   for(const it of st.items){
     if(it.hidden)continue;
     if(it.tm){drawText(ctx,it,K);continue}
@@ -270,53 +276,80 @@ function addCard(w,h,placed){
   st.items=st.items.filter(i=>i.leaf);
   const d=document.createElement('div');d.className='card res wide';
   d.innerHTML=`<div class="rh"><div class="ttl"><label class="pick" title="בחירה להורדה"><input type="checkbox" checked></label><h3>${w} × ${h}</h3></div><div class="bt"><button class="ghost" data-a="reset">איפוס הכל</button><button class="ghost" data-a="dl">הורדת PNG</button></div></div>
-  <p class="help">לחצו על אלמנט כדי לבחור אותו: גררו להזזה, משכו את הפינה לשינוי גודל, או השתמשו בכפתורים.</p>
+  <p class="help">לחצו על אלמנט כדי לבחור אותו: גררו להזזה, משכו את הפינה לשינוי גודל. כדי לבחור כמה אלמנטים: Ctrl + לחיצה, או גרירת מסגרת על הרקע, ואז אפשר להזיז ולשנות גודל את כולם יחד.</p>
   <div class="ctl" hidden><b class="nm"></b><input type="range" class="sc" min="30" max="300" value="100" title="גודל"><span class="sep"></span>
    <button class="chip al" data-c="l" title="יישור לשמאל">⇤</button><button class="chip al" data-c="hc" title="מרכוז אופקי">↔</button><button class="chip al" data-c="r" title="יישור לימין">⇥</button><button class="chip al" data-c="t" title="יישור למעלה">⤒</button><button class="chip al" data-c="vc" title="מרכוז אנכי">↕</button><button class="chip al" data-c="b" title="יישור למטה">⤓</button><button class="chip al" data-c="c" title="מרכוז לאמצע הבאנר">✛ מרכז</button><span class="sep"></span>
    <button class="chip" data-c="txt">✎ עריכת טקסט</button><button class="chip" data-c="hide">הסתר</button><button class="chip" data-c="orig">אפס אלמנט</button></div>
   <div class="txt" hidden><textarea dir="rtl"></textarea><div class="lvr"><select class="ff">${FONTS.map(f=>'<option>'+f+'</option>').join('')}</select><label>צבע <input type="color" class="cl"></label><label><input type="checkbox" class="bd" checked> מודגש</label><button class="chip" data-c="back">חזרה למקור</button></div></div>
   <div class="cv"><div class="stage" tabindex="0"><canvas></canvas></div></div>`;
   const canvas=d.querySelector('canvas'),stage=d.querySelector('.stage'),ctl=d.querySelector('.ctl'),txt=d.querySelector('.txt');
-  let sel=null,raf=0;
+  let sels=[],sel=null,raf=0,base=null;
   const draw=()=>{raf=0;compose(st,dispK(),canvas);canvas.style.width='100%';canvas.style.maxWidth=w+'px'};
   const redraw=()=>{if(!raf)raf=requestAnimationFrame(draw)};
   const pos=it=>{const o=it.ob;o.style.left=it.x/w*100+'%';o.style.top=it.y/h*100+'%';o.style.width=it.w/w*100+'%';o.style.height=it.h/h*100+'%';o.classList.toggle('hid',it.hidden)};
   const hex=c=>'#'+c.map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('');
-  function select(it){
-    sel=it;st.items.forEach(i=>i.ob.classList.toggle('sel',i===it));ctl.hidden=!it;txt.hidden=!(it&&it.tm);
-    if(!it)return;
-    ctl.querySelector('.nm').textContent=label(it);ctl.querySelector('.sc').value=Math.round(it.w/it.o.w*100);
-    ctl.querySelector('[data-c=txt]').hidden=!it.leaf.text;ctl.querySelector('[data-c=hide]').textContent=it.hidden?'הצג':'הסתר';
-    if(it.tm){txt.querySelector('textarea').value=it.tm.text;txt.querySelector('.ff').value=it.tm.font;txt.querySelector('.cl').value=it.tm.color;txt.querySelector('.bd').checked=it.tm.bold}
+  const bbox=a=>{const x1=Math.min(...a.map(i=>i.x)),y1=Math.min(...a.map(i=>i.y)),x2=Math.max(...a.map(i=>i.x+i.w)),y2=Math.max(...a.map(i=>i.y+i.h));return{x:x1,y:y1,w:x2-x1,h:y2-y1}};
+  const snapBase=()=>{base=sels.map(i=>({i,x:i.x,y:i.y,w:i.w,h:i.h}));ctl.querySelector('.sc').value=sels.length===1?Math.round(sels[0].w/sels[0].o.w*100):100};
+  function setSel(list){
+    sels=list;sel=list[list.length-1]||null;st.items.forEach(i=>i.ob.classList.toggle('sel',sels.includes(i)));stage.classList.toggle('multi',sels.length>1);
+    ctl.hidden=!sel;txt.hidden=!(sels.length===1&&sel.tm);
+    if(!sel)return;
+    ctl.querySelector('.nm').textContent=sels.length>1?sels.length+' אלמנטים נבחרו':label(sel);snapBase();
+    ctl.querySelector('[data-c=txt]').hidden=!(sels.length===1&&sel.leaf.text);ctl.querySelector('[data-c=hide]').textContent=sels.every(i=>i.hidden)?'הצג':'הסתר';
+    if(sels.length===1&&sel.tm){txt.querySelector('textarea').value=sel.tm.text;txt.querySelector('.ff').value=sel.tm.font;txt.querySelector('.cl').value=sel.tm.color;txt.querySelector('.bd').checked=sel.tm.bold}
   }
+  const select=it=>setSel(it?[it]:[]);
   st.items.forEach(it=>{
     const o=document.createElement('div');o.className='ob';o.innerHTML='<span class="tg"></span><div class="hd"></div>';o.querySelector('.tg').textContent=label(it);it.ob=o;stage.appendChild(o);pos(it);
     o.addEventListener('pointerdown',e=>{
-      e.preventDefault();stage.focus({preventScroll:true});select(it);
-      const resizing=e.target.classList.contains('hd'),r=stage.getBoundingClientRect(),k=w/r.width,sx=e.clientX,sy=e.clientY,s0={x:it.x,y:it.y,w:it.w,h:it.h};
+      e.preventDefault();e.stopPropagation();stage.focus({preventScroll:true});
+      if(e.ctrlKey||e.metaKey||e.shiftKey){setSel(sels.includes(it)?sels.filter(i=>i!==it):[...sels,it]);return}
+      const resizing=e.target.classList.contains('hd')&&sels.length<2;
+      if(!sels.includes(it))select(it);
+      const r=stage.getBoundingClientRect(),k=w/r.width,sx=e.clientX,sy=e.clientY,s0=sels.map(i=>({i,x:i.x,y:i.y,w:i.w,h:i.h})),g0=bbox(sels);
       o.setPointerCapture(e.pointerId);
       const mv=ev=>{const dx=(ev.clientX-sx)*k,dy=(ev.clientY-sy)*k;
-        if(resizing){const nw=Math.max(8,s0.w+dx),f=nw/s0.w;it.w=nw;it.h=s0.h*f;ctl.querySelector('.sc').value=Math.round(it.w/it.o.w*100)}
-        else{let nx=s0.x+dx,ny=s0.y+dy;const cx=nx+it.w/2,cy=ny+it.h/2;if(Math.abs(cx-w/2)<5)nx=w/2-it.w/2;if(Math.abs(cy-h/2)<5)ny=h/2-it.h/2;it.x=nx;it.y=ny}
-        pos(it);redraw()};
-      const up=()=>{o.removeEventListener('pointermove',mv);o.removeEventListener('pointerup',up);o.removeEventListener('pointercancel',up)};
+        if(resizing){const q=s0[0],nw=Math.max(8,q.w+dx),f=nw/q.w;it.w=nw;it.h=q.h*f;ctl.querySelector('.sc').value=Math.round(it.w/it.o.w*100)}
+        else{let mx=dx,my=dy;const cx=g0.x+mx+g0.w/2,cy=g0.y+my+g0.h/2;if(Math.abs(cx-w/2)<5)mx=w/2-g0.w/2-g0.x;if(Math.abs(cy-h/2)<5)my=h/2-g0.h/2-g0.y;
+          for(const q of s0){q.i.x=q.x+mx;q.i.y=q.y+my}}
+        sels.forEach(pos);redraw()};
+      const up=()=>{o.removeEventListener('pointermove',mv);o.removeEventListener('pointerup',up);o.removeEventListener('pointercancel',up);snapBase()};
       o.addEventListener('pointermove',mv);o.addEventListener('pointerup',up);o.addEventListener('pointercancel',up);
     });
   });
-  stage.addEventListener('pointerdown',e=>{if(e.target===stage||e.target===canvas)select(null)});
+  // בחירה בגרירת מסגרת על רקע ריק
+  const mq=document.createElement('div');mq.className='mq';mq.hidden=true;stage.appendChild(mq);
+  stage.addEventListener('pointerdown',e=>{
+    if(e.target!==stage&&e.target!==canvas)return;
+    const add=e.ctrlKey||e.metaKey||e.shiftKey,r=stage.getBoundingClientRect(),k=w/r.width,x0=(e.clientX-r.left)*k,y0=(e.clientY-r.top)*k,keep=add?sels.slice():[];
+    if(!add)select(null);stage.setPointerCapture(e.pointerId);let moved=false;
+    const mv=ev=>{const x1=(ev.clientX-r.left)*k,y1=(ev.clientY-r.top)*k,L=Math.min(x0,x1),T=Math.min(y0,y1),R=Math.max(x0,x1),B=Math.max(y0,y1);
+      if(!moved&&Math.hypot(x1-x0,y1-y0)<4)return;moved=true;mq.hidden=false;mq.style.left=L/w*100+'%';mq.style.top=T/h*100+'%';mq.style.width=(R-L)/w*100+'%';mq.style.height=(B-T)/h*100+'%';
+      const hit=st.items.filter(i=>!i.hidden&&i.x<R&&i.x+i.w>L&&i.y<B&&i.y+i.h>T&&!keep.includes(i));setSel([...keep,...hit])};
+    const up=()=>{mq.hidden=true;stage.removeEventListener('pointermove',mv);stage.removeEventListener('pointerup',up);stage.removeEventListener('pointercancel',up)};
+    stage.addEventListener('pointermove',mv);stage.addEventListener('pointerup',up);stage.addEventListener('pointercancel',up);
+  });
   stage.addEventListener('keydown',e=>{if(!sel||e.target!==stage)return;const n=e.shiftKey?10:1;
     const m={ArrowLeft:[-n,0],ArrowRight:[n,0],ArrowUp:[0,-n],ArrowDown:[0,n]}[e.key];
-    if(m){e.preventDefault();sel.x+=m[0];sel.y+=m[1];pos(sel);redraw()}else if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();sel.hidden=!sel.hidden;pos(sel);select(sel);redraw()}});
-  ctl.querySelector('.sc').addEventListener('input',e=>{if(!sel)return;const f=e.target.value/100,cx=sel.x+sel.w/2,cy=sel.y+sel.h/2;sel.w=sel.o.w*f;sel.h=sel.o.h*f;sel.x=cx-sel.w/2;sel.y=cy-sel.h/2;pos(sel);redraw()});
+    if(m){e.preventDefault();sels.forEach(i=>{i.x+=m[0];i.y+=m[1];pos(i)});snapBase();redraw()}
+    else if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();const hv=!sels.every(i=>i.hidden);sels.forEach(i=>{i.hidden=hv;pos(i)});setSel(sels);redraw()}
+    else if((e.key==='a'||e.key==='A')&&(e.ctrlKey||e.metaKey)){e.preventDefault();setSel(st.items.filter(i=>!i.hidden))}});
+  ctl.querySelector('.sc').addEventListener('input',e=>{if(!sel||!base)return;const f=e.target.value/100;
+    if(sels.length===1){const it=sel,cx=base[0].x+base[0].w/2,cy=base[0].y+base[0].h/2;
+      const nw=it.o.w*f;it.h=it.h*(nw/it.w);it.w=nw;it.x=cx-it.w/2;it.y=cy-it.h/2;pos(it);redraw();return}
+    const g={x:Math.min(...base.map(b=>b.x)),y:Math.min(...base.map(b=>b.y)),x2:Math.max(...base.map(b=>b.x+b.w)),y2:Math.max(...base.map(b=>b.y+b.h))},gx=(g.x+g.x2)/2,gy=(g.y+g.y2)/2;
+    for(const b of base){b.i.x=gx+(b.x-gx)*f;b.i.y=gy+(b.y-gy)*f;b.i.w=b.w*f;b.i.h=b.h*f;pos(b.i)}redraw()});
   const mg=Math.round(Math.min(w,h)*.04);
   ctl.addEventListener('click',async e=>{const c=e.target.closest('[data-c]')?.dataset.c;if(!c||!sel)return;
-    if(c==='l')sel.x=mg;else if(c==='r')sel.x=w-mg-sel.w;else if(c==='t')sel.y=mg;else if(c==='b')sel.y=h-mg-sel.h;
-    else if(c==='hc')sel.x=(w-sel.w)/2;else if(c==='vc')sel.y=(h-sel.h)/2;else if(c==='c'){sel.x=(w-sel.w)/2;sel.y=(h-sel.h)/2}
-    else if(c==='hide')sel.hidden=!sel.hidden;
-    else if(c==='orig'){Object.assign(sel,{x:sel.o.x,y:sel.o.y,w:sel.o.w,h:sel.o.h,hidden:false,tm:null})}
-    else if(c==='txt'){await ensureFonts();if(!sel.tm)sel.tm={text:(sel.leaf.lines||[]).join('\n'),font:'Heebo',color:hex(sel.leaf.color),bold:true}}
-    pos(sel);select(sel);redraw()});
-  txt.addEventListener('input',()=>{if(!sel||!sel.tm)return;sel.tm.text=txt.querySelector('textarea').value;sel.tm.font=txt.querySelector('.ff').value;sel.tm.color=txt.querySelector('.cl').value;sel.tm.bold=txt.querySelector('.bd').checked;redraw()});
+    const bb=bbox(sels);let dx=0,dy=0;
+    if(c==='l')dx=mg-bb.x;else if(c==='r')dx=w-mg-bb.w-bb.x;else if(c==='t')dy=mg-bb.y;else if(c==='b')dy=h-mg-bb.h-bb.y;
+    else if(c==='hc')dx=(w-bb.w)/2-bb.x;else if(c==='vc')dy=(h-bb.h)/2-bb.y;else if(c==='c'){dx=(w-bb.w)/2-bb.x;dy=(h-bb.h)/2-bb.y}
+    if(dx||dy)sels.forEach(i=>{i.x+=dx;i.y+=dy});
+    if(c==='hide'){const hv=!sels.every(i=>i.hidden);sels.forEach(i=>{i.hidden=hv})}
+    else if(c==='orig'){sels.forEach(i=>Object.assign(i,{x:i.o.x,y:i.o.y,w:i.o.w,h:i.o.h,hidden:false,tm:null}))}
+    else if(c==='txt'&&sels.length===1){await ensureFonts();if(!sel.tm)sel.tm={text:(sel.leaf.lines||[]).join('\n'),font:'Heebo',color:hex(sel.leaf.color),bold:true}}
+    sels.forEach(pos);setSel(sels);redraw()});
+  txt.addEventListener('input',()=>{if(sels.length!==1||!sel.tm)return;sel.tm.text=txt.querySelector('textarea').value;sel.tm.font=txt.querySelector('.ff').value;sel.tm.color=txt.querySelector('.cl').value;sel.tm.bold=txt.querySelector('.bd').checked;redraw()});
   txt.querySelector('[data-c=back]').onclick=()=>{if(sel){sel.tm=null;select(sel);redraw()}};
   const blobFor=async()=>{await ensureFonts();const c=mk(1,1);compose(st,scale(),c);return toBlobC(c)};
   d.querySelector('[data-a=dl]').onclick=async()=>dlBlob(await blobFor(),fname(w,h));

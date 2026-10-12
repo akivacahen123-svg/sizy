@@ -821,9 +821,20 @@ function render(sc, W, H, K) {
   K = K || 1;
   const Wk = Math.floor(W * K), Hk = Math.floor(H * K);
   const s = Math.max(Wk / sc.W, Hk / sc.H);
-  const nw = Math.max(Wk, Math.round(sc.W * s)), nh = Math.max(Hk, Math.round(sc.H * s));
-  const bg = resize(sc.plate, nw, nh, s < 1 ? 'area' : 'cubic');
-  const ox = Math.floor((nw - Wk) / 2), oy = Math.floor((nh - Hk) / 2);
+  let nw = Math.max(Wk, Math.round(sc.W * s)), nh = Math.max(Hk, Math.round(sc.H * s));
+  const xs = G.SizyBg ? G.SizyBg.map(sc.W, sc.H, Wk, Hk) : null;
+  let bg, ox, oy;
+  if (xs) {
+    const tall = resize(sc.plate, sc.W, Hk, Hk < sc.H ? 'area' : 'cubic'); bg = { w: Wk, h: Hk, c: 3, d: new Float32Array(Wk * Hk * 3) }; ox = 0; oy = 0; nw = Wk; nh = Hk;
+    for (let u = 0; u < Wk; u++) {
+      const a = xs[u], b = Math.max(xs[u + 1], a + 0.001), i0 = Math.floor(a), i1 = Math.min(sc.W, Math.ceil(b));
+      for (let y = 0; y < Hk; y++) {
+        let r = 0, g = 0, bl = 0, ws = 0;
+        for (let i = i0; i < i1; i++) { const w = Math.min(b, i + 1) - Math.max(a, i); if (w <= 0) continue; const o = (y * sc.W + i) * 3; r += tall.d[o] * w; g += tall.d[o + 1] * w; bl += tall.d[o + 2] * w; ws += w; }
+        const o2 = (y * Wk + u) * 3; ws = ws || 1; bg.d[o2] = r / ws; bg.d[o2 + 1] = g / ws; bg.d[o2 + 2] = bl / ws;
+      }
+    }
+  } else { bg = resize(sc.plate, nw, nh, s < 1 ? 'area' : 'cubic'); ox = Math.floor((nw - Wk) / 2); oy = Math.floor((nh - Hk) / 2); }
   const out = new Float32Array(Wk * Hk * 3);
   for (let y = 0; y < Hk; y++) out.set(bg.d.subarray(((y + oy) * nw + ox) * 3, ((y + oy) * nw + ox + Wk) * 3), y * Wk * 3);
   for (const [leaf, x, y, w, h] of autoplace(sc, W, H)) {
