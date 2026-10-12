@@ -613,7 +613,7 @@ function wordsOf(e) {
   return e._w;
 }
 // בוחר חלוקה למילים-בשורות שנותנת את הכיתוב הגדול ביותר בתוך תיבה (bw × bh בפיקסלים של היעד), ובונה ממנה שכבה חדשה
-function reflowLeaf(e, bw, bh) {
+function reflowLeaf(e, bw, bh, lineBias) {
   const W = wordsOf(e); if (!W) return null;
   const { words, gap, bandH, pitch, lineGap, rtl, P, brk } = W, n = words.length, up = e.layer.up || 1;
   const ww = words.map(x => x.x1 - x.x0 + 1);
@@ -628,7 +628,7 @@ function reflowLeaf(e, bw, bh) {
       const lh = lhs.reduce((p, q) => p + q, 0) + (k - 1) * lineGap + extra;
       const mean = lws.reduce((p, q) => p + q, 0) / k, rag = lws.reduce((p, q) => p + Math.abs(q - mean), 0) / (k * lw);
       const cuts = new Set(acc.slice(0, -1).map(([, t]) => t)); let same = cuts.size === brk.size; if (same) for (const c of cuts) if (!brk.has(c)) same = false;
-      const s = Math.min(bw / (lw / up), bh / (lh / up)) * (1 - 0.12 * rag) * (same ? 1.04 : 1);
+      const s = Math.min(bw / (lw / up), bh / (lh / up)) * (1 - 0.12 * rag) * (same ? 1.04 : 1) * (lineBias ? 1 - lineBias * (k - 1) : 1);
       if (!best || s > best.s * 1.01) best = { s, acc: acc.slice(), lws, lhs, lw, lh, extra };
     }
   };
@@ -673,7 +673,28 @@ function reflowLeaf(e, bw, bh) {
   return { rgb, a, lw: W2, lh: H2, up, s: best.s, k: best.acc.length };
 }
 // יחידה (למשל כותרת + שורת פתיחה) אחרי שבירת השורות מחדש. מחזיר את היחידה המקורית אם אין מה לשנות.
+function solidLayer(w, h, color) {
+  const lw = Math.max(2, Math.round(w)), lh = Math.max(2, Math.round(h)), a = new Float32Array(lw * lh).fill(1), rgb = new Float32Array(lw * lh * 3);
+  for (let i = 0; i < lw * lh; i++) { rgb[i * 3] = color[0]; rgb[i * 3 + 1] = color[1]; rgb[i * 3 + 2] = color[2]; }
+  return { rgb, a, lw, lh, up: 1 };
+}
 function reflowUnit(u, W, H) {
+  const plate = u.kids.find(k => !k.text && k.solid);
+  if (plate) { // לוח צבע עם טקסט עליו: שוברים שורות מחדש ומותחים את הלוח סביב הטקסט
+    const tk = u.kids.filter(k => k !== plate);
+    if (!tk.length || !tk.every(k => k.text && ['headline', 'subheadline', 'body', 'label'].includes(k.role))) return u;
+    const tx0 = Math.min(...tk.map(k => k.x)), tx1 = Math.max(...tk.map(k => k.x + k.w)), ty0 = Math.min(...tk.map(k => k.y)), ty1 = Math.max(...tk.map(k => k.y + k.h));
+    const padX = Math.max(6, (plate.w - (tx1 - tx0)) / 2), padY = Math.max(4, (plate.h - (ty1 - ty0)) / 2);
+    const inner = reflowUnit({ ...u, kids: tk }, W - 2 * padX * 0.6, H);
+    const stack = inner === u || inner.kids === tk ? null : inner;
+    if (!stack) return u;
+    const uw = stack.w + 2 * padX, uh = stack.h + 2 * padY, rel = new Map();
+    const np = { ...plate, layer: solidLayer(uw * (plate.layer.up || 1), uh * (plate.layer.up || 1), plate.solid), w: uw, h: uh, reflowed: true, isPlate: true };
+    plate.isPlate = true;
+    rel.set(np, [0, 0]);
+    for (const k of stack.kids) { const r = stack.rel.get(k); rel.set(k, [r[0] + padX, r[1] + padY]); }
+    return { ...u, kids: [np, ...stack.kids], w: uw, h: uh, rel, pin: null, reflowed: true };
+  }
   if (!u.kids.every(k => k.text && ['headline', 'subheadline', 'body'].includes(k.role))) return u;
   const heads = u.kids.filter(k => (k.role === 'headline' || ((k.role === 'subheadline' || k.role === 'body') && W / H < 1.15)) && wordsOf(k)); if (!heads.length) return u;
   const m = Math.min(W, H) * 0.07, wide = W / H >= 1.6;
@@ -681,7 +702,7 @@ function reflowUnit(u, W, H) {
   const orig = u.kids.slice().sort((p, q) => p.y - q.y);
   const kids = orig.map(k => {
     if (!heads.includes(k)) return k;
-    const L2 = reflowLeaf(k, bw, k.role === 'headline' ? bh : k.role === 'body' ? H * 0.3 : H * 0.16); if (!L2) return k;
+    const L2 = reflowLeaf(k, bw, k.role === 'headline' ? bh : k.role === 'body' ? H * 0.3 : H * 0.16, wide ? 0.09 : 0); if (!L2) return k;
     return { ...k, layer: L2, w: L2.lw / L2.up, h: L2.lh / L2.up, reflowed: true };
   });
   if (kids.every((k, i) => k === orig[i])) return u;
@@ -725,6 +746,16 @@ function buildScene(img, elements, onProgress) {
     const L = graphicLayer(clean, e, grad);
     if (!L) continue;
     e.layer = L;
+    if (['decor', 'badge'].includes(e.role) && L.w * L.h > 900) { // לוח צבע אחיד מאחורי טקסט: אפשר למתוח אותו מחדש לפי הטקסט
+      let r0 = 0, g0 = 0, b0 = 0, n0 = 0, q = 0;
+      const mx = Math.max(2, Math.floor(Math.min(L.w, L.h) * 0.08));
+      for (let j = mx; j < L.h - mx; j += 2) for (let i = mx; i < L.w - mx; i += 2) if (L.a[j * L.w + i] > 0.95) { const o = (j * L.w + i) * 3; r0 += L.rgb[o]; g0 += L.rgb[o + 1]; b0 += L.rgb[o + 2]; n0++; }
+      if (n0 > 50) {
+        r0 /= n0; g0 /= n0; b0 /= n0;
+        for (let j = mx; j < L.h - mx; j += 2) for (let i = mx; i < L.w - mx; i += 2) if (L.a[j * L.w + i] > 0.95) { const o = (j * L.w + i) * 3; q += Math.abs(L.rgb[o] - r0) + Math.abs(L.rgb[o + 1] - g0) + Math.abs(L.rgb[o + 2] - b0); }
+        if (q / n0 / 3 < 9) e.solid = [Math.round(r0), Math.round(g0), Math.round(b0)];
+      }
+    }
     let r = 5; if (['pill', 'rounded', 'rect'].includes(e.shape)) r = Math.floor(Math.min(L.w, L.h) * 0.3); else if (e.shape === 'hero') r = 8;
     const pad = r + 1, mw = L.w + 2 * pad, mh = L.h + 2 * pad, m = new Uint8Array(mw * mh);
     for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) if (L.a[j * L.w + i] * 255 > 10) m[(j + pad) * mw + i + pad] = 1;
@@ -842,18 +873,19 @@ function splits(n, k) {
   })(0, k, []);
   return res;
 }
-function layout(W, H, units, sw, sh) {
+function layout(W, H, units, sw, sh, forceWide) {
   const out = [];
   const heroes = units.filter(u => u.role === 'hero');
   const hero = heroes.length ? heroes.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)) : null;
-  let tx = units.filter(u => u !== hero && u.role !== 'hero').sort((a, b) => a.y - b.y);
+  const wideMode = forceWide || W / H >= 1.6;
+  let tx = units.filter(u => u !== hero && u.role !== 'hero').sort(wideMode ? ((a, b) => rankOf(a, sh, true) - rankOf(b, sh, true) || a.y - b.y) : ((a, b) => a.y - b.y));
   let n = tx.length; if (n > 14) { tx = tx.slice(0, 14); n = 14; }
   const gp = tx.map((t, i) => i >= n - 1 ? 0 : Math.min(Math.max(0, tx[i + 1].y - (t.y + t.h)), sh * 0.1));
   const gh = g => g.reduce((s, i) => s + tx[i].h, 0) + g.slice(0, -1).reduce((s, i) => s + gp[i], 0);
   const rtl = units.some(u => HEB.test(u.lines.join('')));
   let gm = 1;
   const put = (g, s, x0, slot, y) => { for (const i of g) { const it = tx[i], b = it.boost || 1, w = it.w * s * b, h = it.h * s * b; out.push([it, x0 + (slot - w) / 2, y, w, h]); y += h + gp[i] * s * gm; } };
-  if (W / H >= 1.6) {
+  if (wideMode) {
     const m = Math.max(5, H * 0.05);
     let ax0 = m * 1.5, ax1 = W - m * 1.5;
     if (hero) {
@@ -930,10 +962,21 @@ function layout(W, H, units, sw, sh) {
 }
 // פריסה לבאנר צר וגבוה: כל יחידה מתאימה את עצמה לרוחב הבאנר (כותרת הכי גדולה, תמונות קטנות יותר), הסדר מלמעלה:
 // כותרת, תמונות, לוגו עם כתובת, ובסוף כפתור. המרווח שנשאר מתחלק בין היחידות כך שהבאנר מתמלא.
-const finePrint = (u, sh) => u.kids.every(k => k.text && ['caption', 'body', 'label'].includes(k.role)) && u.h < 0.06 * sh && u.pin === 'bottom';
+const finePrint = (u, sh) => u.kids.every(k => k.text && ['caption', 'body', 'label'].includes(k.role)) && u.h < 0.06 * sh && u.y + u.h / 2 > 0.88 * sh;
+// סדר קריאה של יחידות: כותרת, תמונות, שאר התוכן, כפתור ולוגו. בבאנר רחב הלוגו והכפתור בקצה האחרון, בגבוה לוגו עליון נשאר למעלה.
+function rankOf(u, sh, wide) {
+  const r = u.kids.map(k => k.role);
+  if (finePrint(u, sh)) return 9;
+  if ((r.includes('logo') || r.includes('brand')) && !r.includes('headline')) { if (wide) return 5; if (u.y + u.h / 2 < 0.22 * sh) return -1; }
+  if (r.includes('headline')) return 0;
+  if (r.includes('button')) return 3;
+  if (r.includes('logo') || r.includes('badge') || r.includes('brand')) return wide ? 5 : 2;
+  if (u.cards || r.includes('photo')) return 1;
+  return 1.5;
+}
 function layoutTall(W, H, units, sw, sh) {
   const m = Math.min(W, H) * 0.07, aw = W - 2 * m, rtl = units.some(u => HEB.test((u.lines || []).join('')));
-  const rank = u => { const r = u.kids.map(k => k.role); if ((r.includes('logo') || r.includes('brand')) && !r.includes('headline') && u.y + u.h / 2 < 0.22 * sh) return -1; if (r.includes('headline')) return 0; if (r.includes('button')) return 3; if (r.includes('logo') || r.includes('badge') || r.includes('brand')) return 2; if (u.cards || r.includes('photo')) return 1; return 1.5; };
+  const rank = u => rankOf(u, sh, false);
   const fine = units.filter(u => finePrint(u, sh)), out0 = [];
   let yb = H - m * 0.7;
   for (const u of fine) { const f0 = Math.min(aw / u.w, 1.5), w0 = u.w * f0, h0 = u.h * f0; yb -= h0; out0.push([u, (W - w0) / 2, yb, w0, h0]); yb -= m * 0.5; }
@@ -962,9 +1005,17 @@ function autoplace(sc, W, H) {
   const pl = [];
   const add = (u, x, y, w, h) => { const s = w / u.w; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * s, y + dy * s, k.w * s, k.h * s]); } };
   const units = sc.units.map(u => reflowUnit(u, W, H));
-  if (!units.some(u => u.role === 'hero') && W / H < 1.15) {
-    for (const [u, x, y, w, h] of layoutTall(W, H, units, sc.W, sc.H)) add(u, x, y, w, h);
-    pl.sort((a, b) => a[0].z - b[0].z);
+  const noHero = !units.some(u => u.role === 'hero'), asp = W / H;
+  let useTall = noHero && asp < 0.9, mid = null;
+  if (noHero && asp >= 0.9 && asp < 1.8) { // יחס בינוני: מנסים גם סידור לגובה וגם לרוחב, ובוחרים את זה שממלא יותר מהבאנר
+    const cover = o => o.reduce((a, e) => a + e[3] * e[4], 0);
+    const t = layoutTall(W, H, units, sc.W, sc.H), w2 = layout(W, H, units.filter(u => !u.pin || true), sc.W, sc.H, true);
+    useTall = cover(t) >= cover(w2); mid = useTall ? t : w2;
+  }
+  if (mid && !useTall) { for (const [u, x, y, w, h] of mid) add(u, x, y, w, h); pl.sort((a, b) => (a[0].isPlate ? 0 : 1) - (b[0].isPlate ? 0 : 1) || a[0].z - b[0].z); return pl; }
+  if (useTall) {
+    for (const [u, x, y, w, h] of (mid || layoutTall(W, H, units, sc.W, sc.H))) add(u, x, y, w, h);
+    pl.sort((a, b) => (a[0].isPlate ? 0 : 1) - (b[0].isPlate ? 0 : 1) || a[0].z - b[0].z);
     return pl;
   }
   const pins = [], rest = [], mg = Math.min(W, H) * 0.06;
@@ -976,7 +1027,7 @@ function autoplace(sc, W, H) {
   for (const [u, x, y0, w, h] of layout(W, avail, rest, sc.W, sc.H)) add(u, x, Math.max(0, Math.min(avail - h, y0)) + topH, w, h);
   let yt = mg, yb = H - mg;
   for (const [u, , h, w] of pins) { let y; if (u.pin === 'top') { y = yt; yt += h; } else { y = yb - h; yb -= h; } add(u, (W - w) / 2, y, w, h); }
-  pl.sort((a, b) => (a[0].role === 'hero' ? 0 : 1) - (b[0].role === 'hero' ? 0 : 1) || a[0].z - b[0].z);
+  pl.sort((a, b) => (a[0].role === 'hero' ? 0 : 1) - (b[0].role === 'hero' ? 0 : 1) || (a[0].isPlate ? 0 : 1) - (b[0].isPlate ? 0 : 1) || a[0].z - b[0].z);
   return pl;
 }
 
@@ -999,7 +1050,13 @@ function render(sc, W, H, K) {
         const o2 = (y * Wk + u) * 3; ws = ws || 1; bg.d[o2] = r / ws; bg.d[o2 + 1] = g / ws; bg.d[o2 + 2] = bl / ws;
       }
     }
-  } else { bg = resize(sc.plate, nw, nh, s < 1 ? 'area' : 'cubic'); ox = Math.floor((nw - Wk) / 2); oy = Math.floor((nh - Hk) / 2); }
+  } else {
+    bg = resize(sc.plate, nw, nh, s < 1 ? 'area' : 'cubic'); ox = Math.floor((nw - Wk) / 2); oy = Math.floor((nh - Hk) / 2);
+    if (G.SizyBg && nh > Hk + 2) { // חיתוך אנכי: שומרים את החלק העשיר בפרטים
+      if (!sc.energy) sc.energy = G.SizyBg.rowEnergy(sc.plate.d, 3, sc.W, sc.H);
+      oy = Math.max(0, Math.min(nh - Hk, Math.round(G.SizyBg.pickTop(sc.energy, sc.H, Hk / s) * s)));
+    }
+  }
   const out = new Float32Array(Wk * Hk * 3);
   for (let y = 0; y < Hk; y++) out.set(bg.d.subarray(((y + oy) * nw + ox) * 3, ((y + oy) * nw + ox + Wk) * 3), y * Wk * 3);
   for (const [leaf, x, y, w, h] of autoplace(sc, W, H)) {

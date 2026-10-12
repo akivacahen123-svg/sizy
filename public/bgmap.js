@@ -19,5 +19,23 @@
     xs[0] = 0; xs[Wk] = srcW;
     return xs;
   }
-  G.SizyBg = { map };
+  // אנרגיית פרטים בכל שורה של הרקע (קצוות), כדי שחיתוך לבאנר רחב ישאיר את החלק המעניין (אופק, עננים, הרים) ולא שמיים ריקים
+  function rowEnergy(d, stride, W, H) {
+    const lum = (x, y) => { const o = (y * W + x) * stride; return 0.3 * d[o] + 0.59 * d[o + 1] + 0.11 * d[o + 2]; };
+    const e = new Float32Array(H);
+    for (let y = 0; y < H - 1; y++) { let t = 0; for (let x = 0; x < W - 1; x += 2) t += Math.abs(lum(x, y) - lum(x + 1, y)) + Math.abs(lum(x, y) - lum(x, y + 1)); e[y] = t / (W / 2); }
+    return e;
+  }
+  // התחלת חלון חיתוך (בשורות מקור) באורך vis שמכיל הכי הרבה פרטים, עם נטייה קלה למרכז
+  function pickTop(e, H, vis) {
+    const maxT = Math.max(0, H - vis); if (maxT <= 0) return 0;
+    const pre = new Float64Array(H + 1); for (let i = 0; i < H; i++) pre[i + 1] = pre[i] + e[i];
+    let best = maxT / 2, bs = -1;
+    for (let t = 0; t <= maxT; t += Math.max(1, Math.floor(H / 200))) {
+      const hi = Math.min(H, Math.round(t + vis)), sc = (pre[hi] - pre[Math.round(t)]) * (1 - 0.18 * Math.abs(t - maxT / 2) / (maxT / 2 + 1e-6));
+      if (sc > bs) { bs = sc; best = t; }
+    }
+    return best;
+  }
+  G.SizyBg = { map, rowEnergy, pickTop };
 })(globalThis);

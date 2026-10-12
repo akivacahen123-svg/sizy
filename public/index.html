@@ -227,7 +227,7 @@ function setScene(ex){
   const plate=mk(ex.W,ex.H);plate.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(ex.plate),ex.W,ex.H),0,0);
   const leaves=new Map();
   ex.leaves.forEach(l=>{const c=mk(l.lw,l.lh);c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(l.rgba),l.lw,l.lh),0,0);leaves.set(l.z,{...l,rgba:null,canvas:c,cache:new Map()})});
-  SC={W:ex.W,H:ex.H,plate,leaves,pcache:new Map()};
+  SC={W:ex.W,H:ex.H,plate,leaves,pcache:new Map(),energy:window.SizyBg.rowEnergy(new Uint8ClampedArray(ex.plate),4,ex.W,ex.H)};
 }
 // הקטנה איכותית: חצייה בשלבים כדי שהקווים יישארו חדים
 function scaled(src,tw,th){
@@ -257,7 +257,8 @@ function compose(st,K,canvas){
   }else{
   const s=Math.max(Wk/SC.W,Hk/SC.H),nw=Math.round(SC.W*s),nh=Math.round(SC.H*s);
   const bg=cached(SC.pcache,nw+'x'+nh,()=>s<1?scaled(SC.plate,nw,nh):(()=>{const c=mk(nw,nh),x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(SC.plate,0,0,nw,nh);return c})());
-  ctx.drawImage(bg,Math.floor((Wk-nw)/2),Math.floor((Hk-nh)/2));}
+  const oy=nh>Hk+2?-Math.max(0,Math.min(nh-Hk,Math.round(window.SizyBg.pickTop(SC.energy,SC.H,Hk/s)*s))):Math.floor((Hk-nh)/2);
+  ctx.drawImage(bg,Math.floor((Wk-nw)/2),oy);}
   for(const it of st.items){
     if(it.hidden)continue;
     if(it.tm&&it.tm.on){drawText(ctx,it,K);continue}
