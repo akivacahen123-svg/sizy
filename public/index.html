@@ -264,6 +264,15 @@ function compose(st,K,canvas){
     const tw=Math.max(1,Math.round(it.w*K)),th=Math.max(1,Math.round(it.h*K));if(it.w<1||it.h<1)continue;
     const img=cached(it.leaf.cache,tw+'x'+th,()=>scaled(it.leaf.canvas,tw,th));
     ctx.drawImage(img,Math.round(it.x*K),Math.round(it.y*K),tw,th);
+    const f=it.leaf.frame;
+    if(f){ // מסגרת כפתור: נצבעת כקו וקטורי חד במקום להימתח מפיקסלים
+      const sx=it.w/it.leaf.lw,sy=it.h/it.leaf.lh,lwp=Math.max(1,Math.round(f.lw*Math.min(sx,sy)*K*2)/2);
+      const fx=it.x*K+f.x*sx*K,fy=it.y*K+f.y*sy*K,fw=f.w*sx*K,fh=f.h*sy*K,r=Math.min(f.r*Math.min(sx,sy)*K,fw/2,fh/2);
+      ctx.save();ctx.strokeStyle='rgb('+f.color.join(',')+')';ctx.lineWidth=lwp;ctx.beginPath();
+      const q=lwp/2,X=Math.round(fx*2)/2+q,Y=Math.round(fy*2)/2+q,Wd=Math.round(fw)-lwp,Hd=Math.round(fh)-lwp;
+      if(ctx.roundRect)ctx.roundRect(X,Y,Wd,Hd,Math.max(0,r-q));else ctx.rect(X,Y,Wd,Hd);
+      ctx.stroke();ctx.restore();
+    }
   }
 }
 const dispK=()=>Math.min(2,Math.max(1,window.devicePixelRatio||1));
@@ -284,7 +293,9 @@ function addCard(w,h,placed){
   <div class="cv"><div class="stage" tabindex="0"><canvas></canvas></div></div>`;
   const canvas=d.querySelector('canvas'),stage=d.querySelector('.stage'),ctl=d.querySelector('.ctl'),txt=d.querySelector('.txt');
   let sels=[],sel=null,raf=0,base=null;
-  const draw=()=>{raf=0;compose(st,dispK(),canvas);canvas.style.width='100%';canvas.style.maxWidth=w+'px'};
+  const dispKK=()=>{const cw=stage.clientWidth||w;return Math.max(.5,Math.min(3,cw/w*Math.max(1,window.devicePixelRatio||1)),Math.min(4e6/(w*h)>1?1:Math.sqrt(4e6/(w*h)),.5))};
+  const draw=()=>{raf=0;compose(st,Math.min(dispKK(),Math.sqrt(5e6/(w*h))),canvas);canvas.style.width='100%';canvas.style.maxWidth=w+'px'};
+  if(window.ResizeObserver){let lw0=0;new ResizeObserver(()=>{const cw=stage.clientWidth;if(cw&&Math.abs(cw-lw0)>1){lw0=cw;redraw()}}).observe(stage)}
   const redraw=()=>{if(!raf)raf=requestAnimationFrame(draw)};
   const pos=it=>{const o=it.ob;o.style.left=it.x/w*100+'%';o.style.top=it.y/h*100+'%';o.style.width=it.w/w*100+'%';o.style.height=it.h/h*100+'%';o.classList.toggle('hid',it.hidden)};
   const hex=c=>'#'+c.map(v=>Math.max(0,Math.min(255,v)).toString(16).padStart(2,'0')).join('');

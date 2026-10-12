@@ -866,6 +866,28 @@ function fromRGBA(rgba, w, h) {
 
 
 // נתוני הסצנה לעורך: הרקע, כל שכבה כ-RGBA, וצבע הטקסט המשוער
+// כפתור עם מסגרת: מזהים את המסגרת (צבע, עובי, פינות), מוחקים אותה מהפיקסלים ומחזירים את נתוניה כדי לצייר אותה כקו חד
+function extractFrame(L, rgba) {
+  const w = L.lw, h = L.lh, a = L.a;
+  let x0 = w, y0 = h, x1 = -1, y1 = -1;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (a[j * w + i] > 0.5) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j; }
+  if (x1 - x0 < 20 || y1 - y0 < 12) return null;
+  const my = (y0 + y1) >> 1, mx = (x0 + x1) >> 1;
+  let lw = 0; while (x0 + lw <= x1 && a[my * w + x0 + lw] > 0.35) lw++;
+  let lt = 0; while (y0 + lt <= y1 && a[(y0 + lt) * w + mx] > 0.35) lt++;
+  lw = Math.round((lw + lt) / 2); if (lw < 1 || lw > Math.min(x1 - x0, y1 - y0) * 0.2) return null;
+  // המסגרת חייבת להיות טבעת רציפה: בודקים שהאמצע של כל צלע דלוק
+  const edge = (i, j) => a[j * w + i] > 0.35;
+  if (!(edge(mx, y0) && edge(mx, y1) && edge(x0, my) && edge(x1, my))) return null;
+  let r = 0; while (x0 + r < mx && a[y0 * w + x0 + r] < 0.35) r++;
+  r = Math.min(r + lw, (y1 - y0 + 1) / 2);
+  let cr = 0, cg = 0, cb = 0, n = 0;
+  for (let i = x0; i <= x1; i++) for (let k = 0; k < lw; k++) for (const j of [y0 + k, y1 - k]) if (a[j * w + i] > 0.8) { cr += L.rgb[(j * w + i) * 3]; cg += L.rgb[(j * w + i) * 3 + 1]; cb += L.rgb[(j * w + i) * 3 + 2]; n++; }
+  if (!n) return null;
+  const t = lw + 2;
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (i < x0 + t || i > x1 - t || j < y0 + t || j > y1 - t) rgba[(j * w + i) * 4 + 3] = 0;
+  return { x: x0, y: y0, w: x1 - x0 + 1, h: y1 - y0 + 1, lw, r, color: [cr / n, cg / n, cb / n].map(Math.round) };
+}
 function exportScene(sc) {
   const plate = new Uint8ClampedArray(sc.W * sc.H * 4);
   for (let i = 0; i < sc.W * sc.H; i++) { plate[i * 4] = sc.plate.d[i * 3]; plate[i * 4 + 1] = sc.plate.d[i * 3 + 1]; plate[i * 4 + 2] = sc.plate.d[i * 3 + 2]; plate[i * 4 + 3] = 255; }
@@ -876,7 +898,8 @@ function exportScene(sc) {
       rgba[i * 4] = L.rgb[i * 3]; rgba[i * 4 + 1] = L.rgb[i * 3 + 1]; rgba[i * 4 + 2] = L.rgb[i * 3 + 2]; rgba[i * 4 + 3] = L.a[i] * 255;
       if (L.a[i] > 0.8) { r += L.rgb[i * 3]; g += L.rgb[i * 3 + 1]; b += L.rgb[i * 3 + 2]; wsum++; }
     }
-    return { z: e.z, id: e.id, role: e.role, text: e.text, lines: e.lines, lw: L.lw, lh: L.lh, w: e.w, h: e.h, rgba, color: wsum ? [r / wsum, g / wsum, b / wsum].map(Math.round) : [255, 255, 255] };
+    const frame = e.role === 'button' ? extractFrame(L, rgba) : null;
+    return { z: e.z, frame, id: e.id, role: e.role, text: e.text, lines: e.lines, lw: L.lw, lh: L.lh, w: e.w, h: e.h, rgba, color: wsum ? [r / wsum, g / wsum, b / wsum].map(Math.round) : [255, 255, 255] };
   });
   return { W: sc.W, H: sc.H, plate, leaves };
 }
