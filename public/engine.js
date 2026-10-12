@@ -731,11 +731,17 @@ function buildScene(img, elements, onProgress) {
     const a = els[i], b = els[j];
     if (!a.text || !b.text || a.role === 'button' || b.role === 'button' || a.role === 'headline' || b.role === 'headline') continue;
     const ix = Math.min(a.px[0] + a.px[2], b.px[0] + b.px[2]) - Math.max(a.px[0], b.px[0]), iy = Math.min(a.px[1] + a.px[3], b.px[1] + b.px[3]) - Math.max(a.px[1], b.px[1]);
-    if (ix <= 0 || iy <= 0) continue;
-    if (ix * iy < 0.3 * Math.min(a.px[2] * a.px[3], b.px[2] * b.px[3])) continue;
+    const lh = Math.min(a.px[3], b.px[3]), gapY = Math.max(a.px[1], b.px[1]) - Math.min(a.px[1] + a.px[3], b.px[1] + b.px[3]);
+    const stacked = ix > 0.5 * Math.min(a.px[2], b.px[2]) && gapY > -1 && gapY < 0.6 * lh && a.role === b.role && ['caption', 'body', 'subheadline'].includes(a.role); // שתי שורות של אותו כיתוב
+    if (!stacked) {
+      if (ix <= 0 || iy <= 0) continue;
+      if (ix * iy < 0.3 * Math.min(a.px[2] * a.px[3], b.px[2] * b.px[3])) continue;
+    }
     const x1 = Math.min(a.px[0], b.px[0]), y1 = Math.min(a.px[1], b.px[1]), x2 = Math.max(a.px[0] + a.px[2], b.px[0] + b.px[2]), y2 = Math.max(a.px[1] + a.px[3], b.px[1] + b.px[3]);
+    const up = a.px[1] <= b.px[1];
     a.px = [x1, y1, x2 - x1, y2 - y1];
-    const big = a.lines.join('').length >= b.lines.join('').length ? a.lines : b.lines;
+    const ov = ix > 0 && iy > 0;
+    const big = ov ? (a.lines.join('').length >= b.lines.join('').length ? a.lines : b.lines) : (up ? a.lines.concat(b.lines) : b.lines.concat(a.lines));
     a.lines = big; a.phrases = null; els.splice(j, 1);
   }
   const leaves = [], holes = new Uint8Array(W * H);
@@ -1017,13 +1023,27 @@ function layoutTall(W, H, units, sw, sh) {
   const fine = units.filter(u => finePrint(u, sh)), out0 = [];
   let yb = H - m * 0.7;
   for (const u of fine) { const f0 = Math.min(aw / u.w, 1.5), w0 = u.w * f0, h0 = u.h * f0; if (h0 < 5) continue; yb -= h0; out0.push([u, (W - w0) / 2, yb, w0, h0]); yb -= m * 0.5; }
+  // שורת תחתית: לוגו ליד כפתור, כמו שמעצבים עושים בבאנר גבוה
+  let foot = null;
+  { const lg = units.find(u => u.kids.some(k => k.role === 'logo') && !u.cards && !fine.includes(u) && rankOf(u, sh, false) >= 0), bt = units.find(u => u.role === 'button');
+    if (lg && bt && lg !== bt && H / W > 1.3) {
+      const gx = m * 0.8, fr = Math.min((aw - gx) / (lg.w + bt.w), 0.2 * H / Math.max(lg.h, bt.h), 2);
+      if (fr * Math.min(lg.w, bt.w) > 0.12 * W) {
+        const rh = Math.max(lg.h, bt.h) * fr, rw = (lg.w + bt.w) * fr + gx, x0 = (W - rw) / 2, ordL = lg.x <= bt.x;
+        const a = ordL ? lg : bt, b = ordL ? bt : lg; yb -= rh;
+        out0.push([a, x0, yb + (rh - a.h * fr) / 2, a.w * fr, a.h * fr], [b, x0 + a.w * fr + gx, yb + (rh - b.h * fr) / 2, b.w * fr, b.h * fr]);
+        foot = [lg, bt]; yb -= m * 0.8;
+      }
+    } }
   const ah = yb - m;
-  let list = units.filter(u => u.role !== 'hero' && !fine.includes(u)).sort((p, q) => rank(p) - rank(q) || p.y - q.y).slice(0, 14);
+  let list = units.filter(u => u.role !== 'hero' && !fine.includes(u) && !(foot && foot.includes(u))).sort((p, q) => rank(p) - rank(q) || p.y - q.y).slice(0, 14);
   list = list.map(u => {
     if (!u.cards) return { u, cap: rank(u) === 0 ? 3.2 : 2.2 };
     let pick = null; const total = u.cards.length;
     for (const cols of [...new Set([total, Math.ceil(total / 2), 2, 1])].filter(c => c >= 1 && c <= total)) {
       const a = arrange(u, cols, rtl), f = Math.min(aw / a.w, 1.7, (0.3 * H) / a.h);
+      const dia = f * Math.min(...u.cards.map(c => c.kids[0].w)); // קוטר העיגול הקטן ביותר אחרי ההגדלה
+      if (cols === total && total >= 3 && dia >= 0.11 * W) { pick = { a, f }; break; } // שורה אחת, כמו שמעצבים עושים
       if (!pick || f > pick.f * 1.04) pick = { a, f };
     }
     return { u: pick.a, cap: Math.min(1.9, pick.f) };
