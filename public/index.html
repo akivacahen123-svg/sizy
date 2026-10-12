@@ -287,7 +287,7 @@ document.addEventListener('keydown',e=>{
   if(k==='z'&&!e.shiftKey){e.preventDefault();activeCard._undo()}else if(k==='y'||(k==='z'&&e.shiftKey)){e.preventDefault();activeCard._redo()}
 });
 function addCard(w,h,placed){
-  const st={w,h,items:placed.map(p=>{const leaf=SC.leaves.get(p.z);return{z:p.z,leaf,x:p.x,y:p.y,w:p.w,h:p.h,o:{x:p.x,y:p.y,w:p.w,h:p.h},hidden:false,tm:null}})};
+  const st={w,h,items:placed.map(p=>{let leaf=SC.leaves.get(p.z);if(leaf&&p.layer){const c=mk(p.layer.lw,p.layer.lh);c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(p.layer.rgba),p.layer.lw,p.layer.lh),0,0);leaf={...leaf,canvas:c,lw:p.layer.lw,lh:p.layer.lh,cache:new Map(),frame:null}}return{z:p.z,leaf,x:p.x,y:p.y,w:p.w,h:p.h,o:{x:p.x,y:p.y,w:p.w,h:p.h},hidden:false,tm:null}})};
   st.items=st.items.filter(i=>i.leaf);
   const d=document.createElement('div');d.className='card res wide';
   d.innerHTML=`<div class="rh"><div class="ttl"><label class="pick" title="בחירה להורדה"><input type="checkbox" checked></label><h3>${w} × ${h}</h3></div><div class="bt"><button class="ghost" data-a="reset">איפוס הכל</button><button class="ghost" data-a="dl">הורדת PNG</button></div></div>

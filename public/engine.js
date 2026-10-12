@@ -534,21 +534,27 @@ function graphicLayer(clean, e, grad) {
   return { rgb: crop.d, a, lw: w, lh: h, up: 1, x, y, w, h };
 }
 
-// ממרכז שורות של כיתוב רב-שורתי בתוך השכבה (בכיתוב המקורי השורות לא תמיד באמצע)
-function centerLines(L, n) {
-  const { lw: w, lh: h, a, rgb } = L; if (n < 2) return;
+// מחלק שכבת טקסט ל-n שורות (פסי גובה): לפי רווחים ריקים, ואם השורות נוגעות זו בזו חותך בעמק הדל ביותר
+function lineBands(L, n) {
+  const { lw: w, lh: h, a } = L;
   const rows = new Float32Array(h);
   for (let j = 0; j < h; j++) { let c = 0; for (let i = 0; i < w; i++) if (a[j * w + i] > 0.5) c++; rows[j] = c; }
   const bands = []; let st = -1;
   for (let j = 0; j <= h; j++) { const on = j < h && rows[j] > 0; if (on && st < 0) st = j; else if (!on && st >= 0) { bands.push([st, j]); st = -1; } }
+  if (!bands.length) return null;
   const mx = Math.max(...bands.map(b => b[1] - b[0]), 1), merged = [];
   for (const b of bands) { const last = merged[merged.length - 1]; if (last && (b[0] - last[1] <= Math.max(2, mx * 0.12)) && (b[1] - b[0] < mx * 0.45 || last[1] - last[0] < mx * 0.45)) last[1] = b[1]; else merged.push([b[0], b[1]]); }
-  if (merged.length < n && bands.length) { // שורות שנוגעות זו בזו: חותכים בעמק הדל ביותר ליד המקום הצפוי
+  if (merged.length < n) {
     const t0 = bands[0][0], t1 = bands[bands.length - 1][1], lh = (t1 - t0) / n, cuts = [t0];
     for (let k = 1; k < n; k++) { let bj = Math.round(t0 + k * lh), bv = 1e9; for (let j = Math.round(t0 + k * lh - lh * 0.28); j <= Math.round(t0 + k * lh + lh * 0.28); j++) { const v = rows[Math.max(0, Math.min(h - 1, j))]; if (v < bv) { bv = v; bj = j; } } cuts.push(bj); }
     cuts.push(t1); merged.length = 0; for (let k = 0; k < n; k++) merged.push([cuts[k], cuts[k + 1]]);
   }
-  if (merged.length !== n) return;
+  return merged.length === n ? merged : null;
+}
+// ממרכז שורות של כיתוב רב-שורתי בתוך השכבה (בכיתוב המקורי השורות לא תמיד באמצע)
+function centerLines(L, n) {
+  const { lw: w, lh: h, a, rgb } = L; if (n < 2) return;
+  const merged = lineBands(L, n); if (!merged) return;
   const ext = merged.map(([y0, y1]) => { let lo = w, hi = -1; for (let j = y0; j < y1; j++) for (let i = 0; i < w; i++) if (a[j * w + i] > 0.5) { if (i < lo) lo = i; if (i > hi) hi = i; } return [lo, hi]; });
   const cx = (Math.min(...ext.map(e => e[0])) + Math.max(...ext.map(e => e[1]))) / 2;
   merged.forEach(([y0, y1], k) => {
@@ -561,6 +567,115 @@ function centerLines(L, n) {
     }
   });
 }
+
+// ---------------------------------------------------------------- שבירת שורות מחדש
+// כותרת שנחתכה כתמונה מפורקת למילים (לפי הרווחים בין האותיות ומספר המילים שה-AI קרא), כך שאפשר לסדר אותה
+// בשורות אחרות: בבאנר צר כל מילה בשורה, ובבאנר רחב כמה מילים בשורה אחת. הפיקסלים נשארים המקוריים.
+function wordsOf(e) {
+  if (e._w !== undefined) return e._w;
+  e._w = null;
+  const L = e.layer; if (!L || !e.lines || !e.lines.length) return null;
+  const per = e.lines.map(l => String(l).trim().split(/\s+/).filter(Boolean)), n = per.length, total = per.reduce((a, p) => a + p.length, 0);
+  if (total < 2 || total > 14) return null;
+  const bands = lineBands(L, n); if (!bands) return null;
+  const { lw: w, a } = L, rtl = HEB.test(e.lines.join('')), words = [], splitGaps = [];
+  for (let i = 0; i < n; i++) {
+    const [y0, y1] = bands[i], bh = y1 - y0, k = per[i].length - 1;
+    const ink = new Uint8Array(w);
+    for (let j = y0; j < y1; j++) for (let x = 0; x < w; x++) if (a[j * w + x] > 0.5) ink[x] = 1;
+    const runs = []; let st = -1;
+    for (let x = 0; x <= w; x++) { if (x < w && ink[x]) { if (st < 0) st = x; } else if (st >= 0) { runs.push([st, x - 1]); st = -1; } }
+    if (runs.length < k + 1) return null;
+    const gaps = runs.slice(1).map((r, j) => ({ j, g: r[0] - runs[j][1] - 1 })).sort((p, q) => q.g - p.g);
+    if (k > 0) {
+      const lo = gaps[k - 1].g, nxt = gaps[k] ? gaps[k].g : 0;
+      if (!(lo > 1.35 * nxt || lo > 0.22 * bh)) return null;
+      for (let t = 0; t < k; t++) splitGaps.push(gaps[t].g);
+    }
+    const cut = new Set(gaps.slice(0, k).map(g => g.j)), line = []; let s0 = runs[0][0];
+    for (let j = 0; j < runs.length; j++) { if (j === runs.length - 1 || cut.has(j)) { line.push([s0, runs[j][1]]); if (j < runs.length - 1) s0 = runs[j + 1][0]; } }
+    if (line.length !== k + 1) return null;
+    if (rtl) line.reverse();
+    line.forEach(([x0, x1]) => words.push({ x0, x1, y0, y1, line: i }));
+  }
+  const bhs = bands.map(b => b[1] - b[0]).sort((p, q) => p - q), bandH = bhs[bhs.length >> 1];
+  const gapSp = splitGaps.length ? splitGaps.sort((p, q) => p - q)[splitGaps.length >> 1] : bandH * 0.3;
+  const lgs = []; for (let i = 0; i + 1 < n; i++) lgs.push(Math.max(0, bands[i + 1][0] - bands[i][1])); lgs.sort((p, q) => p - q);
+  const lineGap = Math.max(bandH * 0.08, lgs.length ? lgs[lgs.length >> 1] : bandH * 0.15), pitch = bandH + lineGap;
+  let ph = new Array(total).fill(0), P = 1;
+  if (e.phrases && e.phrases.length > 1) {
+    const cnt = e.phrases.map(t => String(t).trim().split(/\s+/).filter(Boolean).length);
+    if (cnt.reduce((p, q) => p + q, 0) === total) { ph = []; cnt.forEach((c, i) => { for (let t = 0; t < c; t++) ph.push(i); }); P = cnt.length; }
+  }
+  const brk = new Set(); let acc = 0; per.forEach((p, i) => { acc += p.length; if (i < n - 1) brk.add(acc); });
+  words.forEach((wd, i) => { wd.ph = ph[i]; });
+  e._w = { words, gap: Math.max(2, gapSp), bandH, pitch, lineGap, rtl, P, brk };
+  return e._w;
+}
+// בוחר חלוקה למילים-בשורות שנותנת את הכיתוב הגדול ביותר בתוך תיבה (bw × bh בפיקסלים של היעד), ובונה ממנה שכבה חדשה
+function reflowLeaf(e, bw, bh) {
+  const W = wordsOf(e); if (!W) return null;
+  const { words, gap, bandH, pitch, lineGap, rtl, P, brk } = W, n = words.length, up = e.layer.up || 1;
+  const ww = words.map(x => x.x1 - x.x0 + 1);
+  let best = null;
+  const rec = (start, acc) => {
+    if (start === n) {
+      const k = acc.length;
+      if (k >= P && P > 1) for (const [s, t] of acc) for (let i = s + 1; i < t; i++) if (words[i].ph !== words[s].ph) return;
+      const lws = acc.map(([s, t]) => { let v = (t - s - 1) * gap; for (let i = s; i < t; i++) v += ww[i]; return v; }), lw = Math.max(...lws);
+      let extra = 0; if (P > 1 && k > P) for (let i = 0; i < k - 1; i++) if (words[acc[i][1]].ph !== words[acc[i][1] - 1].ph) extra += bandH * 0.32;
+      const lhs = acc.map(([s, t]) => { let v = 0; for (let i = s; i < t; i++) v = Math.max(v, words[i].y1 - words[i].y0); return v; });
+      const lh = lhs.reduce((p, q) => p + q, 0) + (k - 1) * lineGap + extra;
+      const mean = lws.reduce((p, q) => p + q, 0) / k, rag = lws.reduce((p, q) => p + Math.abs(q - mean), 0) / (k * lw);
+      const cuts = new Set(acc.slice(0, -1).map(([, t]) => t)); let same = cuts.size === brk.size; if (same) for (const c of cuts) if (!brk.has(c)) same = false;
+      const s = Math.min(bw / (lw / up), bh / (lh / up)) * (1 - 0.12 * rag) * (same ? 1.04 : 1);
+      if (!best || s > best.s * 1.01) best = { s, acc: acc.slice(), lws, lhs, lw, lh, extra };
+      return;
+    }
+    for (let end = start + 1; end <= n; end++) { acc.push([start, end]); rec(end, acc); acc.pop(); }
+  };
+  rec(0, []);
+  if (!best) return null;
+  const pad = 3, W2 = Math.ceil(best.lw) + 2 * pad, H2 = Math.ceil(best.lh) + 2 * pad, src = e.layer, sw = src.lw;
+  const a = new Float32Array(W2 * H2), rgb = new Float32Array(W2 * H2 * 3);
+  let y = pad;
+  best.acc.forEach(([s, t], li) => {
+    if (li > 0 && P > 1 && best.acc.length > P && words[s].ph !== words[s - 1].ph) y += bandH * 0.32;
+    let cur = rtl ? pad + (best.lw - best.lws[li]) / 2 + best.lws[li] : pad + (best.lw - best.lws[li]) / 2;
+    for (let i = s; i < t; i++) {
+      const wd = words[i], wwid = ww[i], x0 = Math.round(rtl ? cur - wwid : cur);
+      for (let j = wd.y0 - 2; j < wd.y1 + 2; j++) {
+        if (j < 0 || j >= src.lh) continue; const dy = Math.round(y + (best.lhs[li] - (wd.y1 - wd.y0)) / 2) + (j - wd.y0); if (dy < 0 || dy >= H2) continue;
+        for (let x = wd.x0 - 2; x <= wd.x1 + 2; x++) {
+          const dx = x0 + (x - wd.x0); if (x < 0 || x >= sw || dx < 0 || dx >= W2) continue;
+          const si = j * sw + x, di = dy * W2 + dx, al = src.a[si];
+          if (al > a[di]) { a[di] = al; rgb[di * 3] = src.rgb[si * 3]; rgb[di * 3 + 1] = src.rgb[si * 3 + 1]; rgb[di * 3 + 2] = src.rgb[si * 3 + 2]; }
+        }
+      }
+      cur = rtl ? cur - wwid - gap : cur + wwid + gap;
+    }
+    y += best.lhs[li] + lineGap;
+  });
+  return { rgb, a, lw: W2, lh: H2, up, s: best.s, k: best.acc.length };
+}
+// יחידה (למשל כותרת + שורת פתיחה) אחרי שבירת השורות מחדש. מחזיר את היחידה המקורית אם אין מה לשנות.
+function reflowUnit(u, W, H) {
+  if (!u.kids.every(k => k.text && ['headline', 'subheadline', 'body'].includes(k.role))) return u;
+  const heads = u.kids.filter(k => (k.role === 'headline' || (k.role === 'subheadline' && W / H < 1.15)) && wordsOf(k)); if (!heads.length) return u;
+  const m = Math.min(W, H) * 0.07, wide = W / H >= 1.6;
+  const bw = wide ? W * 0.46 : W - 2 * m, bh = (wide ? (H - 2 * m) * 0.8 : H * 0.42) * (u.kids.length > 1 ? 0.85 : 1);
+  const orig = u.kids.slice().sort((p, q) => p.y - q.y);
+  const kids = orig.map(k => {
+    if (!heads.includes(k)) return k;
+    const L2 = reflowLeaf(k, bw, k.role === 'headline' ? bh : H * 0.16); if (!L2) return k;
+    return { ...k, layer: L2, w: L2.lw / L2.up, h: L2.lh / L2.up, reflowed: true };
+  });
+  if (kids.every((k, i) => k === orig[i])) return u;
+  const uw = Math.max(...kids.map(k => k.w)), rel = new Map(); let y = 0;
+  kids.forEach((k, i) => { if (i > 0) y += Math.max(0, orig[i].y - (orig[i - 1].y + orig[i - 1].h)); rel.set(k, [(uw - k.w) / 2, y]); y += k.h; });
+  return { ...u, kids, w: uw, h: y, rel, pin: null, reflowed: true };
+}
+
 // ---------------------------------------------------------------- סצנה
 function buildScene(img, elements, onProgress) {
   const W = img.w, H = img.h, tell = m => onProgress && onProgress(m);
@@ -574,7 +689,7 @@ function buildScene(img, elements, onProgress) {
     let isText = TEXT_ROLES.has(role) || (lines.length > 0 && role !== 'button');
     const shape = e.shape || { photo: 'circle', button: 'pill', hero: 'hero', logo: 'free' }[role] || 'free';
     if (role === 'button' && e.style === 'outline') isText = true;
-    els.push({ id: e.id || 'e' + i, role, lines, text: isText, shape, group: role === 'hero' ? null : (e.group || null), px: [x1, y1, x2 - x1, y2 - y1], z: i, bullet: e.bullet || null });
+    els.push({ id: e.id || 'e' + i, role, lines, text: isText, shape, group: role === 'hero' ? null : (e.group || null), px: [x1, y1, x2 - x1, y2 - y1], z: i, bullet: e.bullet || null, phrases: e.phrases || null });
   });
   const leaves = [], holes = new Uint8Array(W * H);
   tell('חותך את הטקסטים…');
@@ -799,11 +914,42 @@ function layout(W, H, units, sw, sh) {
   }
   return out;
 }
+// פריסה לבאנר צר וגבוה: כל יחידה מתאימה את עצמה לרוחב הבאנר (כותרת הכי גדולה, תמונות קטנות יותר), הסדר מלמעלה:
+// כותרת, תמונות, לוגו עם כתובת, ובסוף כפתור. המרווח שנשאר מתחלק בין היחידות כך שהבאנר מתמלא.
+function layoutTall(W, H, units, sw, sh) {
+  const m = Math.min(W, H) * 0.07, aw = W - 2 * m, ah = H - 2 * m, rtl = units.some(u => HEB.test((u.lines || []).join('')));
+  const rank = u => { const r = u.kids.map(k => k.role); if (r.includes('headline')) return 0; if (r.includes('button')) return 3; if (r.includes('logo') || r.includes('badge') || r.includes('brand')) return 2; if (u.cards || r.includes('photo')) return 1; return 1.5; };
+  let list = units.filter(u => u.role !== 'hero').sort((p, q) => rank(p) - rank(q) || p.y - q.y).slice(0, 14);
+  list = list.map(u => {
+    if (!u.cards) return { u, cap: rank(u) === 0 ? 3.2 : 2.2 };
+    let pick = null; const total = u.cards.length;
+    for (const cols of [...new Set([total, Math.ceil(total / 2), 2, 1])].filter(c => c >= 1 && c <= total)) {
+      const a = arrange(u, cols, rtl), f = Math.min(aw / a.w, 2.4, (0.36 * H) / a.h);
+      if (!pick || f > pick.f * 1.04) pick = { a, f };
+    }
+    return { u: pick.a, cap: 2.4 };
+  });
+  let f = list.map(({ u, cap }) => Math.min(aw / u.w, cap));
+  const gmin = Math.max(5, H * 0.025), nGap = Math.max(0, list.length - 1);
+  const tot = () => list.reduce((a, { u }, i) => a + u.h * f[i], 0);
+  if (tot() + gmin * nGap > ah) { const g = (ah - gmin * nGap) / tot(); f = f.map(v => v * g); }
+  const gap = nGap ? Math.min(H * 0.09, (ah - tot()) / nGap) : 0, used = tot() + gap * nGap;
+  let y = m + Math.max(0, (ah - used) / 2);
+  const out = [];
+  list.forEach(({ u }, i) => { const w = u.w * f[i], h = u.h * f[i]; out.push([u, (W - w) / 2, y, w, h]); y += h + gap; });
+  return out;
+}
 function autoplace(sc, W, H) {
   const pl = [];
   const add = (u, x, y, w, h) => { const s = w / u.w; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * s, y + dy * s, k.w * s, k.h * s]); } };
+  const units = sc.units.map(u => reflowUnit(u, W, H));
+  if (!units.some(u => u.role === 'hero') && W / H < 1.15) {
+    for (const [u, x, y, w, h] of layoutTall(W, H, units, sc.W, sc.H)) add(u, x, y, w, h);
+    pl.sort((a, b) => a[0].z - b[0].z);
+    return pl;
+  }
   const pins = [], rest = [], mg = Math.min(W, H) * 0.06;
-  for (const u of sc.units) { if (u.pin) { const k = Math.min((W - 2 * mg) / u.w, 1.4); pins.push([u, k, u.h * k, u.w * k]); } else rest.push(u); }
+  for (const u of units) { if (u.pin) { const k = Math.min((W - 2 * mg) / u.w, 1.4); pins.push([u, k, u.h * k, u.w * k]); } else rest.push(u); }
   const hasTop = pins.some(p => p[0].pin === 'top'), hasBot = pins.some(p => p[0].pin === 'bottom');
   const topH = pins.filter(p => p[0].pin === 'top').reduce((a, p) => a + p[2], 0) + (hasTop ? mg : 0);
   const botH = pins.filter(p => p[0].pin === 'bottom').reduce((a, p) => a + p[2], 0) + (hasBot ? mg : 0);
@@ -903,7 +1049,13 @@ function exportScene(sc) {
   });
   return { W: sc.W, H: sc.H, plate, leaves };
 }
-function placements(sc, W, H) { return autoplace(sc, W, H).map(([k, x, y, w, h]) => ({ z: k.z, x, y, w, h })); }
+function placements(sc, W, H) {
+  return autoplace(sc, W, H).map(([k, x, y, w, h]) => {
+    const o = { z: k.z, x, y, w, h };
+    if (k.reflowed) { const L = k.layer, n = L.lw * L.lh, rgba = new Uint8ClampedArray(n * 4); for (let i = 0; i < n; i++) { rgba[i * 4] = L.rgb[i * 3]; rgba[i * 4 + 1] = L.rgb[i * 3 + 1]; rgba[i * 4 + 2] = L.rgb[i * 3 + 2]; rgba[i * 4 + 3] = L.a[i] * 255; } o.layer = { lw: L.lw, lh: L.lh, rgba }; }
+    return o;
+  });
+}
 
-G.SizyEngine = { buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);

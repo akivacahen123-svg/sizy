@@ -12,7 +12,8 @@ onmessage = e => {
       postMessage({ type: 'built', id: m.id, boxes: scene.boxes, scene: ex }, bufs);
     } else if (m.type === 'place') {
       if (!scene) throw new Error('no scene');
-      postMessage({ type: 'placed', id: m.id, items: SizyEngine.placements(scene, m.w, m.h) });
+      const items = SizyEngine.placements(scene, m.w, m.h);
+      postMessage({ type: 'placed', id: m.id, items }, items.filter(i => i.layer).map(i => i.layer.rgba.buffer));
     } else if (m.type === 'render') {
       if (!scene) throw new Error('no scene');
       const r = SizyEngine.render(scene, m.w, m.h, m.k);

@@ -10,6 +10,7 @@ box = tight box around the element's visible pixels, integers 0-1000 normalised 
 
 TEXT ELEMENTS (add "lines"): roles headline, subheadline, body, caption (small text next to a photo or logo), label (text inside a button), bullets (a list of lines that each start with a small icon).
 - "lines": the exact text, one array entry per visual line, same line breaks as in the image. Never translate, fix or reword.
+- For a headline or subheadline that is split over several lines, also add "phrases": the same text cut into its natural meaning units (e.g. a three-line title about a trip split as ["Weekend in the north","with the family"]), words in the original order, nothing added or removed.
 - If every line starts or ends with a small icon (plus, dot, check) use role "bullets", add "bullet":"plus" (or "dot"), and make the box INCLUDE the icons.
 - Text that is part of a logo, seal or badge graphic is NOT a text element; it stays inside the logo.
 
@@ -46,7 +47,7 @@ async function discoverModels(env: any, key: string, fetcher: typeof fetch): Pro
   } catch { return []; }
 }
 
-export type El = { id: string; role: string; box: number[]; group: string | null; lines?: string[]; shape?: string; style?: string; bullet?: string };
+export type El = { id: string; role: string; box: number[]; group: string | null; lines?: string[]; phrases?: string[]; shape?: string; style?: string; bullet?: string };
 
 // מנקה את תשובת ה-AI. המערך בא בסדר [ymin,xmin,ymax,xmax] והופך ל-[x1,y1,x2,y2].
 export function cleanElements(raw: any): El[] {
@@ -59,6 +60,7 @@ export function cleanElements(raw: any): El[] {
     if (x2 - x1 < 3 || y2 - y1 < 3) return;
     const d: El = { id: String(e.id ?? 'e' + i), role: ROLES.has(e.role) ? e.role : 'decor', box: [x1, y1, x2, y2], group: e.group && e.group !== 'null' ? String(e.group) : null };
     if (Array.isArray(e.lines) && e.lines.length) d.lines = e.lines.map(String);
+    if (Array.isArray(e.phrases) && e.phrases.length > 1 && e.phrases.length <= 6) d.phrases = e.phrases.map(String);
     if (SHAPES.has(e.shape)) d.shape = e.shape;
     if (e.style === 'filled' || e.style === 'outline') d.style = e.style;
     if (['plus', 'dot', 'check'].includes(e.bullet)) d.bullet = e.bullet;
