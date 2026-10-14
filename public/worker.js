@@ -4,6 +4,7 @@ let scene = null;
 onmessage = e => {
   const m = e.data;
   try {
+    if (m.type === 'bans') { SizyEngine.setBans(m.bans); return; }
     if (m.type === 'build') {
       const img = SizyEngine.fromRGBA(new Uint8ClampedArray(m.rgba), m.w, m.h);
       scene = SizyEngine.buildScene(img, m.elements, text => postMessage({ type: 'progress', id: m.id, text }));

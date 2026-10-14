@@ -135,6 +135,16 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
   <section class="results">
     <div class="rhead"><h2>התוצאות</h2><div id="bulk" hidden><button class="chip" id="selall">בחר הכל</button><button class="chip" id="selnone">נקה בחירה</button><button class="go" id="dlall">הורדת הנבחרים (ZIP)</button></div></div>
     <p class="sub" id="hint" hidden style="margin-bottom:12px">כל באנר נבנה מחדש מהאלמנטים של המקור. לחצו על אלמנט כדי להזיז, להגדיל, למרכז או לערוך אותו. אפשר להוריד כל באנר בנפרד, או לבחור כמה ולהוריד אותם יחד ב-ZIP.</p>
+    <details id="bans" style="margin-bottom:14px;padding:12px 14px;border-radius:14px;background:#fff;border:1px solid #dbe3f3">
+      <summary style="cursor:pointer;font-weight:700">איסורים: מה סייזי אף פעם לא יעשה</summary>
+      <p class="sub" style="margin:8px 0">כללים שסייזי בודק בכל באנר ומתקן אם נשברו. אפשר לכבות כלל אם הוא מפריע.</p>
+      <label style="display:block;margin:4px 0"><input type="checkbox" data-ban="overlap" checked> לא לתת לאלמנטים לעלות אחד על השני</label>
+      <label style="display:block;margin:4px 0"><input type="checkbox" data-ban="clip" checked> לא לחתוך אלמנטים בקצה הבאנר, ולשמור שוליים</label>
+      <label style="display:block;margin:4px 0"><input type="checkbox" data-ban="tiny" checked> לא להשאיר כיתוב קטן מדי לקריאה</label>
+      <p class="sub" style="margin:10px 0 4px">איסור משלכם (סייזי ילמד אותו לכל הבאנרים הבאים):</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="bantxt" maxlength="200" placeholder="למשל: לא להקטין את הלוגו מתחת לרוחב מסוים" style="flex:1;min-width:200px;padding:9px;border:1px solid #dbe3f3;border-radius:10px;font:inherit"><button class="chip" id="bansend">הוסף איסור</button></div>
+      <p class="sub" id="banst" style="margin-top:6px"></p>
+    </details>
     <div id="fb" hidden style="margin-bottom:14px;padding:14px;border-radius:14px;background:#fff;border:1px solid #dbe3f3">
       <b>הערות לסייזי</b>
       <p class="sub" style="margin:4px 0 8px">כתבו מה לא טוב ומה לתקן. סייזי יתקן את הבאנרים, ויזכור את זה לכל הבאנרים הבאים.</p>
@@ -182,7 +192,7 @@ $('#clr').onclick=()=>setSizes([]);
 // ---- עובד הרקע
 function getWorker(){
   if(worker)return worker;
-  worker=new Worker('/worker.js');
+  worker=new Worker('/worker.js');try{worker.postMessage({type:'bans',bans:getBans()})}catch(e){}
   worker.onmessage=e=>{const m=e.data,p=pending.get(m.id);if(!p)return;
     if(m.type==='progress'){p.progress&&p.progress(m.text);return}
     pending.delete(m.id);m.type==='error'?p.reject(new Error(m.message)):p.resolve(m)};
@@ -519,6 +529,11 @@ $('#dlall').onclick=async()=>{
   catch(e){$('#st').textContent='לא הצלחתי להוריד את הקובץ.'}
   finally{updBulk()}
 };
+
+function getBans(){try{return JSON.parse(localStorage.getItem('sizy.bans')||'{}')}catch(e){return {}}}
+document.querySelectorAll('#bans [data-ban]').forEach(c=>{const b=getBans();if(c.dataset.ban in b)c.checked=!!b[c.dataset.ban];c.onchange=()=>{const cur=getBans();cur[c.dataset.ban]=c.checked;try{localStorage.setItem('sizy.bans',JSON.stringify(cur))}catch(e){}try{getWorker().postMessage({type:'bans',bans:cur})}catch(e){}}});
+const banSend=document.getElementById('bansend');
+if(banSend)banSend.onclick=async()=>{const t=document.getElementById('bantxt').value.trim(),st=document.getElementById('banst');if(!t)return;st.textContent='שומר…';try{const r=await fetch('/api/feedback',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({note:'איסור קבוע (לעולם לא לעשות): '+t})});st.textContent=r.ok?'נשמר. סייזי יכבד את האיסור הזה בבאנרים הבאים.':'לא הצלחתי לשמור כרגע, נסו שוב.';if(r.ok)document.getElementById('bantxt').value=''}catch(e){st.textContent='לא הצלחתי לשמור כרגע, נסו שוב.'}};
 </script>
 </body>
 </html>

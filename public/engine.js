@@ -1250,6 +1250,7 @@ function planValid(plan, sc, W, H) {
 }
 // שורות קטנות מדי לקריאה (פחות מכ-6.5 פיקסלים) בכיתובים מוסרות, כדי שלא יישארו כתמים לא קריאים
 function dropTiny(pl) {
+  if (!BANS.tiny) return pl;
   return pl.filter(e => !(e[0].text && ['caption', 'body', 'subheadline'].includes(e[0].role) && e[4] / Math.max(1, (e[0].lines || [1]).length) < 7.5));
 }
 function autoplaceRules(sc, W, H) {
@@ -1312,11 +1313,56 @@ function planOk(pp, base, W, H) {
   if (W / H > 1.3 && (y1 - y0) < 0.45 * H) return false;      // באנר רחב: התוכן צריך למלא את הגובה
   return true;
 }
+// רשימת איסורים: כללים שהמנוע לא מרשה לעצמו לשבור. כל איסור אפשר לכבות בהגדרות.
+const BANS = { overlap: true, clip: true, tiny: true };
+function setBans(b) { if (b && typeof b === 'object') for (const k of Object.keys(BANS)) if (k in b) BANS[k] = !!b[k]; }
+function enforceBans(sc, W, H, pl) {
+  if (!BANS.overlap && !BANS.clip) return pl;
+  const uOf = new Map(); sc.units.forEach((u, i) => u.kids.forEach(k => uOf.set(k, i)));
+  const ov = (a, b) => Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1) > 0.5 && Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1) > 0.5;
+  const build = () => {
+    const m = new Map();
+    for (const e of pl) {
+      const lf = e[0]; if (lf.isPlate || lf.role === 'hero' || lf.role === 'decor') continue;
+      const id = uOf.has(lf) ? uOf.get(lf) : 'l' + lf.id; let u = m.get(id);
+      if (!u) { u = { id, es: [], x1: 1e9, y1: 1e9, x2: -1e9, y2: -1e9 }; m.set(id, u); }
+      u.es.push(e); u.x1 = Math.min(u.x1, e[1]); u.y1 = Math.min(u.y1, e[2]); u.x2 = Math.max(u.x2, e[1] + e[3]); u.y2 = Math.max(u.y2, e[2] + e[4]);
+    }
+    return [...m.values()];
+  };
+  let us = build(); if (us.length < 2 && !BANS.clip) return pl;
+  const bad = () => { for (let i = 0; i < us.length; i++) for (let j = i + 1; j < us.length; j++) { const a = us[i], b = us[j], ix = Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1), iy = Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1); if (ix > 1 && iy > 1 && ix * iy > 0.06 * Math.min((a.x2 - a.x1) * (a.y2 - a.y1), (b.x2 - b.x1) * (b.y2 - b.y1))) return true; } return false; };
+  const out = pl.map(e => e.slice());
+  const idx = new Map(pl.map((e, i) => [e, i]));
+  const move = (u, dx, dy) => { for (const e of u.es) { const o = out[idx.get(e)]; o[1] += dx; o[2] += dy; } u.x1 += dx; u.x2 += dx; u.y1 += dy; u.y2 += dy; };
+  const scaleAll = (k, cx, cy) => { for (const u of us) { for (const e of u.es) { const o = out[idx.get(e)]; o[1] = cx + (o[1] - cx) * k; o[2] = cy + (o[2] - cy) * k; o[3] *= k; o[4] *= k; } u.x1 = cx + (u.x1 - cx) * k; u.x2 = cx + (u.x2 - cx) * k; u.y1 = cy + (u.y1 - cy) * k; u.y2 = cy + (u.y2 - cy) * k; } };
+  if (BANS.overlap && bad()) {
+    const wide = W / H >= 1.8, gap = 0.012 * Math.min(W, H);
+    for (let pass = 0; pass < 6 && bad(); pass++) {
+      us.sort(wide ? (p, q) => p.x1 - q.x1 : (p, q) => p.y1 - q.y1);
+      for (let j = 1; j < us.length; j++) for (let i = 0; i < j; i++) {
+        const a = us[i], b = us[j]; if (!ov(a, b)) continue;
+        if (wide) move(b, a.x2 - b.x1 + gap, 0); else move(b, 0, a.y2 - b.y1 + gap);
+      }
+    }
+    if (bad()) { /* נשאר חפיפה: ממשיכים לכיווץ */ }
+  }
+  if (BANS.clip || BANS.overlap) {
+    const m = 0.02 * Math.min(W, H);
+    const x1 = Math.min(...us.map(u => u.x1)), x2 = Math.max(...us.map(u => u.x2)), y1 = Math.min(...us.map(u => u.y1)), y2 = Math.max(...us.map(u => u.y2));
+    const k = Math.min(1, (W - 2 * m) / Math.max(1, x2 - x1), (H - 2 * m) / Math.max(1, y2 - y1));
+    if (k < 1) scaleAll(k, (x1 + x2) / 2, (y1 + y2) / 2);
+    const nx1 = Math.min(...us.map(u => u.x1)), nx2 = Math.max(...us.map(u => u.x2)), ny1 = Math.min(...us.map(u => u.y1)), ny2 = Math.max(...us.map(u => u.y2));
+    const dx = nx1 < m ? m - nx1 : nx2 > W - m ? W - m - nx2 : 0, dy = ny1 < m ? m - ny1 : ny2 > H - m ? H - m - ny2 : 0;
+    if (dx || dy) for (const u of us) move(u, dx, dy);
+  }
+  return out;
+}
 function autoplace(sc, W, H, plan) {
   const base = autoplaceRules(sc, W, H);
-  if (!plan || !planValid(plan, sc, W, H)) return base;
-  const pp = planned(sc, W, H, plan);
-  return planOk(pp, base, W, H) ? pp : base;
+  let res = base;
+  if (plan && planValid(plan, sc, W, H)) { const pp = planned(sc, W, H, plan); if (planOk(pp, base, W, H)) res = pp; }
+  return enforceBans(sc, W, H, res);
 }
 
 // ---------------------------------------------------------------- רינדור
@@ -1429,5 +1475,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);

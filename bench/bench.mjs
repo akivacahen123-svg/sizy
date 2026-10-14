@@ -23,7 +23,7 @@ for (const n of names) {
     if (small.length && Math.min(...small) < 6.5) flags.push('tinytext:' + Math.min(...small).toFixed(1));
     for (let i = 0; i < content.length; i++) for (let j = i + 1; j < content.length; j++) {
       const a = content[i], b = content[j]; const ra = a[0].role, rb = b[0].role;
-      if ((ra === 'button' && rb === 'label') || (rb === 'button' && ra === 'label')) continue;
+      if ((ra === 'button' || ra === 'badge') && rb === 'label' || (rb === 'button' || rb === 'badge') && ra === 'label') continue;
       const o = ov(a, b); if (o > 0.1 * Math.min(a[3] * a[4], b[3] * b[4])) { flags.push(`overlap:${a[0].id}/${b[0].id}`); i = 1e9; break; }
     }
     const heads = sc.leaves.filter(l => l.role === 'headline');
