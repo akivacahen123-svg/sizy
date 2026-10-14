@@ -1285,6 +1285,14 @@ function render(sc, W, H, K, plan) {
     for (let i = 0; i < n; i++) { const a = L.up === 1 ? L.a[i] : L.a[i]; pm.d[i * 4] = L.rgb[i * 3] * a; pm.d[i * 4 + 1] = L.rgb[i * 3 + 1] * a; pm.d[i * 4 + 2] = L.rgb[i * 3 + 2] * a; pm.d[i * 4 + 3] = a; }
     const tw = Math.max(1, Math.round(w * K)), th = Math.max(1, Math.round(h * K));
     const r = resize(pm, tw, th, tw < pm.w ? 'area' : 'lanczos');
+    if (leaf.text && tw > 3 && th > 3) { // חידוד קל לטקסט אחרי הקטנה: קצוות האותיות נשארים חדים וקריאים גם בגדלים קטנים
+      const src = Float32Array.from(r.d), A = 0.55;
+      for (let yy = 1; yy < th - 1; yy++) for (let xx = 1; xx < tw - 1; xx++) for (let c = 0; c < 4; c++) {
+        const i = (yy * tw + xx) * 4 + c, nb = (src[i - 4] + src[i + 4] + src[i - tw * 4] + src[i + tw * 4]) / 4;
+        r.d[i] = src[i] + A * (src[i] - nb);
+      }
+      for (let i = 0; i < tw * th; i++) { const al = clp(r.d[i * 4 + 3], 0, 1); r.d[i * 4 + 3] = al; for (let c = 0; c < 3; c++) r.d[i * 4 + c] = clp(r.d[i * 4 + c], 0, 255 * al); }
+    }
     const x0 = Math.round(x * K), y0 = Math.round(y * K);
     const xa = Math.max(0, x0), ya = Math.max(0, y0), xb = Math.min(Wk, x0 + tw), yb = Math.min(Hk, y0 + th);
     for (let yy = ya; yy < yb; yy++) for (let xx = xa; xx < xb; xx++) {
