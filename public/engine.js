@@ -352,7 +352,7 @@ function textLayer(img, box, nlines, upMax, outline, bullets, holes, others, ext
   const inner = new Uint8Array(CN);
   for (let yy = Math.max(0, y - y0); yy < Math.min(ch, y + h - y0); yy++) for (let xx = Math.max(0, x - x0); xx < Math.min(cw, x + w - x0); xx++) inner[yy * cw + xx] = 1;
   let innerAny = false; for (let i = 0; i < CN; i++) if (inner[i]) { innerAny = true; break; }
-  const bigBg = () => medianBg(crop, odd(clp(lineh * 1.1, 15, 101)));
+  const bigBg = () => medianBg(crop, odd(clp(lineh * 1.8, 15, 141)));
   if (err > 14) bg = bigBg();
   let inMed = null;
   if (innerAny) { const v = []; for (let i = 0; i < CN; i++) if (inner[i]) v.push([cd[i * 3], cd[i * 3 + 1], cd[i * 3 + 2]]); inMed = chanMedian(v); }
@@ -410,7 +410,7 @@ function textLayer(img, box, nlines, upMax, outline, bullets, holes, others, ext
     if (dd > 45 && Math.min(km.frac[0], km.frac[1]) > 0.05) cols = [km.cen[0], km.cen[1]];
   }
   const sep = cols.length > 1 ? Math.hypot(cols[0][0] - cols[1][0], cols[0][1] - cols[1][1], cols[0][2] - cols[1][2]) : 0;
-  const tol = outline ? 150 : (cols.length === 1 ? 95 : 110 + 0.6 * sep);
+  const tol = outline ? 150 : (cols.length === 1 ? 75 : 95 + 0.55 * sep);
   const okc = new Uint8Array(CN);
   for (let i = 0; i < CN; i++) {
     let m = 1e9; for (const c of cols) m = Math.min(m, Math.hypot(cd[i * 3] - c[0], cd[i * 3 + 1] - c[1], cd[i * 3 + 2] - c[2]));
@@ -467,6 +467,12 @@ function textLayer(img, box, nlines, upMax, outline, bullets, holes, others, ext
     const dv = bdn.d[i];
     for (let c2 = 0; c2 < 3; c2++) Cl[i * 3 + c2] = dv > 1e-3 ? bn.d[i * 3 + c2] / Math.max(dv, 1e-6) : C0[c2];
     if (!keep[i]) continue;
+    if (cols.length > 1) { // טקסט דו-צבעי (מילוי + קו מתאר, או מעבר צבע): הצבע האמיתי של הפיקסל, בלי ערבוב בין הצבעים
+      const dfv = diff[i]; let a2 = clp((dfv - thr) / Math.max(1, sthr - thr), 0, 1); if (a2 < 0.05) a2 = 0;
+      let best = cols[0], bm = 1e9; for (const c of cols) { const m = Math.hypot(cd[i * 3] - c[0], cd[i * 3 + 1] - c[1], cd[i * 3 + 2] - c[2]); if (m < bm) { bm = m; best = c; } }
+      for (let c2 = 0; c2 < 3; c2++) Cl[i * 3 + c2] = dfv >= sthr ? cd[i * 3 + c2] : best[c2];
+      alpha[i] = a2; continue;
+    }
     let dot = 0, vv = 0;
     for (let c2 = 0; c2 < 3; c2++) { const v = Cl[i * 3 + c2] - bd[i * 3 + c2]; dot += (cd[i * 3 + c2] - bd[i * 3 + c2]) * v; vv += v * v; }
     let a = clp(dot / Math.max(vv, 1), 0, 1);
