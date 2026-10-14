@@ -491,7 +491,7 @@ function textLayer(img, box, nlines, upMax, outline, bullets, holes, others, ext
   const up = lw * lh * upMax * upMax < 8e6 ? upMax : 2;
   let aUp = resize(a0, lw * up, lh * up, 'cubic');
   aUp = blur(aUp, 0.33 * up);
-  for (let i = 0; i < aUp.d.length; i++) aUp.d[i] = clp((aUp.d[i] - 0.42) / 0.3 + 0.5, 0, 1); // מרכז מעט נמוך מ-0.5: שומר על עובי האותיות המקורי
+  for (let i = 0; i < aUp.d.length; i++) aUp.d[i] = clp((aUp.d[i] - 0.38) / 0.3 + 0.5, 0, 1); // מרכז מעט נמוך מ-0.5: שומר על עובי האותיות המקורי
   const rgbUp = resize(rgb0, lw * up, lh * up, 'linear');
   if (outline) { // מנקים את כל פס המסגרת סביב הכפתור
     const bx0 = x, by0 = y, bxe = x + w, bye = y + h;
@@ -666,7 +666,7 @@ function wordsOf(e) {
   const bhs = bands.map(b => b[1] - b[0]).sort((p, q) => p - q), bandH = bhs[bhs.length >> 1];
   const gapSp = splitGaps.length ? splitGaps.sort((p, q) => p - q)[splitGaps.length >> 1] : bandH * 0.3;
   const lgs = []; for (let i = 0; i + 1 < n; i++) lgs.push(Math.max(0, bands[i + 1][0] - bands[i][1])); lgs.sort((p, q) => p - q);
-  const lineGap = Math.max(bandH * 0.08, lgs.length ? lgs[lgs.length >> 1] : bandH * 0.15), pitch = bandH + lineGap;
+  const lineGap = Math.min(bandH * 0.22, Math.max(bandH * 0.08, lgs.length ? lgs[lgs.length >> 1] : bandH * 0.15)), pitch = bandH + lineGap;
   let ph = new Array(total).fill(0), P = 1;
   if (e.phrases && e.phrases.length > 1) {
     const cnt = e.phrases.map(t => String(t).trim().split(/\s+/).filter(Boolean).length);
@@ -688,7 +688,7 @@ function reflowLeaf(e, bw, bh, lineBias) {
       const k = acc.length;
       if (k >= P && P > 1) for (const [s, t] of acc) for (let i = s + 1; i < t; i++) if (words[i].ph !== words[s].ph) return;
       const lws = acc.map(([s, t]) => { let v = (t - s - 1) * gap; for (let i = s; i < t; i++) v += ww[i]; return v; }), lw = Math.max(...lws);
-      let extra = 0; if (P > 1 && k > P) for (let i = 0; i < k - 1; i++) if (words[acc[i][1]].ph !== words[acc[i][1] - 1].ph) extra += bandH * 0.32;
+      let extra = 0; if (P > 1 && k > P) for (let i = 0; i < k - 1; i++) if (words[acc[i][1]].ph !== words[acc[i][1] - 1].ph) extra += bandH * 0.1;
       const lhs = acc.map(([s, t]) => { let v = 0; for (let i = s; i < t; i++) v = Math.max(v, words[i].y1 - words[i].y0); return v; });
       const lh = lhs.reduce((p, q) => p + q, 0) + (k - 1) * lineGap + extra;
       const mean = lws.reduce((p, q) => p + q, 0) / k, rag = lws.reduce((p, q) => p + Math.abs(q - mean), 0) / (k * lw);
@@ -719,7 +719,7 @@ function reflowLeaf(e, bw, bh, lineBias) {
   const a = new Float32Array(W2 * H2), rgb = new Float32Array(W2 * H2 * 3);
   let y = pad;
   best.acc.forEach(([s, t], li) => {
-    if (li > 0 && P > 1 && best.acc.length > P && words[s].ph !== words[s - 1].ph) y += bandH * 0.32;
+    if (li > 0 && P > 1 && best.acc.length > P && words[s].ph !== words[s - 1].ph) y += bandH * 0.1;
     let cur = rtl ? pad + (best.lw - best.lws[li]) / 2 + best.lws[li] : pad + (best.lw - best.lws[li]) / 2;
     for (let i = s; i < t; i++) {
       const wd = words[i], wwid = ww[i], x0 = Math.round(rtl ? cur - wwid : cur);
@@ -772,7 +772,7 @@ function reflowUnit(u, W, H, box) {
   });
   if (kids.every((k, i) => k === orig[i])) return u;
   const uw = Math.max(...kids.map(k => k.w)), rel = new Map(); let y = 0;
-  kids.forEach((k, i) => { if (i > 0) y += Math.max(0, orig[i].y - (orig[i - 1].y + orig[i - 1].h)); rel.set(k, [(uw - k.w) / 2, y]); y += k.h; });
+  kids.forEach((k, i) => { if (i > 0) y += Math.min(Math.max(0, orig[i].y - (orig[i - 1].y + orig[i - 1].h)), 0.03 * Math.min(k.h, kids[i - 1].h)); rel.set(k, [(uw - k.w) / 2, y]); y += k.h; });
   return { ...u, kids, w: uw, h: y, rel, pin: null, reflowed: true };
 }
 
