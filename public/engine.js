@@ -708,7 +708,7 @@ function reflowUnit(u, W, H, box) {
   if (!u.kids.every(k => k.text && ['headline', 'subheadline', 'body'].includes(k.role))) return u;
   const heads = u.kids.filter(k => (k.role === 'headline' || ((k.role === 'subheadline' || k.role === 'body') && W / H < 1.15)) && wordsOf(k)); if (!heads.length) return u;
   const m = Math.min(W, H) * 0.07, wide = box ? box[2] / box[3] >= 1.6 : W / H >= 1.6;
-  const bw = box ? box[2] : wide ? W * 0.46 : W - 2 * m, bh = box ? box[3] * (u.kids.length > 1 ? 0.85 : 1) : (wide ? (H - 2 * m) * 0.8 : H * 0.42) * (u.kids.length > 1 ? 0.85 : 1);
+  const bw = box ? box[2] : wide ? W * 0.46 : W - 2 * m, bh = box ? box[3] * (u.kids.length > 1 ? 0.85 : 1) : (wide ? (H - 2 * m) * 0.8 : H * (W / H < 0.5 ? 0.55 : 0.42)) * (u.kids.length > 1 ? 0.85 : 1);
   const orig = u.kids.slice().sort((p, q) => p.y - q.y);
   const kids = orig.map(k => {
     if (!heads.includes(k)) return k;
@@ -1064,7 +1064,7 @@ function layoutTall(W, H, units, sw, sh) {
     }
     return { u: pick.a, cap: Math.min(2.0, pick.f) };
   });
-  let f = list.map(({ u, cap }) => { const lg = u.kids.some(k => k.role === 'logo') && u.kids.length === 1 && u.w / u.h > 2.2; return Math.min(aw / u.w, cap, lg ? 0.6 * W / u.w : u.kids.some(k => k.role === 'logo') ? 0.5 * W / u.w : 9); });
+  let f = list.map(({ u, cap }) => { const lg = u.kids.some(k => k.role === 'logo') && u.kids.length === 1 && u.w / u.h > 2.2; return Math.min(aw / u.w, cap, lg ? 0.6 * W / u.w : u.kids.some(k => k.role === 'logo') ? Math.min(0.5 * W / u.w, 0.22 * H / u.h) : 9); });
   const gmin = Math.max(5, H * 0.025), nGap = Math.max(0, list.length - 1);
   const tot = () => list.reduce((a, { u }, i) => a + u.h * f[i], 0);
   if (tot() + gmin * nGap > ah) { // חוסר מקום: מכווצים הכול, אבל תמונות קטנות מתכווצות פחות כדי שלא ייעלמו
@@ -1073,7 +1073,7 @@ function layoutTall(W, H, units, sw, sh) {
     for (let it = 0; it < 30; it++) { const g = (lo + hi) / 2; f = f0.map((v, i) => v * (small[i] ? Math.pow(g, 0.6) : g)); if (tot() + gmin * nGap > ah) hi = g; else lo = g; }
     f = f0.map((v, i) => v * (small[i] ? Math.pow(lo, 0.6) : lo));
   }
-  const gap = nGap ? Math.min(H * 0.09, (ah - tot()) / nGap) : 0, used = tot() + gap * nGap;
+  const gap = nGap ? Math.min(H * (W / H < 0.5 ? 0.14 : 0.09), (ah - tot()) / nGap) : 0, used = tot() + gap * nGap;
   let y = m + Math.max(0, (ah - used) / 2);
   const out = out0;
   list.forEach(({ u }, i) => { const w = u.w * f[i], h = u.h * f[i]; out.push([u, (W - w) / 2, y, w, h]); y += h + gap; });
