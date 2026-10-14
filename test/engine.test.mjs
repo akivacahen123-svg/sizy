@@ -34,3 +34,17 @@ console.log('Passed: text cut from background, plate cleaned, renders at 3 sizes
   assert.ok(same(E.placements(sc2, W2, H2, squeezed), E.placements(sc2, W2, H2)), 'bad plan must fall back to the rules');
   console.log('Passed: bad AI plan rejected.');
 }
+
+// מהירות: זיכרונות ביניים (משקלי דגימה, שכבות מוכפלות, סידור לפי גודל) לא משנים את התוצאה, ושינוי איסורים מנקה אותם.
+{
+  const a = E.render(sc, 300, 250, 1), b = E.render(sc, 300, 250, 1), c = E.render(sc, 301, 250, 1);
+  assert.deepEqual(Buffer.from(a.rgba.buffer), Buffer.from(b.rgba.buffer), 'repeat render must be identical');
+  assert.equal(c.w, 301);
+  const r0 = E.resize({ w: 3, h: 1, c: 1, d: new Float32Array([0, 10, 20]) }, 3, 2, 'cubic');
+  assert.deepEqual([...r0.d], [0, 10, 20, 0, 10, 20], 'identity axis must pass through');
+  const p1 = E.autoplace(sc, 200, 200).map(e => e.slice(1).join()), p2 = E.autoplace(sc, 200, 200).map(e => e.slice(1).join());
+  assert.deepEqual(p1, p2);
+  E.setBans({ overlap: false, clip: false, tiny: false }); E.autoplace(sc, 200, 200); E.setBans({ overlap: true, clip: true, tiny: true });
+  assert.deepEqual(E.autoplace(sc, 200, 200).map(e => e.slice(1).join()), p1, 'bans restored must restore the layout');
+  console.log('Passed: caches keep results identical.');
+}

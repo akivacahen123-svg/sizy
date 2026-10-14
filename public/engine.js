@@ -57,22 +57,49 @@ function flatten(taps) {
   let p = 0; taps.forEach((t, i) => { off[i] = p; for (let q = 0; q < t.idx.length; q++) { idx[p] = t.idx[q]; w[p] = t.w[q]; p++; } }); off[taps.length] = p;
   return { off, idx, w };
 }
+const KCACHE = new Map(); // משקלי הדגימה תלויים רק בגדלים וסוג הקרנל: מחשבים פעם אחת
+function kernelFor(sn, dn, kind) {
+  const key = sn + ',' + dn + ',' + kind; let v = KCACHE.get(key);
+  if (!v) {
+    const t = flatten(kernelWeights(sn, dn, kind));
+    let ident = sn === dn; // כל טאפ הוא בדיוק פיקסל אחד במשקל 1: אפשר לדלג על המעבר (תוצאה זהה ביט-ביט)
+    for (let i = 0; ident && i < dn; i++) { let one = false; for (let q = t.off[i]; q < t.off[i + 1]; q++) { if (t.idx[q] === i && t.w[q] === 1) one = true; else if (t.w[q] !== 0) { one = false; break; } } ident = one; }
+    v = { t, ident }; if (KCACHE.size > 64) KCACHE.delete(KCACHE.keys().next().value); KCACHE.set(key, v);
+  }
+  return v;
+}
 function resize(src, dw, dh, kind) {
   const { w: sw, h: sh, c } = src;
   if (sw === dw && sh === dh) return { w: sw, h: sh, c, d: Float32Array.from(src.d) };
-  const tx = flatten(kernelWeights(sw, dw, kind)), ty = flatten(kernelWeights(sh, dh, kind));
-  const sd = src.d, tmp = new Float32Array(dw * sh * c);
-  for (let y = 0; y < sh; y++) {
-    const ro = y * sw * c;
-    for (let x = 0; x < dw; x++) {
-      const o = (y * dw + x) * c, q0 = tx.off[x], q1 = tx.off[x + 1];
-      for (let ch = 0; ch < c; ch++) { let acc = 0; for (let q = q0; q < q1; q++) acc += sd[ro + tx.idx[q] * c + ch] * tx.w[q]; tmp[o + ch] = acc; }
+  const kx = kernelFor(sw, dw, kind), ky = kernelFor(sh, dh, kind), tx = kx.t, ty = ky.t;
+  const sd = src.d;
+  let tmp = sd;
+  if (!kx.ident) {
+    tmp = new Float32Array(dw * sh * c);
+    for (let y = 0; y < sh; y++) {
+      const ro = y * sw * c;
+      for (let x = 0; x < dw; x++) {
+        const o = (y * dw + x) * c, q0 = tx.off[x], q1 = tx.off[x + 1];
+        if (c === 3) {
+          let a0 = 0, a1 = 0, a2 = 0;
+          for (let q = q0; q < q1; q++) { const p = ro + tx.idx[q] * 3, wq = tx.w[q]; a0 += sd[p] * wq; a1 += sd[p + 1] * wq; a2 += sd[p + 2] * wq; }
+          tmp[o] = a0; tmp[o + 1] = a1; tmp[o + 2] = a2;
+        } else if (c === 4) {
+          let a0 = 0, a1 = 0, a2 = 0, a3 = 0;
+          for (let q = q0; q < q1; q++) { const p = ro + tx.idx[q] * 4, wq = tx.w[q]; a0 += sd[p] * wq; a1 += sd[p + 1] * wq; a2 += sd[p + 2] * wq; a3 += sd[p + 3] * wq; }
+          tmp[o] = a0; tmp[o + 1] = a1; tmp[o + 2] = a2; tmp[o + 3] = a3;
+        } else for (let ch = 0; ch < c; ch++) { let acc = 0; for (let q = q0; q < q1; q++) acc += sd[ro + tx.idx[q] * c + ch] * tx.w[q]; tmp[o + ch] = acc; }
+      }
     }
   }
-  const out = new Float32Array(dw * dh * c), stride = dw * c;
+  const stride = dw * c;
+  if (ky.ident) return { w: dw, h: dh, c, d: tmp === sd ? Float32Array.from(sd) : tmp };
+  const out = new Float32Array(dw * dh * c), acc = new Float64Array(stride);
   for (let y = 0; y < dh; y++) {
     const q0 = ty.off[y], q1 = ty.off[y + 1], base = y * stride;
-    for (let x = 0; x < stride; x++) { let acc = 0; for (let q = q0; q < q1; q++) acc += tmp[ty.idx[q] * stride + x] * ty.w[q]; out[base + x] = acc; }
+    acc.fill(0);
+    for (let q = q0; q < q1; q++) { const wq = ty.w[q], ro = ty.idx[q] * stride; for (let x = 0; x < stride; x++) acc[x] += tmp[ro + x] * wq; }
+    for (let x = 0; x < stride; x++) out[base + x] = acc[x];
   }
   return { w: dw, h: dh, c, d: out };
 }
@@ -87,31 +114,32 @@ function gaussDirect(img, s) {
   for (let i = 0; i < k.length; i++) k[i] /= sum;
   const tmp = new Float32Array(w * h * c), out = new Float32Array(w * h * c);
   const xi = new Int32Array(2 * r + 1);
-  // אופקי
+  // אופקי (סדר החיבור בכל ערוץ זהה למקור, ולכן התוצאה זהה ביט-ביט)
   for (let y = 0; y < h; y++) {
     const ro = y * w * c;
     for (let x = 0; x < w; x++) {
       const o = ro + x * c;
       if (x >= r && x < w - r) {
-        for (let ch = 0; ch < c; ch++) { let a = 0, p = ro + (x - r) * c + ch; for (let t = 0; t <= 2 * r; t++, p += c) a += src[p] * k[t]; tmp[o + ch] = a; }
+        if (c === 3) {
+          let a0 = 0, a1 = 0, a2 = 0, p = ro + (x - r) * 3;
+          for (let t = 0; t <= 2 * r; t++, p += 3) { const kt = k[t]; a0 += src[p] * kt; a1 += src[p + 1] * kt; a2 += src[p + 2] * kt; }
+          tmp[o] = a0; tmp[o + 1] = a1; tmp[o + 2] = a2;
+        } else for (let ch = 0; ch < c; ch++) { let a = 0, p = ro + (x - r) * c + ch; for (let t = 0; t <= 2 * r; t++, p += c) a += src[p] * k[t]; tmp[o + ch] = a; }
       } else {
         for (let t = -r; t <= r; t++) xi[t + r] = refl(x + t, w);
         for (let ch = 0; ch < c; ch++) { let a = 0; for (let t = 0; t <= 2 * r; t++) a += src[ro + xi[t] * c + ch] * k[t]; tmp[o + ch] = a; }
       }
     }
   }
-  // אנכי
-  const stride = w * c;
+  // אנכי: צוברים שורה שלמה בכל צעד כדי לקרוא זיכרון ברצף
+  const stride = w * c, acc = new Float64Array(stride);
   for (let y = 0; y < h; y++) {
     const inter = y >= r && y < h - r;
     if (!inter) for (let t = -r; t <= r; t++) xi[t + r] = refl(y + t, h);
     const base = y * stride;
-    for (let x = 0; x < stride; x++) {
-      let a = 0;
-      if (inter) { let p = (y - r) * stride + x; for (let t = 0; t <= 2 * r; t++, p += stride) a += tmp[p] * k[t]; }
-      else for (let t = 0; t <= 2 * r; t++) a += tmp[xi[t] * stride + x] * k[t];
-      out[base + x] = a;
-    }
+    acc.fill(0);
+    for (let t = 0; t <= 2 * r; t++) { const kt = k[t], ro = (inter ? y - r + t : xi[t]) * stride; for (let x = 0; x < stride; x++) acc[x] += tmp[ro + x] * kt; }
+    for (let x = 0; x < stride; x++) out[base + x] = acc[x];
   }
   return { w, h, c, d: out };
 }
@@ -1315,7 +1343,7 @@ function planOk(pp, base, W, H) {
 }
 // רשימת איסורים: כללים שהמנוע לא מרשה לעצמו לשבור. כל איסור אפשר לכבות בהגדרות.
 const BANS = { overlap: true, clip: true, tiny: true };
-function setBans(b) { if (b && typeof b === 'object') for (const k of Object.keys(BANS)) if (k in b) BANS[k] = !!b[k]; }
+function setBans(b) { APGEN++; if (b && typeof b === 'object') for (const k of Object.keys(BANS)) if (k in b) BANS[k] = !!b[k]; }
 function enforceBans(sc, W, H, pl) {
   if (!BANS.overlap && !BANS.clip) return pl;
   const uOf = new Map(); sc.units.forEach((u, i) => u.kids.forEach(k => uOf.set(k, i)));
@@ -1358,7 +1386,16 @@ function enforceBans(sc, W, H, pl) {
   }
   return out;
 }
+let APGEN = 0; // מספר הגרסה עולה כשמשתנים האיסורים, ואז הזיכרון נמחק
 function autoplace(sc, W, H, plan) {
+  const ck = W + 'x' + H + '|' + APGEN + '|' + (plan ? JSON.stringify(plan) : ''), mc = sc._ap || (sc._ap = new Map()), hit = mc.get(ck);
+  if (hit) return hit.map(e => e.slice());
+  const res = autoplace0(sc, W, H, plan);
+  if (mc.size > 64) mc.delete(mc.keys().next().value);
+  mc.set(ck, res.map(e => e.slice()));
+  return res;
+}
+function autoplace0(sc, W, H, plan) {
   const base = autoplaceRules(sc, W, H);
   let res = base;
   if (plan && planValid(plan, sc, W, H)) { const pp = planned(sc, W, H, plan); if (planOk(pp, base, W, H)) res = pp; }
@@ -1367,6 +1404,13 @@ function autoplace(sc, W, H, plan) {
 
 // ---------------------------------------------------------------- רינדור
 // מחזיר { w, h, rgba: Uint8ClampedArray }
+const PM = new WeakMap(); // שכבה בצבע מוכפל באלפא: מחושבת פעם אחת לכל שכבה ולא בכל גודל
+function premul(L) {
+  let pm = PM.get(L); if (pm) return pm;
+  const n = L.lw * L.lh; pm = { w: L.lw, h: L.lh, c: 4, d: new Float32Array(n * 4) };
+  for (let i = 0; i < n; i++) { const a = L.a[i]; pm.d[i * 4] = L.rgb[i * 3] * a; pm.d[i * 4 + 1] = L.rgb[i * 3 + 1] * a; pm.d[i * 4 + 2] = L.rgb[i * 3 + 2] * a; pm.d[i * 4 + 3] = a; }
+  PM.set(L, pm); return pm;
+}
 function render(sc, W, H, K, plan) {
   K = K || 1;
   const Wk = Math.floor(W * K), Hk = Math.floor(H * K);
@@ -1375,10 +1419,11 @@ function render(sc, W, H, K, plan) {
   const xs = G.SizyBg ? G.SizyBg.map(sc.W, sc.H, Wk, Hk) : null;
   let bg, ox, oy;
   if (xs) {
-    const tall = resize(sc.plate, sc.W, Hk, Hk < sc.H ? 'area' : 'cubic'); bg = { w: Wk, h: Hk, c: 3, d: new Float32Array(Wk * Hk * 3) }; ox = 0; oy = 0; nw = Wk; nh = Hk;
-    for (let u = 0; u < Wk; u++) {
-      const a = xs[u], b = Math.max(xs[u + 1], a + 0.001), i0 = Math.floor(a), i1 = Math.min(sc.W, Math.ceil(b));
-      for (let y = 0; y < Hk; y++) {
+    const tall = (sc._tall || (sc._tall = new Map())).get(Hk) || (sc._tall.set(Hk, resize(sc.plate, sc.W, Hk, Hk < sc.H ? 'area' : 'cubic')), sc._tall.get(Hk)); bg = { w: Wk, h: Hk, c: 3, d: new Float32Array(Wk * Hk * 3) }; ox = 0; oy = 0; nw = Wk; nh = Hk;
+    if (sc._tall.size > 4) sc._tall.delete(sc._tall.keys().next().value);
+    for (let y = 0; y < Hk; y++) {
+      for (let u = 0; u < Wk; u++) {
+        const a = xs[u], b = Math.max(xs[u + 1], a + 0.001), i0 = Math.floor(a), i1 = Math.min(sc.W, Math.ceil(b));
         let r = 0, g = 0, bl = 0, ws = 0;
         for (let i = i0; i < i1; i++) { const w = Math.min(b, i + 1) - Math.max(a, i); if (w <= 0) continue; const o = (y * sc.W + i) * 3; r += tall.d[o] * w; g += tall.d[o + 1] * w; bl += tall.d[o + 2] * w; ws += w; }
         const o2 = (y * Wk + u) * 3; ws = ws || 1; bg.d[o2] = r / ws; bg.d[o2 + 1] = g / ws; bg.d[o2 + 2] = bl / ws;
@@ -1395,10 +1440,10 @@ function render(sc, W, H, K, plan) {
   for (let y = 0; y < Hk; y++) out.set(bg.d.subarray(((y + oy) * nw + ox) * 3, ((y + oy) * nw + ox + Wk) * 3), y * Wk * 3);
   for (const [leaf, x, y, w, h] of autoplace(sc, W, H, plan)) {
     if (w < 1 || h < 1) continue;
-    const L = leaf.layer, n = L.lw * L.lh;
-    const pm = { w: L.lw, h: L.lh, c: 4, d: new Float32Array(n * 4) };
-    for (let i = 0; i < n; i++) { const a = L.up === 1 ? L.a[i] : L.a[i]; pm.d[i * 4] = L.rgb[i * 3] * a; pm.d[i * 4 + 1] = L.rgb[i * 3 + 1] * a; pm.d[i * 4 + 2] = L.rgb[i * 3 + 2] * a; pm.d[i * 4 + 3] = a; }
-    const tw = Math.max(1, Math.round(w * K)), th = Math.max(1, Math.round(h * K));
+    const L = leaf.layer;
+    const tw = Math.max(1, Math.round(w * K)), th = Math.max(1, Math.round(h * K)), x0 = Math.round(x * K), y0 = Math.round(y * K);
+    if (x0 >= Wk || y0 >= Hk || x0 + tw <= 0 || y0 + th <= 0) continue; // מחוץ לקנבס: אין מה לצייר
+    const pm = premul(L);
     const r = resize(pm, tw, th, tw < pm.w ? 'area' : 'lanczos');
     if (leaf.text && tw > 3 && th > 3) { // חידוד קל לטקסט אחרי הקטנה: קצוות האותיות נשארים חדים וקריאים גם בגדלים קטנים
       const src = Float32Array.from(r.d), A = 0.55;
@@ -1408,7 +1453,6 @@ function render(sc, W, H, K, plan) {
       }
       for (let i = 0; i < tw * th; i++) { const al = clp(r.d[i * 4 + 3], 0, 1); r.d[i * 4 + 3] = al; for (let c = 0; c < 3; c++) r.d[i * 4 + c] = clp(r.d[i * 4 + c], 0, 255 * al); }
     }
-    const x0 = Math.round(x * K), y0 = Math.round(y * K);
     const xa = Math.max(0, x0), ya = Math.max(0, y0), xb = Math.min(Wk, x0 + tw), yb = Math.min(Hk, y0 + th);
     for (let yy = ya; yy < yb; yy++) for (let xx = xa; xx < xb; xx++) {
       const si = ((yy - y0) * tw + (xx - x0)) * 4, di = (yy * Wk + xx) * 3, al = clp(r.d[si + 3], 0, 1);
