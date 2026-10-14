@@ -9,7 +9,7 @@ export const DESIGN_PROMPT = `You are a senior advertising art director and bann
 
 Return ONLY JSON:
 {"sizes":[{"w":300,"h":600,"why":"one short sentence","units":[{"id":"u0","x":100,"y":80,"w":800,"h":200}]}]}
-x,y,w,h = the unit's BOX on the new canvas, integers 0-1000 normalised to the new canvas (x,w to its width, y,h to its height). The engine fits the unit inside its box keeping its proportions, centred, re-breaking text lines and re-arranging photo galleries (one row or a grid) as needed, so make each box the area the unit should visibly fill and give it roughly the unit's own proportions. A unit you leave out is removed from that size; only drop low-value items (fine print, address, secondary line) when the canvas is too small to keep them readable.
+x,y,w,h = the unit's BOX on the new canvas (x = left edge, y = top edge, w = box width, h = box height; this is NOT the [ymin,xmin,ymax,xmax] format),  integers 0-1000 normalised to the new canvas (x,w to its width, y,h to its height). The engine fits the unit inside its box keeping its proportions, centred, re-breaking text lines and re-arranging photo galleries (one row or a grid) as needed, so make each box the area the unit should visibly fill and give it roughly the unit's own proportions. A unit you leave out is removed from that size; only drop low-value items (fine print, address, secondary line) when the canvas is too small to keep them readable.
 
 Each unit is given with its position in the ORIGINAL (0-1000 of the original image, "ar" = width/height aspect of the unit as cut). Look at the picture to understand the creative: what dominates, what is the reading order, what belongs together.
 

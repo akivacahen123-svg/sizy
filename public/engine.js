@@ -1094,17 +1094,9 @@ function planValid(plan, sc, W, H) {
   }
   return true;
 }
-function autoplace(sc, W, H, plan) {
+function autoplaceRules(sc, W, H) {
   const pl = [];
   const add = (u, x, y, w, h) => { const s = w / u.w; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * s, y + dy * s, k.w * s, k.h * s]); } };
-  if (plan && planValid(plan, sc, W, H)) {
-    for (const p of plan.units) {
-      const u = sc.units[parseInt(String(p.id).replace(/^u/, ''), 10)];
-      const [v, x, y, w, h] = placeInBox(u, [p.x, p.y, p.w, p.h], W, H); add(v, x, y, w, h);
-    }
-    pl.sort((a, b) => (a[0].role === 'hero' ? 0 : 1) - (b[0].role === 'hero' ? 0 : 1) || (a[0].isPlate ? 0 : 1) - (b[0].isPlate ? 0 : 1) || a[0].z - b[0].z);
-    return pl;
-  }
   const units = sc.units.map(u => reflowUnit(u, W, H));
   const noHero = !units.some(u => u.role === 'hero'), asp = W / H;
   let useTall = noHero && asp < 0.9, mid = null;
@@ -1130,6 +1122,40 @@ function autoplace(sc, W, H, plan) {
   for (const [u, , h, w] of pins) { let y; if (u.pin === 'top') { y = yt; yt += h; } else { y = yb - h; yb -= h; } add(u, (W - w) / 2, y, w, h); }
   pl.sort((a, b) => (a[0].role === 'hero' ? 0 : 1) - (b[0].role === 'hero' ? 0 : 1) || (a[0].isPlate ? 0 : 1) - (b[0].isPlate ? 0 : 1) || a[0].z - b[0].z);
   return pl;
+}
+
+function planned(sc, W, H, plan) {
+  const pl = [];
+  const add = (u, x, y, w, h) => { const s = w / u.w; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * s, y + dy * s, k.w * s, k.h * s]); } };
+  for (const p of plan.units) {
+    const u = sc.units[parseInt(String(p.id).replace(/^u/, ''), 10)];
+    const [v, x, y, w, h] = placeInBox(u, [p.x, p.y, p.w, p.h], W, H); add(v, x, y, w, h);
+  }
+  pl.sort((a, b) => (a[0].role === 'hero' ? 0 : 1) - (b[0].role === 'hero' ? 0 : 1) || (a[0].isPlate ? 0 : 1) - (b[0].isPlate ? 0 : 1) || a[0].z - b[0].z);
+  return pl;
+}
+// בודקים את תכנית ה-AI מול הכללים: אם משהו חשוב התכווץ או נעלם, או שהכול נדחס לפינה, לא משתמשים בה.
+function planOk(pp, base, W, H) {
+  const area = l => l.filter(e => !e[0].isPlate && e[0].role !== 'hero').reduce((a, e) => a + e[3] * e[4], 0);
+  if (area(pp) < 0.75 * area(base)) return false;
+  const bm = new Map(base.map(e => [e[0].id, e]));
+  for (const e of pp) {
+    const b = bm.get(e[0].id); if (!b || e[0].isPlate) continue;
+    if (['headline', 'subheadline', 'button', 'logo'].includes(e[0].role) && e[4] < 0.6 * b[4] && e[3] < 0.6 * b[3]) return false;
+  }
+  const have = new Set(pp.map(e => e[0].id));
+  if (base.filter(e => e[0].role === 'headline').some(e => !have.has(e[0].id))) return false;
+  const x0 = Math.min(...pp.map(e => e[1])), x1 = Math.max(...pp.map(e => e[1] + e[3])), y0 = Math.min(...pp.map(e => e[2])), y1 = Math.max(...pp.map(e => e[2] + e[4]));
+  if ((x1 - x0) < 0.5 * W && (y1 - y0) < 0.5 * H) return false; // כל התוכן בפינה קטנה
+  if (H / W > 1.3 && (x1 - x0) < 0.6 * W) return false;       // באנר גבוה: התוכן צריך למלא את הרוחב
+  if (W / H > 1.3 && (y1 - y0) < 0.45 * H) return false;      // באנר רחב: התוכן צריך למלא את הגובה
+  return true;
+}
+function autoplace(sc, W, H, plan) {
+  const base = autoplaceRules(sc, W, H);
+  if (!plan || !planValid(plan, sc, W, H)) return base;
+  const pp = planned(sc, W, H, plan);
+  return planOk(pp, base, W, H) ? pp : base;
 }
 
 // ---------------------------------------------------------------- רינדור

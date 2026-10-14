@@ -24,3 +24,13 @@ for (const [w, h, k] of [[300, 600, 1], [728, 90, 1], [300, 250, 2]]) {
   assert(white > 50, `headline missing at ${w}x${h}`);
 }
 console.log('Passed: text cut from background, plate cleaned, renders at 3 sizes.');
+
+// תכנית AI: תכנית הגיונית משמשת, תכנית שדוחסת הכול לפס צר נדחית וחוזרים לכללים.
+{
+  const sc2 = sc;
+  const W2 = 300, H2 = 600, same = (a, b) => JSON.stringify(a.map(i => [i.x | 0, i.y | 0, i.w | 0])) === JSON.stringify(b.map(i => [i.x | 0, i.y | 0, i.w | 0]));
+  const ids = sc2.units.map((_, i) => 'u' + i);
+  const squeezed = { units: ids.map((id, i) => ({ id, x: 6, y: 20 + i * 90, w: 70, h: 80 })) };
+  assert.ok(same(E.placements(sc2, W2, H2, squeezed), E.placements(sc2, W2, H2)), 'bad plan must fall back to the rules');
+  console.log('Passed: bad AI plan rejected.');
+}
