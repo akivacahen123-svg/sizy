@@ -1219,6 +1219,70 @@
     "url"
    ],
    "note": "single row: logo+button under headline"
+  },
+  {
+   "id": "tzfat_1200x300",
+   "campaign": "tzfat",
+   "file": "tzfat/h_1200x300.png",
+   "w": 1200,
+   "h": 300,
+   "aspect": 4.0,
+   "elements": [
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.34,
+      0.215,
+      0.625,
+      0.265
+     ],
+     "lines": 1
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.205,
+      0.33,
+      0.733,
+      0.77
+     ],
+     "lines": 2
+    },
+    {
+     "id": "spk",
+     "role": "photo",
+     "box": [
+      0.82,
+      0.22,
+      0.945,
+      0.88
+     ]
+    },
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.058,
+      0.24,
+      0.154,
+      0.63
+     ]
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.0375,
+      0.69,
+      0.177,
+      0.807
+     ],
+     "lines": 1
+    }
+   ],
+   "dropped": []
   }
  ]
 }

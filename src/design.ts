@@ -24,7 +24,15 @@ DESIGN RULES (apply with judgement - the creative decides):
 8. Text must stay readable: its on-screen cap height should not go below about 7 px; if a text unit would be smaller, enlarge its box or drop it.
 9. A hero image (product or character) keeps its proportions; in wide banners put it at one side, in tall banners under the headline.
 10. Keep groups that belong together adjacent (photos with their captions, logo with its address).
-11. Keep the same visual language across all sizes of this creative: same order of importance, same alignment logic.`;
+11. Keep the same visual language across all sizes of this creative: same order of importance, same alignment logic.
+
+HIERARCHY LEARNED FROM 14 REAL HUMAN RESIZES (measured, follow it):
+- One focal point: the headline. It is horizontally centred in normal banners and takes about 8-30% of the canvas (more as the banner gets short). Everything else is a satellite and never competes with it.
+- Fixed type scale: subheadline about 0.4 x the headline line height and always ABOVE the headline; captions smallest. Logo area 2-7% and always smaller than the headline; button 1-5% of the canvas.
+- Reading order: context (logo or subheadline) -> headline -> proof (photos) -> call to action. The button always comes AFTER the headline, at the bottom (or at the end of the row), never above it.
+- Wide banners (about 2.5:1 to 4.2:1) use three zones: the headline block in the centre, a gallery at one edge, logo with the button UNDER it at the other edge. Very thin strips use one row, everything vertically centred.
+- If something would become too small (e.g. photo circles), re-arrange it (2x2) or drop it; do not shrink it.
+- Keep the same order of importance in every size; only the arrangement changes.`;
 
 export function cleanPlans(raw: any, sizes: number[][], unitIds: Set<string>): Plan[] {
   const out: Plan[] = [];
