@@ -1,0 +1,22 @@
+--- a/public/bgmap.js	2026-10-14 15:38:49.888590493 +0300
++++ b/public/bgmap.js	2026-10-14 15:38:49.890683137 +0300
+@@ -7,7 +7,7 @@
+     const sig = 0.10 * srcW, g = new Float32Array(srcW);
+     for (let x = 0; x < srcW; x++) { const d = Math.min(x + .5, srcW - x - .5) / sig; g[x] = Math.exp(-d * d); }
+     const total = c => { let t = 0; for (let x = 0; x < srcW; x++) t += c + (s - c) * g[x]; return t; };
+-    let lo = 0.05 * s, hi = s;
++    let lo = 0.55 * s, hi = s;
+     if (total(lo) > Wk) return null;
+     for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (total(m) > Wk) hi = m; else lo = m; }
+     const c = lo, xs = new Float32Array(Wk + 1);
+--- a/public/engine.js	2026-10-14 15:38:49.888519721 +0300
++++ b/public/engine.js	2026-10-14 15:39:27.824135120 +0300
+@@ -1197,7 +1197,7 @@
+     for (const cols of [...new Set([total, Math.ceil(total / 2), 2, 1])].filter(c => c >= 1 && c <= total)) {
+       const a = arrange(u, cols, rtl), f = Math.min(aw / a.w, 2.6, (0.4 * H) / a.h);
+       const dia = f * Math.min(...u.cards.map(c => c.kids[0].w)); // קוטר העיגול הקטן ביותר אחרי ההגדלה
+-      if (cols === total && total >= 3 && dia >= 0.17 * W) { pick = { a, f }; break; } // שורה אחת, כמו שמעצבים עושים - רק אם העיגולים נשארים גדולים וקריאים
++      if (cols === total && total >= 3 && dia >= (W >= 250 ? 0.11 : 0.17) * W) { pick = { a, f }; break; } // שורה אחת, כמו שמעצבים עושים - רק אם העיגולים נשארים גדולים וקריאים
+       if (!pick || f > pick.f * 1.04) pick = { a, f };
+     }
+     return { u: pick.a, cap: Math.min(2.0, pick.f) };

@@ -1,0 +1,55 @@
+--- /home/claude/sizy-cf/public/engine.js	2026-10-14 15:01:17.271545622 +0300
++++ engine.js (proposed)	2026-10-14 15:39:32.844810665 +0300
+@@ -433,6 +433,11 @@
+   const cy1 = Math.max(0, Math.floor(y + h * 0.15 - y0)), cy2 = Math.min(ch, Math.floor(y + h * 0.85 - y0));
+   const cx1 = Math.max(0, Math.floor(x - x0)), cx2 = Math.min(cw, Math.floor(x + w - x0));
+   for (let yy = cy1; yy < cy2; yy++) for (let xx = cx1; xx < cx2; xx++) { const i = yy * cw + xx; if (ink[i] && lab[i] > 0) keepIds.add(lab[i]); }
++  { // [patch] floating marks (yod, dots, niqqud) whose centre is inside the AI box but outside the 15%-85% band
++    const bb2 = new Map();
++    for (let yy = 0; yy < ch; yy++) for (let xx = 0; xx < cw; xx++) { const i = yy * cw + xx, id = lab[i]; if (id > 0 && ink[i]) { let b = bb2.get(id); if (!b) { b = [xx, yy, xx, yy, 0]; bb2.set(id, b); } b[0] = Math.min(b[0], xx); b[1] = Math.min(b[1], yy); b[2] = Math.max(b[2], xx); b[3] = Math.max(b[3], yy); b[4]++; } }
++    for (const [id, b] of bb2) { if (keepIds.has(id) || b[4] < 4) continue; const mx = (b[0] + b[2]) / 2 + x0, my = (b[1] + b[3]) / 2 + y0; if (mx >= x && mx < x + w && my >= y && my < y + h) keepIds.add(id); }
++  }
+   if (extSide) { // מילים וסימנים שה-AI חתך בקצה השורה (כמו נקודתיים או המילה הראשונה): מצרפים רכיבים סמוכים באותו גובה
+     const bb = new Map();
+     for (let yy = 0; yy < ch; yy++) for (let xx = 0; xx < cw; xx++) { const i = yy * cw + xx, id = lab[i]; if (id > 0 && ink[i]) { let b = bb.get(id); if (!b) { b = [xx, yy, xx, yy, 0]; bb.set(id, b); } b[0] = Math.min(b[0], xx); b[1] = Math.min(b[1], yy); b[2] = Math.max(b[2], xx); b[3] = Math.max(b[3], yy); b[4]++; } }
+@@ -1058,7 +1063,8 @@
+   let tx = units.filter(u => u !== hero && u.role !== 'hero').sort(wideMode ? ((a, b) => rankOf(a, sh, true) - rankOf(b, sh, true) || a.y - b.y) : ((a, b) => a.y - b.y));
+   if (wideMode && tx.length > 2) { // בבאנר רחב וצר מאוד: מוותרים על מה שהיה נהיה קטן מדי לקריאה (הערות שוליים, כיתובים), ומשאירים כותרת, כפתור ולוגו
+     const m0 = Math.max(5, H * 0.05), heroW = hero ? hero.w * Math.min((H - m0) / hero.h, W * 0.32 / hero.w, 1.2) + m0 : 0;
+-    const essential = u => u.kids.some(k => ['headline', 'button', 'logo', 'brand'].includes(k.role));
++    const btns = tx.filter(u => u.kids.some(k => k.role === 'button')), lastBtn = btns.length ? btns.reduce((p, q) => (q.y > p.y ? q : p)) : null;
++    const essential = u => u.kids.some(k => ['headline', 'logo', 'brand'].includes(k.role)) || (lastBtn && u === lastBtn);
+     const minTextH = u => { const hs = u.kids.filter(k => k.text).map(k => k.h / Math.max(1, (k.lines || []).length || 1)); return hs.length ? Math.min(...hs) : Infinity; };
+     const solveS = list => {
+       let best = 0;
+@@ -1070,7 +1076,7 @@
+       return best;
+     };
+     for (let it = 0; it < 6 && tx.length > 2; it++) {
+-      const sv = solveS(tx), bad = tx.filter(u => !essential(u) && minTextH(u) * sv < 5.5).sort((a, b) => minTextH(a) - minTextH(b));
++      const sv = solveS(tx), bad = tx.filter(u => !essential(u) && (minTextH(u) * sv < 5.5 || sv < 0.62)).sort((a, b) => minTextH(a) - minTextH(b));
+       if (!bad.length) break;
+       tx = tx.filter(u => u !== bad[0]);
+     }
+@@ -1175,8 +1181,8 @@
+   const rank = u => rankOf(u, sh, false);
+   const fine = units.filter(u => finePrint(u, sh)), out0 = [];
+   let yb = H - m * 0.7;
+-  const s0 = Math.max(0.05, ...units.filter(q => !finePrint(q, sh) && q.role !== 'hero').map(q => aw / q.w));
+-  for (const u of fine) { const f0 = Math.min(aw / u.w, 1.5, 0.8 * s0), w0 = u.w * f0, h0 = u.h * f0; if (h0 < 5) continue; yb -= h0; out0.push([u, (W - w0) / 2, yb, w0, h0]); yb -= m * 0.5; }
++  const s0 = Math.max(0.05, Math.min(1, ...units.filter(q => !finePrint(q, sh) && q.role !== 'hero' && q.kids.some(k => k.text && ['headline','body','subheadline'].includes(k.role))).map(q => aw / q.w)));
++  for (const u of fine) { const f0 = Math.min(aw / u.w, 1.0, 0.8 * s0), w0 = u.w * f0, h0 = u.h * f0; if (h0 < 5) continue; yb -= h0; out0.push([u, (W - w0) / 2, yb, w0, h0]); yb -= m * 0.5; }
+   // שורת תחתית: לוגו ליד כפתור, כמו שמעצבים עושים בבאנר גבוה
+   let foot = null;
+   { const lg = units.find(u => u.kids.some(k => k.role === 'logo') && !u.cards && !fine.includes(u) && rankOf(u, sh, false) >= 0), bt = units.find(u => u.role === 'button');
+@@ -1203,6 +1209,10 @@
+     return { u: pick.a, cap: Math.min(2.0, pick.f) };
+   });
+   let f = list.map(({ u, cap }) => { const lg = u.kids.some(k => k.role === 'logo') && u.kids.length === 1 && u.w / u.h > 2.2; return Math.min(aw / u.w, cap, lg ? 0.6 * W / u.w : u.kids.some(k => k.role === 'logo') ? Math.min(0.5 * W / u.w, 0.22 * H / u.h) : 9); });
++  { // [patch] hierarchy clamp: plain text units never get a bigger scale than the headline
++    const hi = list.findIndex(({ u }) => rank(u) === 0);
++    if (hi >= 0) f = f.map((v, i) => (i === hi || list[i].u.cards || list[i].u.kids.some(k => ['button', 'logo', 'brand', 'photo'].includes(k.role))) ? v : Math.min(v, f[hi]));
++  }
+   const gmin = Math.max(5, H * 0.025), nGap = Math.max(0, list.length - 1);
+   const tot = () => list.reduce((a, { u }, i) => a + u.h * f[i], 0);
+   if (tot() + gmin * nGap > ah) { // חוסר מקום: מכווצים הכול, אבל תמונות קטנות מתכווצות פחות כדי שלא ייעלמו

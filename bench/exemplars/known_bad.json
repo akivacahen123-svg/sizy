@@ -1,0 +1,4 @@
+{
+  "_note": "מקרים שבהם פלט המנוע גרוע בעליל מגרסת המעצב (נבדק בעין). המדד חייב לדרג אותם מתחת לגרסת המעצב: node bench/score.mjs bench/exemplars/* --humans",
+  "cases": ["tzfat@321x71", "hora@290x350", "hora@320x70", "yachin@120x500", "yachin@320x320"]
+}

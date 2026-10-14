@@ -1,0 +1,1224 @@
+{
+ "version": 1,
+ "about": "Hand-annotated layout memory from human-designed banner sizes. Boxes are normalized [x1,y1,x2,y2] in 0-1 of the canvas. Each layout lists the original element ids that were kept (with their role and box) and the ids that were dropped. Roles: headline, subheadline, logo, button, badge, photo, caption, body, legal. Text-box heights include diacritics/descenders; photo = main product/hero imagery.",
+ "roles": [
+  "headline",
+  "subheadline",
+  "logo",
+  "button",
+  "badge",
+  "photo",
+  "caption",
+  "body",
+  "legal"
+ ],
+ "campaigns": {
+  "tzfat": {
+   "orig": "tzfat/orig_700x500.png",
+   "w": 700,
+   "h": 500,
+   "elements": [
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.293,
+      0.164,
+      0.707,
+      0.2
+     ],
+     "lines": 1
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.214,
+      0.236,
+      0.779,
+      0.61
+     ],
+     "lines": 3
+    },
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.054,
+      0.66,
+      0.229,
+      0.91
+     ]
+    },
+    {
+     "id": "addr",
+     "role": "caption",
+     "box": [
+      0.236,
+      0.924,
+      0.407,
+      0.954
+     ],
+     "lines": 1
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.286,
+      0.81,
+      0.429,
+      0.89
+     ],
+     "lines": 2
+    },
+    {
+     "id": "spk",
+     "role": "photo",
+     "box": [
+      0.5,
+      0.776,
+      0.914,
+      0.956
+     ]
+    }
+   ]
+  },
+  "yachin": {
+   "orig": "yachin/orig_1200x300.jpg",
+   "w": 1200,
+   "h": 300,
+   "elements": [
+    {
+     "id": "legal",
+     "role": "legal",
+     "box": [
+      0,
+      0.017,
+      0.015,
+      0.2
+     ],
+     "lines": 1
+    },
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.25,
+      0.1,
+      0.371,
+      0.183
+     ],
+     "lines": 1
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.096,
+      0.233,
+      0.521,
+      0.65
+     ],
+     "lines": 2
+    },
+    {
+     "id": "kosher",
+     "role": "badge",
+     "box": [
+      0.104,
+      0.467,
+      0.2,
+      0.64
+     ]
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.238,
+      0.71,
+      0.379,
+      0.86
+     ],
+     "lines": 1
+    },
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.004,
+      0.65,
+      0.104,
+      0.967
+     ]
+    },
+    {
+     "id": "photo",
+     "role": "photo",
+     "box": [
+      0.533,
+      0,
+      1,
+      1
+     ]
+    },
+    {
+     "id": "sticker",
+     "role": "badge",
+     "box": [
+      0.667,
+      0.167,
+      0.721,
+      0.317
+     ]
+    }
+   ]
+  },
+  "hora": {
+   "orig": "hora/orig_300x600.jpg",
+   "w": 300,
+   "h": 600,
+   "elements": [
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.35,
+      0.047,
+      0.65,
+      0.18
+     ]
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.083,
+      0.25,
+      0.917,
+      0.408
+     ],
+     "lines": 1
+    },
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.133,
+      0.508,
+      0.873,
+      0.675
+     ],
+     "lines": 4
+    },
+    {
+     "id": "legal",
+     "role": "legal",
+     "box": [
+      0.217,
+      0.725,
+      0.783,
+      0.747
+     ],
+     "lines": 1
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.24,
+      0.82,
+      0.76,
+      0.87
+     ],
+     "lines": 1
+    },
+    {
+     "id": "partners",
+     "role": "badge",
+     "box": [
+      0.033,
+      0.93,
+      0.967,
+      0.967
+     ]
+    }
+   ]
+  },
+  "speech": {
+   "orig": "speech/orig_720x1040.jpg",
+   "w": 720,
+   "h": 1040,
+   "elements": [
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.297,
+      0.054,
+      0.703,
+      0.135
+     ]
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.215,
+      0.183,
+      0.792,
+      0.413
+     ],
+     "lines": 3
+    },
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.1,
+      0.458,
+      0.9,
+      0.542
+     ],
+     "lines": 1
+    },
+    {
+     "id": "body",
+     "role": "body",
+     "box": [
+      0.069,
+      0.582,
+      0.931,
+      0.75
+     ],
+     "lines": 4
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.311,
+      0.793,
+      0.689,
+      0.879
+     ],
+     "lines": 1
+    },
+    {
+     "id": "url",
+     "role": "caption",
+     "box": [
+      0.368,
+      0.913,
+      0.632,
+      0.942
+     ],
+     "lines": 1
+    }
+   ]
+  }
+ },
+ "layouts": [
+  {
+   "id": "tzfat_301x601",
+   "campaign": "tzfat",
+   "file": "tzfat/h_301x601.png",
+   "w": 301,
+   "h": 601,
+   "aspect": 0.501,
+   "elements": [
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.166,
+      0.21,
+      0.831,
+      0.233
+     ],
+     "lines": 1
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.04,
+      0.28,
+      0.963,
+      0.474
+     ],
+     "lines": 3
+    },
+    {
+     "id": "spk",
+     "role": "photo",
+     "box": [
+      0.093,
+      0.579,
+      0.904,
+      0.691
+     ]
+    },
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.083,
+      0.757,
+      0.365,
+      0.907
+     ]
+    },
+    {
+     "id": "addr",
+     "role": "caption",
+     "box": [
+      0.04,
+      0.918,
+      0.365,
+      0.935
+     ],
+     "lines": 1
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.458,
+      0.885,
+      0.937,
+      0.937
+     ],
+     "lines": 1
+    }
+   ],
+   "dropped": []
+  },
+  {
+   "id": "tzfat_321x71",
+   "campaign": "tzfat",
+   "file": "tzfat/h_321x71.png",
+   "w": 321,
+   "h": 71,
+   "aspect": 4.521,
+   "elements": [
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.056,
+      0.155,
+      0.178,
+      0.704
+     ]
+    },
+    {
+     "id": "spk",
+     "role": "photo",
+     "box": [
+      0.231,
+      0.183,
+      0.355,
+      0.775
+     ]
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.389,
+      0.324,
+      0.941,
+      0.873
+     ],
+     "lines": 2
+    },
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.523,
+      0.155,
+      0.941,
+      0.254
+     ],
+     "lines": 1
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.053,
+      0.761,
+      0.19,
+      0.887
+     ],
+     "lines": 1
+    }
+   ],
+   "dropped": [
+    "addr"
+   ],
+   "note": "speakers shrunk to a 2x2 block; address dropped"
+  },
+  {
+   "id": "tzfat_361x251",
+   "campaign": "tzfat",
+   "file": "tzfat/h_361x251.png",
+   "w": 361,
+   "h": 251,
+   "aspect": 1.438,
+   "elements": [
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.222,
+      0.219,
+      0.789,
+      0.267
+     ],
+     "lines": 1
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.161,
+      0.287,
+      0.789,
+      0.598
+     ],
+     "lines": 3
+    },
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.05,
+      0.629,
+      0.249,
+      0.916
+     ]
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.285,
+      0.785,
+      0.429,
+      0.916
+     ],
+     "lines": 2
+    },
+    {
+     "id": "spk",
+     "role": "photo",
+     "box": [
+      0.499,
+      0.757,
+      0.956,
+      0.869
+     ]
+    },
+    {
+     "id": "addr",
+     "role": "caption",
+     "box": [
+      0.055,
+      0.944,
+      0.249,
+      0.98
+     ],
+     "lines": 1
+    }
+   ],
+   "dropped": []
+  },
+  {
+   "id": "yachin_1200x200",
+   "campaign": "yachin",
+   "file": "yachin/h_1200x200.jpg",
+   "w": 1200,
+   "h": 200,
+   "aspect": 6,
+   "elements": [
+    {
+     "id": "legal",
+     "role": "legal",
+     "box": [
+      0,
+      0.04,
+      0.012,
+      0.25
+     ],
+     "lines": 1
+    },
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.268,
+      0.1,
+      0.35,
+      0.2
+     ],
+     "lines": 1
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.138,
+      0.225,
+      0.475,
+      0.71
+     ],
+     "lines": 2
+    },
+    {
+     "id": "kosher",
+     "role": "badge",
+     "box": [
+      0.148,
+      0.5,
+      0.233,
+      0.725
+     ]
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.263,
+      0.775,
+      0.354,
+      0.91
+     ],
+     "lines": 1
+    },
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.013,
+      0.59,
+      0.088,
+      0.925
+     ]
+    },
+    {
+     "id": "photo",
+     "role": "photo",
+     "box": [
+      0.542,
+      0,
+      1,
+      1
+     ]
+    }
+   ],
+   "dropped": [
+    "sticker"
+   ],
+   "note": "sticker dropped"
+  },
+  {
+   "id": "yachin_1200x60",
+   "campaign": "yachin",
+   "file": "yachin/h_1200x60.jpg",
+   "w": 1200,
+   "h": 60,
+   "aspect": 20,
+   "elements": [
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.015,
+      0.133,
+      0.073,
+      0.867
+     ]
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.085,
+      0.3,
+      0.179,
+      0.7
+     ],
+     "lines": 1
+    },
+    {
+     "id": "kosher",
+     "role": "badge",
+     "box": [
+      0.202,
+      0.1,
+      0.258,
+      0.9
+     ]
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.265,
+      0.233,
+      0.696,
+      0.8
+     ],
+     "lines": 1
+    },
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.7,
+      0.233,
+      0.796,
+      0.767
+     ],
+     "lines": 1
+    },
+    {
+     "id": "photo",
+     "role": "photo",
+     "box": [
+      0.821,
+      0.05,
+      0.979,
+      0.95
+     ]
+    },
+    {
+     "id": "legal",
+     "role": "legal",
+     "box": [
+      0.983,
+      0.083,
+      1,
+      0.75
+     ],
+     "lines": 1
+    }
+   ],
+   "dropped": [
+    "sticker"
+   ],
+   "note": "single line strip; photo shrunk to row of packs; sticker dropped"
+  },
+  {
+   "id": "yachin_120x500",
+   "campaign": "yachin",
+   "file": "yachin/h_120x500.jpg",
+   "w": 120,
+   "h": 500,
+   "aspect": 0.24,
+   "elements": [
+    {
+     "id": "legal",
+     "role": "legal",
+     "box": [
+      0,
+      0.01,
+      0.1,
+      0.09
+     ],
+     "lines": 1
+    },
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.183,
+      0.03,
+      0.833,
+      0.124
+     ]
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.067,
+      0.14,
+      0.933,
+      0.27
+     ],
+     "lines": 4
+    },
+    {
+     "id": "kosher",
+     "role": "badge",
+     "box": [
+      0.1,
+      0.286,
+      0.9,
+      0.39
+     ]
+    },
+    {
+     "id": "photo",
+     "role": "photo",
+     "box": [
+      0.083,
+      0.41,
+      0.917,
+      0.9
+     ]
+    },
+    {
+     "id": "sticker",
+     "role": "badge",
+     "box": [
+      0.667,
+      0.41,
+      0.958,
+      0.5
+     ]
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.067,
+      0.94,
+      0.933,
+      0.984
+     ],
+     "lines": 1
+    }
+   ],
+   "dropped": [
+    "sub"
+   ],
+   "note": "sub dropped; sticker replaces it"
+  },
+  {
+   "id": "yachin_320x320",
+   "campaign": "yachin",
+   "file": "yachin/h_320x320.jpg",
+   "w": 320,
+   "h": 320,
+   "aspect": 1,
+   "elements": [
+    {
+     "id": "legal",
+     "role": "legal",
+     "box": [
+      0,
+      0.203,
+      0.031,
+      0.328
+     ],
+     "lines": 1
+    },
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.391,
+      0.484,
+      0.672,
+      0.525
+     ],
+     "lines": 1
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.125,
+      0.578,
+      0.891,
+      0.703
+     ],
+     "lines": 2
+    },
+    {
+     "id": "kosher",
+     "role": "badge",
+     "box": [
+      0.225,
+      0.681,
+      0.391,
+      0.781
+     ]
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.375,
+      0.806,
+      0.641,
+      0.881
+     ],
+     "lines": 1
+    },
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.025,
+      0.85,
+      0.234,
+      0.975
+     ]
+    },
+    {
+     "id": "photo",
+     "role": "photo",
+     "box": [
+      0,
+      0,
+      1,
+      0.469
+     ]
+    },
+    {
+     "id": "sticker",
+     "role": "badge",
+     "box": [
+      0.422,
+      0.063,
+      0.484,
+      0.141
+     ]
+    }
+   ],
+   "dropped": []
+  },
+  {
+   "id": "hora_290x350",
+   "campaign": "hora",
+   "file": "hora/h_290x350.jpg",
+   "w": 290,
+   "h": 350,
+   "aspect": 0.829,
+   "elements": [
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.431,
+      0.08,
+      0.569,
+      0.2
+     ]
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.138,
+      0.286,
+      0.862,
+      0.423
+     ],
+     "lines": 1
+    },
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.069,
+      0.457,
+      0.931,
+      0.623
+     ],
+     "lines": 3
+    },
+    {
+     "id": "legal",
+     "role": "legal",
+     "box": [
+      0.293,
+      0.749,
+      0.707,
+      0.786
+     ],
+     "lines": 1
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.31,
+      0.831,
+      0.69,
+      0.891
+     ],
+     "lines": 1
+    },
+    {
+     "id": "partners",
+     "role": "badge",
+     "box": [
+      0.034,
+      0.931,
+      0.983,
+      0.986
+     ]
+    }
+   ],
+   "dropped": []
+  },
+  {
+   "id": "hora_320x70",
+   "campaign": "hora",
+   "file": "hora/h_320x70.gif",
+   "w": 320,
+   "h": 70,
+   "aspect": 4.571,
+   "elements": [
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.341,
+      0.186,
+      0.659,
+      0.714
+     ],
+     "lines": 1
+    }
+   ],
+   "dropped": [
+    "logo",
+    "sub",
+    "legal",
+    "btn",
+    "partners"
+   ],
+   "note": "only the headline survives"
+  },
+  {
+   "id": "hora_360x125",
+   "campaign": "hora",
+   "file": "hora/h_360x125.gif",
+   "w": 360,
+   "h": 125,
+   "aspect": 2.88,
+   "elements": [
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.286,
+      0.176,
+      0.717,
+      0.824
+     ],
+     "lines": 1
+    }
+   ],
+   "dropped": [
+    "logo",
+    "sub",
+    "legal",
+    "btn",
+    "partners"
+   ],
+   "note": "only the headline survives"
+  },
+  {
+   "id": "hora_1200x60",
+   "campaign": "hora",
+   "file": "yachin/h_1200x60b.jpg",
+   "w": 1200,
+   "h": 60,
+   "aspect": 20,
+   "elements": [
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.958,
+      0.083,
+      0.996,
+      0.917
+     ]
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.825,
+      0.133,
+      0.932,
+      0.867
+     ],
+     "lines": 1
+    },
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.465,
+      0.167,
+      0.818,
+      0.867
+     ],
+     "lines": 2
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.279,
+      0.167,
+      0.392,
+      0.6
+     ],
+     "lines": 1
+    },
+    {
+     "id": "legal",
+     "role": "legal",
+     "box": [
+      0.296,
+      0.7,
+      0.388,
+      0.867
+     ],
+     "lines": 1
+    },
+    {
+     "id": "partners",
+     "role": "badge",
+     "box": [
+      0.008,
+      0.25,
+      0.258,
+      0.667
+     ]
+    }
+   ],
+   "dropped": [],
+   "note": "file lives in yachin/ folder but is the hora campaign"
+  },
+  {
+   "id": "speech_640x640",
+   "campaign": "speech",
+   "file": "speech/h_640x640.jpg",
+   "w": 640,
+   "h": 640,
+   "aspect": 1,
+   "elements": [
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.331,
+      0.144,
+      0.669,
+      0.239
+     ]
+    },
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.122,
+      0.289,
+      0.872,
+      0.469
+     ],
+     "lines": 2
+    },
+    {
+     "id": "sub",
+     "role": "subheadline",
+     "box": [
+      0.161,
+      0.516,
+      0.839,
+      0.619
+     ],
+     "lines": 1
+    },
+    {
+     "id": "body",
+     "role": "body",
+     "box": [
+      0.153,
+      0.661,
+      0.848,
+      0.706
+     ],
+     "lines": 1
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.328,
+      0.747,
+      0.672,
+      0.856
+     ],
+     "lines": 1
+    }
+   ],
+   "dropped": [
+    "url"
+   ],
+   "note": "body shortened to one line; url dropped"
+  },
+  {
+   "id": "speech_720x250",
+   "campaign": "speech",
+   "file": "speech/h_720x250.jpg",
+   "w": 720,
+   "h": 250,
+   "aspect": 2.88,
+   "elements": [
+    {
+     "id": "head",
+     "role": "headline",
+     "box": [
+      0.067,
+      0.28,
+      0.933,
+      0.44
+     ],
+     "lines": 1
+    },
+    {
+     "id": "btn",
+     "role": "button",
+     "box": [
+      0.271,
+      0.52,
+      0.496,
+      0.72
+     ],
+     "lines": 1
+    },
+    {
+     "id": "logo",
+     "role": "logo",
+     "box": [
+      0.525,
+      0.54,
+      0.732,
+      0.7
+     ]
+    }
+   ],
+   "dropped": [
+    "sub",
+    "body",
+    "url"
+   ],
+   "note": "single row: logo+button under headline"
+  }
+ ]
+}
