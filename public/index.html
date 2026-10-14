@@ -83,6 +83,13 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
 #sp .lg svg{animation:spin 1.6s linear infinite}
 #sp .dots i{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--acc);margin-inline-end:4px;animation:bounce 1.2s infinite ease-in-out}
 #sp .dots i:nth-child(2){animation-delay:.15s}#sp .dots i:nth-child(3){animation-delay:.3s}
+#prog{height:5px;border-radius:99px;background:var(--soft);margin:10px 0 0;overflow:hidden}#prog[hidden]{display:none}
+#prog i{display:block;height:100%;width:30%;border-radius:99px;background:linear-gradient(90deg,var(--acc),#8a63ff);transition:width .25s}
+#prog.ind i{width:35%;animation:slide 1.3s ease-in-out infinite}
+@keyframes slide{0%{margin-inline-start:-35%}100%{margin-inline-start:100%}}
+.skel .sk{border-radius:12px;display:grid;place-items:center;color:var(--mut);font-size:14px;max-height:260px;min-height:70px;width:100%;background:linear-gradient(100deg,var(--soft) 30%,rgba(255,255,255,.35) 50%,var(--soft) 70%);background-size:220% 100%;animation:shim 1.4s linear infinite}
+@keyframes shim{0%{background-position:120% 0}100%{background-position:-120% 0}}
+@media (prefers-reduced-motion:reduce){#prog.ind i,.skel .sk{animation:none}}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(60,100,255,.45)}50%{box-shadow:0 0 0 12px rgba(60,100,255,0)}}
 @keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
@@ -129,6 +136,7 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
         <button class="go" id="go">צור באנרים</button>
       </div>
       <div id="sp" hidden><span class="lg"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 15v5h-5M4 4l7 7M20 20l-7-7"/></svg></span><span class="dots"><i></i><i></i><i></i></span></div>
+      <div id="prog" hidden><i></i></div>
       <p id="st"></p>
     </div>
   </aside>
@@ -176,7 +184,7 @@ const keyOk=v=>/^[A-Za-z0-9_-]{20,120}$/.test(v.trim());
 function paintKey(){const v=$('#key').value.trim();$('#keyst').textContent=v?(keyOk(v)?'✅ המפתח נשמר בדפדפן הזה':'⚠️ המפתח לא נראה תקין. העתיקו אותו שוב במלואו.'):(serverAI?'':'עוד לא הוכנס מפתח.');
   $('#mode').textContent=(keyOk(v)||serverAI)?'✅ מחובר ל-AI: פירוק חכם זמין':'⚠️ צריך להדביק מפתח Gemini אישי (שלב 1)'}
 $('#key').value=LS.get('sizy_key');$('#key').addEventListener('input',()=>{LS.set('sizy_key',$('#key').value.trim());paintKey()});
-fetch('/api/status').then(r=>r.json()).then(j=>{serverAI=!!j.ai;learnOn=!!j.learn;$('#keycard').hidden=serverAI;if(!serverAI)$('#keycard').hidden=false;if(serverAI){document.querySelectorAll('.card:not([hidden]) .n').forEach((n,i)=>{n.textContent=i+1})}paintKey()}).catch(()=>{$('#mode').textContent='⚠️ אין חיבור'});paintKey();
+const statusP=fetch('/api/status').then(r=>r.json()).then(j=>{serverAI=!!j.ai;learnOn=!!j.learn;$('#keycard').hidden=serverAI;if(!serverAI)$('#keycard').hidden=false;if(serverAI){document.querySelectorAll('.card:not([hidden]) .n').forEach((n,i)=>{n.textContent=i+1})}paintKey()}).catch(()=>{$('#mode').textContent='⚠️ אין חיבור'});paintKey();
 
 GROUPS.forEach(([name,list])=>{
   const g=document.createElement('div');g.className='grp';
@@ -189,17 +197,75 @@ GROUPS.forEach(([name,list])=>{
 $('#sz').addEventListener('input',paintChips);paintChips();
 $('#clr').onclick=()=>setSizes([]);
 
-// ---- עובד הרקע
-function getWorker(){
-  if(worker)return worker;
-  worker=new Worker('/worker.js');try{worker.postMessage({type:'bans',bans:getBans()})}catch(e){}
-  worker.onmessage=e=>{const m=e.data,p=pending.get(m.id);if(!p)return;
-    if(m.type==='progress'){p.progress&&p.progress(m.text);return}
-    pending.delete(m.id);m.type==='error'?p.reject(new Error(m.message)):p.resolve(m)};
-  worker.onerror=()=>{for(const p of pending.values())p.reject(new Error('worker'));pending.clear();worker=null};
-  return worker;
+// ---- בריכת עובדי רקע
+// עובד 0 בונה את הסצנה פעם אחת ושולח עותק לשאר העובדים. אחר כך כל העובדים מסדרים ומציירים גדלים במקביל.
+let pool=null;
+function poolSize(w,h){const hc=navigator.hardwareConcurrency||4,mem=Math.floor(7e8/Math.max(1,w*h*170));return Math.max(1,Math.min(6,hc-1,mem))}
+function killPool(){if(!pool)return;pool.ws.forEach(k=>{try{k.w.terminate()}catch(e){}});for(const[id,p]of pending){pending.delete(id);p.reject(new Error('worker'))}pool.queue.forEach(j=>j.reject(new Error('worker')));pool=null}
+function newPool(n){
+  killPool();const ws=[],P={ws,queue:[]};pool=P;
+  for(let i=0;i<n;i++){
+    const wk={w:new Worker('/worker.js'),busy:false,ready:false,dead:false,i};
+    try{wk.w.postMessage({type:'bans',bans:getBans()})}catch(e){}
+    wk.w.onmessage=e=>{const m=e.data;
+      if(m.type==='ready'){wk.ready=true;pump();return}
+      const p=pending.get(m.id);if(!p)return;
+      if(m.type==='progress'){p.progress&&p.progress(m.text);return}
+      pending.delete(m.id);wk.busy=false;if(m.type==='built')wk.ready=true;
+      m.type==='error'?p.reject(new Error(m.message)):p.resolve(m);pump()};
+    wk.w.onerror=()=>{wk.dead=true;wk.ready=false;wk.busy=false;for(const[id,p]of pending)if(p.wk===wk){pending.delete(id);p.reject(new Error('worker'))}
+      if(!ws.some(k=>!k.dead&&k.ready)){P.queue.splice(0).forEach(j=>j.reject(new Error('worker')))}pump()};
+    ws.push(wk)}
+  return P;
 }
-function ask(msg,transfer,progress){return new Promise((resolve,reject)=>{const id=nextId++;pending.set(id,{resolve,reject,progress});getWorker().postMessage({...msg,id},transfer||[])})}
+function pump(){
+  if(!pool)return;
+  for(const wk of pool.ws){if(!pool.queue.length)break;if(!wk.ready||wk.busy||wk.dead)continue;
+    const j=pool.queue.shift(),id=nextId++;pending.set(id,{resolve:j.resolve,reject:j.reject,wk});wk.busy=true;wk.w.postMessage({...j.msg,id},j.transfer||[])}
+}
+// עבודה קצרה (סידור או ציור של גודל אחד): נלקחת על ידי העובד הפנוי הראשון
+function job(msg,transfer){return new Promise((resolve,reject)=>{if(!pool)return reject(new Error('worker'));pool.queue.push({msg,transfer,resolve,reject});pump()})}
+// בניית הסצנה: תמיד אצל עובד 0, ומחלקת עותק לשאר העובדים (בכמות שהזיכרון מאפשר)
+function buildScene(msg,transfer,progress){return new Promise((resolve,reject)=>{
+  const wk=pool&&pool.ws[0];if(!wk||wk.dead)return reject(new Error('worker'));
+  const peers=[];
+  for(const k of pool.ws.slice(1)){const ch=new MessageChannel();k.w.postMessage({type:'peer',port:ch.port2},[ch.port2]);peers.push(ch.port1)}
+  const id=nextId++;pending.set(id,{resolve,reject,progress,wk});wk.busy=true;wk.w.postMessage({...msg,id,peers},[...peers,...(transfer||[])])})}
+function broadcastBans(b){if(pool)pool.ws.forEach(k=>{try{k.w.postMessage({type:'bans',bans:b})}catch(e){}})}
+// מכינים את העובדים ומעבירים אליהם את הפיקסלים עוד לפני שה-AI סיים לנתח
+function preparePool(){
+  const cv=srcCanvas;newPool(poolSize(cv.width,cv.height));
+  const id=cv.getContext('2d').getImageData(0,0,cv.width,cv.height);
+  pool.ws[0].w.postMessage({type:'pixels',rgba:id.data.buffer,w:cv.width,h:cv.height},[id.data.buffer]);pool.cv=cv;
+}
+// ניתוח ה-AI מתחיל מיד עם ההעלאה ורץ במקביל לפענוח התמונה ולהכנת העובדים
+let analyzeP=null;
+function startAnalyze(pre){
+  const cv=srcCanvas,key=$('#key').value.trim();
+  const p=(async()=>{await statusP;if(!keyOk(key)&&!serverAI)return{skip:true};
+    const r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json','X-Gemini-Key':key},body:JSON.stringify({image:jpegB64()})});
+    if(!r.ok)return{err:await errMsg(r)};
+    return{elements:(await r.json()).elements}})().catch(e=>({err:'משהו השתבש בניתוח הבאנר. נסו שוב.',net:true}));
+  analyzeP={cv,key,p,pre:!!pre};
+  if(pre){ // הבאנר נבנה ברקע עוד לפני שלוחצים "צור", בזמן שבוחרים גדלים
+    $('#st').textContent='ה-AI מנתח את הבאנר ברקע…';
+    p.then(r=>{if(cv!==srcCanvas)return;
+      if(r.elements)prepScene(r.elements,cv).then(()=>{if(!busy)$('#st').textContent='הבאנר מוכן. בחרו גדלים ולחצו "צור באנרים".'},()=>{});
+      else if(!busy)$('#st').textContent=''})}
+}
+// בניית הסצנה (פעם אחת לכל באנר). אם כבר התחילה ברקע, מחכים לה
+let sceneP=null;
+function prepScene(elements,cv){
+  if(sceneP&&sceneP.cv===cv)return sceneP.p;
+  const p=(async()=>{
+    if(!pool||pool.cv!==cv||pool.ws[0].dead)preparePool();
+    if(!busy)$('#st').textContent='בונה את הבאנר המקורי ברקע…';
+    const res=await buildScene({type:'build',w:cv.width,h:cv.height,elements},[],t=>$('#st').textContent=t);
+    if(cv!==srcCanvas)return;
+    lastEls=elements;setScene(res.scene);built=true;units=res.units;srcDim=[res.srcW,res.srcH];plansBy={};showBoxes(res.boxes);
+  })();
+  sceneP={cv,p};p.catch(()=>{if(sceneP&&sceneP.p===p)sceneP=null});return p;
+}
 
 // ---- טעינת תמונה
 const drop=$('#drop'),fi=$('#file');
@@ -215,7 +281,8 @@ function load(f){
   im.onload=()=>{
     const sc=Math.min(1,MAXSIDE/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.round(im.naturalWidth*sc),h=Math.round(im.naturalHeight*sc);
     const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.imageSmoothingQuality='high';x.drawImage(im,0,0,w,h);
-    file=f;srcCanvas=c;built=false;units=null;plansBy={};lastEls=null;
+    file=f;srcCanvas=c;built=false;units=null;plansBy={};lastEls=null;jpegFor=null;analyzeP=null;sceneP=null;
+    startAnalyze(true);try{preparePool()}catch(e){console.warn(e)}
     $('#pi').src=url;$('#pv').style.display='block';$('#pv').querySelectorAll('.bx').forEach(n=>n.remove());
     drop.textContent='הבאנר נטען: '+f.name+' (לחצו להחלפה)';$('#st').textContent='';
   };
@@ -304,7 +371,7 @@ document.addEventListener('keydown',e=>{
   if(t&&(t.tagName==='TEXTAREA'||(t.tagName==='INPUT'&&t.type==='text')))return; // בתיבות טקסט פועל הביטול הרגיל של הדפדפן
   if(k==='z'&&!e.shiftKey){e.preventDefault();activeCard._undo()}else if(k==='y'||(k==='z'&&e.shiftKey)){e.preventDefault();activeCard._redo()}
 });
-function addCard(w,h,placed){
+function addCard(w,h,placed,slot,idx){
   const st={w,h,items:placed.map(p=>{let leaf=SC.leaves.get(p.z);if(leaf&&p.layer){const c=mk(p.layer.lw,p.layer.lh);c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(p.layer.rgba),p.layer.lw,p.layer.lh),0,0);leaf={...leaf,canvas:c,lw:p.layer.lw,lh:p.layer.lh,cache:new Map(),frame:null}}return{z:p.z,leaf,x:p.x,y:p.y,w:p.w,h:p.h,o:{x:p.x,y:p.y,w:p.w,h:p.h},hidden:false,tm:null}})};
   st.items=st.items.filter(i=>i.leaf);
   const d=document.createElement('div');d.className='card res wide';
@@ -399,12 +466,14 @@ function addCard(w,h,placed){
   d.querySelector('[data-a=dl]').onclick=async()=>dlBlob(await blobFor(),fname(w,h));
   d.querySelector('[data-a=reset]').onclick=()=>{before('reset',true);st.items.forEach(i=>{Object.assign(i,{x:i.o.x,y:i.o.y,w:i.o.w,h:i.o.h,hidden:false,tm:null});pos(i)});select(null);redraw()};
   const pick=d.querySelector('.pick input');pick.onchange=updBulk;
-  $('#out').appendChild(d);made.push({w,h,pick,blobFor,name:fname(w,h)});
+  if(slot&&slot.isConnected)slot.replaceWith(d);else $('#out').appendChild(d);made.push({idx:idx==null?made.length:idx,w,h,pick,blobFor,name:fname(w,h)});made.sort((p,q)=>p.idx-q.idx);
   draw();
 }
 
 // ---- יצירת באנרים
-function jpegB64(){
+let jpegC='',jpegFor=null;
+function jpegB64(){if(jpegFor===srcCanvas)return jpegC;jpegC=jpegRaw();jpegFor=srcCanvas;return jpegC}
+function jpegRaw(){
   const s=Math.min(1,1280/Math.max(srcCanvas.width,srcCanvas.height)),c=document.createElement('canvas');
   c.width=Math.round(srcCanvas.width*s);c.height=Math.round(srcCanvas.height*s);const x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(srcCanvas,0,0,c.width,c.height);
   return c.toDataURL('image/jpeg',.9).split(',')[1];
@@ -425,19 +494,38 @@ async function planSizes(ch,note,st,label){
   const first=await designCall({sizes:ch,note});first.plans.forEach(q=>plansBy[q.w+'x'+q.h]=q);
   const renders=[],cur=[];
   st.textContent=(label?label+' ':'')+'ה-AI בודק את התוצאות ומשפר…';
-  for(const[w,h]of ch){const q=plansBy[w+'x'+h];if(!q)continue;const r=await ask({type:'render',w,h,k:1,plan:q});renders.push({w,h,image:rgbaToJpeg(r)});cur.push(q)}
+  const todo=ch.filter(([w,h])=>plansBy[w+'x'+h]);todo.forEach(([w,h])=>cur.push(plansBy[w+'x'+h]));
+  // הציורים לבדיקת ה-AI רצים במקביל על כל העובדים
+  (await Promise.all(todo.map(([w,h],i)=>job({type:'render',w,h,k:1,plan:cur[i]}).then(r=>({w,h,image:rgbaToJpeg(r)}))))).forEach(r=>renders.push(r));
   if(!cur.length)return 0;
   const second=await designCall({sizes:cur.map(q=>[q.w,q.h]),renders,plans:cur,note});second.plans.forEach(q=>plansBy[q.w+'x'+q.h]=q);
   return second.learned||0;
 }
-async function buildCards(sizes,st){
+const tick=()=>new Promise(r=>setTimeout(r,0));
+function skeleton(w,h){
+  const d=document.createElement('div');d.className='card res wide skel';
+  d.innerHTML=`<div class="rh"><div class="ttl"><h3>${w} × ${h}</h3></div></div><div class="sk" style="aspect-ratio:${w}/${h}"><span>ממתין בתור…</span></div>`;return d}
+const setSlot=(d,t)=>{const e=d.querySelector('.sk span');if(e)e.textContent=t};
+function setProg(f){const p=$('#prog');p.hidden=f===false;p.classList.toggle('ind',f===null);if(typeof f==='number')p.firstElementChild.style.width=Math.max(4,Math.round(f*100))+'%'}
+// יוצר את כל הגדלים: שלדים מופיעים מיד, תכנון ה-AI רץ בכמה קבוצות במקביל, וכל באנר מוחלף בתוצאה ברגע שהוא מוכן
+async function produce(sizes,st,note,label){
   $('#out').innerHTML='';made.length=0;$('#hint').hidden=false;$('#empty').hidden=true;$('#bulk').hidden=true;
-  for(const[w,h]of sizes){
-    st.textContent=`בונה ${w}×${h}…`;
-    const r=await ask({type:'place',w,h,plan:plansBy[w+'x'+h]});
-    addCard(w,h,r.items);
-    await new Promise(r=>setTimeout(r,0));
-  }
+  const total=sizes.length,slots=sizes.map(([w,h])=>{const d=skeleton(w,h);$('#out').appendChild(d);return d});
+  let done=0,aiFail=false;setProg(0);
+  const finish=async i=>{const[w,h]=sizes[i];setSlot(slots[i],'בונה את הבאנר…');
+    const r=await job({type:'place',w,h,plan:plansBy[w+'x'+h]});addCard(w,h,r.items,slots[i],i);done++;setProg(done/total);
+    st.textContent=`מוכנים ${done} מתוך ${total}…`;await tick()};
+  const need=[],have=[];sizes.forEach(([w,h],i)=>(units&&!plansBy[w+'x'+h]?need:have).push(i));
+  const chunks=[];for(let i=0;i<need.length;i+=8)chunks.push(need.slice(i,i+8));
+  need.forEach(i=>setSlot(slots[i],'ממתין לתכנון ה-AI…'));
+  const runChunk=async idxs=>{
+    const fake={set textContent(v){idxs.forEach(i=>setSlot(slots[i],v))}};
+    try{await planSizes(idxs.map(i=>sizes[i]),note||'',fake,label)}catch(e){console.warn('design',e);aiFail=true}
+    await Promise.all(idxs.map(finish))};
+  const lanes=Array.from({length:Math.min(3,chunks.length)},async()=>{while(chunks.length)await runChunk(chunks.shift())});
+  st.textContent=need.length?`מוכנים 0 מתוך ${total}… ה-AI מתכנן את הסידור.`:`בונה ${total} גדלים…`;
+  await Promise.all([...have.map(finish),...lanes]);
+  return{aiFail};
 }
 $('#go').onclick=async()=>{
   if(busy)return;const st=$('#st');
@@ -445,28 +533,23 @@ $('#go').onclick=async()=>{
   if(!file){st.textContent='קודם מעלים באנר.';return}
   const sizes=sizesIn().map(s=>s.split('x').map(Number)).filter(([w,h])=>w>=16&&h>=16&&w<=4000&&h<=4000).slice(0,40);
   if(!sizes.length){st.textContent='כתבו גודל, למשל 1200x300.';return}
-  busy=true;$('#go').disabled=true;$('#sp').hidden=false;
+  busy=true;$('#go').disabled=true;$('#sp').hidden=false;setProg(null);
   try{
     if(!built){
       st.textContent='ה-AI מסתכל על הבאנר ומזהה את האלמנטים… זה לוקח כמה שניות.';
-      const r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json','X-Gemini-Key':$('#key').value.trim()},body:JSON.stringify({image:jpegB64()})});
-      if(!r.ok){st.textContent=await errMsg(r);return}
-      const {elements}=await r.json();lastEls=elements;
-      const ctx=srcCanvas.getContext('2d'),id=ctx.getImageData(0,0,srcCanvas.width,srcCanvas.height);
-      const res=await ask({type:'build',w:srcCanvas.width,h:srcCanvas.height,rgba:id.data.buffer,elements},[id.data.buffer],t=>st.textContent=t);
-      setScene(res.scene);built=true;units=res.units;srcDim=[res.srcW,res.srcH];plansBy={};showBoxes(res.boxes);
+      const key=$('#key').value.trim();
+      if(!analyzeP||analyzeP.cv!==srcCanvas||analyzeP.key!==key)startAnalyze(false);
+      let a=analyzeP,res0=await a.p;
+      if((res0.err||res0.skip)&&a.pre){startAnalyze(false);a=analyzeP;res0=await a.p} // הניסיון שהתחיל בהעלאה נכשל: מנסים שוב פעם אחת
+      if(res0.err||res0.skip){analyzeP=null;st.textContent=res0.err||'קודם מדביקים מפתח Gemini אישי (שלב 1).';return}
+      st.textContent='בונה את הבאנר המקורי…';
+      await prepScene(res0.elements,srcCanvas);
+      if(!built)throw new Error('stale');
     }
-    let aiFail=false;
-    {
-      const need=units?sizes.filter(([w,h])=>!plansBy[w+'x'+h]):[];
-      for(let i=0;i<need.length;i+=8){
-        try{await planSizes(need.slice(i,i+8),'',st)}catch(e){console.warn('design',e);aiFail=true}
-      }
-    }
-    await buildCards(sizes,st);
+    const{aiFail}=await produce(sizes,st);
     $('#bulk').hidden=false;$('#fb').hidden=false;updBulk();st.textContent='מוכן. אפשר ללחוץ על כל אלמנט כדי להזיז, להגדיל או לערוך אותו.'+(aiFail?' (מעצב ה-AI לא היה זמין, הסידור נעשה בכללים הרגילים.)':'');
   }catch(e){console.error(e);st.textContent='משהו השתבש בבניית הבאנר. נסו שוב, ואם זה חוזר נסו קובץ אחר.'}
-  finally{busy=false;$('#go').disabled=false;$('#sp').hidden=true}
+  finally{busy=false;$('#go').disabled=false;$('#sp').hidden=true;setProg(false)}
 };
 
 // ---- הערות ולמידה
@@ -481,9 +564,7 @@ $('#fbsend').onclick=async()=>{
     if(r.ok){const j=await r.json();msg=j.learned?'סייזי למד כלל חדש מההערה. ':'ההערה נשמרה. '}
     else if(r.status===503)msg='(זיכרון הלמידה עדיין לא פעיל באתר, אבל התיקון רץ עכשיו.) ';
     sizes.forEach(([w,h])=>delete plansBy[w+'x'+h]);
-    let fail=false;
-    for(let i=0;i<sizes.length;i+=8){try{await planSizes(sizes.slice(i,i+8),note,fs,'מתקן לפי ההערה…')}catch(e){console.warn(e);fail=true}}
-    await buildCards(sizes,fs);$('#bulk').hidden=false;updBulk();
+    const{aiFail:fail}=await produce(sizes,fs,note,'מתקן לפי ההערה…');$('#bulk').hidden=false;updBulk();
     fs.textContent=msg+(fail?'לא הצלחתי לתקן עם ה-AI כרגע, נסו שוב בעוד דקה.':'הבאנרים תוקנו לפי ההערה.');
     if(!fail)$('#fbt').value='';
   }catch(e){console.error(e);fs.textContent='משהו השתבש. נסו שוב.'}
@@ -531,7 +612,7 @@ $('#dlall').onclick=async()=>{
 };
 
 function getBans(){try{return JSON.parse(localStorage.getItem('sizy.bans')||'{}')}catch(e){return {}}}
-document.querySelectorAll('#bans [data-ban]').forEach(c=>{const b=getBans();if(c.dataset.ban in b)c.checked=!!b[c.dataset.ban];c.onchange=()=>{const cur=getBans();cur[c.dataset.ban]=c.checked;try{localStorage.setItem('sizy.bans',JSON.stringify(cur))}catch(e){}try{getWorker().postMessage({type:'bans',bans:cur})}catch(e){}}});
+document.querySelectorAll('#bans [data-ban]').forEach(c=>{const b=getBans();if(c.dataset.ban in b)c.checked=!!b[c.dataset.ban];c.onchange=()=>{const cur=getBans();cur[c.dataset.ban]=c.checked;try{localStorage.setItem('sizy.bans',JSON.stringify(cur))}catch(e){}broadcastBans(cur);}});
 const banSend=document.getElementById('bansend');
 if(banSend)banSend.onclick=async()=>{const t=document.getElementById('bantxt').value.trim(),st=document.getElementById('banst');if(!t)return;st.textContent='שומר…';try{const r=await fetch('/api/feedback',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({note:'איסור קבוע (לעולם לא לעשות): '+t})});st.textContent=r.ok?'נשמר. סייזי יכבד את האיסור הזה בבאנרים הבאים.':'לא הצלחתי לשמור כרגע, נסו שוב.';if(r.ok)document.getElementById('bantxt').value=''}catch(e){st.textContent='לא הצלחתי לשמור כרגע, נסו שוב.'}};
 </script>

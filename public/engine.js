@@ -109,7 +109,8 @@ function resizeLim(src, dw, dh) {
       }
     }
   }
-  const out = new Float32Array(dw * dh * c), stride = dw * c;
+  const stride = dw * c;
+  const out = new Float32Array(dw * dh * c);
   for (let y = 0; y < dh; y++) {
     const q0 = ty.off[y], q1 = ty.off[y + 1], base = y * stride;
     for (let x = 0; x < stride; x++) {
@@ -284,31 +285,32 @@ function gaussDirect(img, s) {
   for (let i = 0; i < k.length; i++) k[i] /= sum;
   const tmp = new Float32Array(w * h * c), out = new Float32Array(w * h * c);
   const xi = new Int32Array(2 * r + 1);
-  // אופקי
+  // אופקי (סדר החיבור בכל ערוץ זהה למקור, ולכן התוצאה זהה ביט-ביט)
   for (let y = 0; y < h; y++) {
     const ro = y * w * c;
     for (let x = 0; x < w; x++) {
       const o = ro + x * c;
       if (x >= r && x < w - r) {
-        for (let ch = 0; ch < c; ch++) { let a = 0, p = ro + (x - r) * c + ch; for (let t = 0; t <= 2 * r; t++, p += c) a += src[p] * k[t]; tmp[o + ch] = a; }
+        if (c === 3) {
+          let a0 = 0, a1 = 0, a2 = 0, p = ro + (x - r) * 3;
+          for (let t = 0; t <= 2 * r; t++, p += 3) { const kt = k[t]; a0 += src[p] * kt; a1 += src[p + 1] * kt; a2 += src[p + 2] * kt; }
+          tmp[o] = a0; tmp[o + 1] = a1; tmp[o + 2] = a2;
+        } else for (let ch = 0; ch < c; ch++) { let a = 0, p = ro + (x - r) * c + ch; for (let t = 0; t <= 2 * r; t++, p += c) a += src[p] * k[t]; tmp[o + ch] = a; }
       } else {
         for (let t = -r; t <= r; t++) xi[t + r] = refl(x + t, w);
         for (let ch = 0; ch < c; ch++) { let a = 0; for (let t = 0; t <= 2 * r; t++) a += src[ro + xi[t] * c + ch] * k[t]; tmp[o + ch] = a; }
       }
     }
   }
-  // אנכי
-  const stride = w * c;
+  // אנכי: צוברים שורה שלמה בכל צעד כדי לקרוא זיכרון ברצף
+  const stride = w * c, acc = new Float64Array(stride);
   for (let y = 0; y < h; y++) {
     const inter = y >= r && y < h - r;
     if (!inter) for (let t = -r; t <= r; t++) xi[t + r] = refl(y + t, h);
     const base = y * stride;
-    for (let x = 0; x < stride; x++) {
-      let a = 0;
-      if (inter) { let p = (y - r) * stride + x; for (let t = 0; t <= 2 * r; t++, p += stride) a += tmp[p] * k[t]; }
-      else for (let t = 0; t <= 2 * r; t++) a += tmp[xi[t] * stride + x] * k[t];
-      out[base + x] = a;
-    }
+    acc.fill(0);
+    for (let t = 0; t <= 2 * r; t++) { const kt = k[t], ro = (inter ? y - r + t : xi[t]) * stride; for (let x = 0; x < stride; x++) acc[x] += tmp[ro + x] * kt; }
+    for (let x = 0; x < stride; x++) out[base + x] = acc[x];
   }
   return { w, h, c, d: out };
 }
@@ -1519,7 +1521,7 @@ function planOk(pp, base, W, H) {
 }
 // רשימת איסורים: כללים שהמנוע לא מרשה לעצמו לשבור. כל איסור אפשר לכבות בהגדרות.
 const BANS = { overlap: true, clip: true, tiny: true };
-function setBans(b) { if (b && typeof b === 'object') for (const k of Object.keys(BANS)) if (k in b) BANS[k] = !!b[k]; }
+function setBans(b) { APGEN++; if (b && typeof b === 'object') for (const k of Object.keys(BANS)) if (k in b) BANS[k] = !!b[k]; }
 function enforceBans(sc, W, H, pl) {
   if (!BANS.overlap && !BANS.clip) return pl;
   const uOf = new Map(); sc.units.forEach((u, i) => u.kids.forEach(k => uOf.set(k, i)));
@@ -1562,7 +1564,16 @@ function enforceBans(sc, W, H, pl) {
   }
   return out;
 }
+let APGEN = 0; // מספר הגרסה עולה כשמשתנים האיסורים, ואז הזיכרון נמחק
 function autoplace(sc, W, H, plan) {
+  const ck = W + 'x' + H + '|' + APGEN + '|' + (plan ? JSON.stringify(plan) : ''), mc = sc._ap || (sc._ap = new Map()), hit = mc.get(ck);
+  if (hit) return hit.map(e => e.slice());
+  const res = autoplace0(sc, W, H, plan);
+  if (mc.size > 64) mc.delete(mc.keys().next().value);
+  mc.set(ck, res.map(e => e.slice()));
+  return res;
+}
+function autoplace0(sc, W, H, plan) {
   const base = autoplaceRules(sc, W, H);
   let res = base;
   if (plan && planValid(plan, sc, W, H)) { const pp = planned(sc, W, H, plan); if (planOk(pp, base, W, H)) res = pp; }
@@ -1571,6 +1582,13 @@ function autoplace(sc, W, H, plan) {
 
 // ---------------------------------------------------------------- רינדור
 // מחזיר { w, h, rgba: Uint8ClampedArray }
+const PM = new WeakMap(); // שכבה בצבע מוכפל באלפא: מחושבת פעם אחת לכל שכבה ולא בכל גודל
+function premul(L) {
+  let pm = PM.get(L); if (pm) return pm;
+  const n = L.lw * L.lh; pm = { w: L.lw, h: L.lh, c: 4, d: new Float32Array(n * 4) };
+  for (let i = 0; i < n; i++) { const a = L.a[i]; pm.d[i * 4] = L.rgb[i * 3] * a; pm.d[i * 4 + 1] = L.rgb[i * 3 + 1] * a; pm.d[i * 4 + 2] = L.rgb[i * 3 + 2] * a; pm.d[i * 4 + 3] = a; }
+  PM.set(L, pm); return pm;
+}
 function render(sc, W, H, K, plan) {
   K = K || 1;
   const Wk = Math.floor(W * K), Hk = Math.floor(H * K);
@@ -1601,8 +1619,9 @@ function render(sc, W, H, K, plan) {
   for (const [leaf, x, y, w, h] of autoplace(sc, W, H, plan)) {
     if (w < 1 || h < 1) continue;
     const L = leaf.layer, tw = Math.max(1, Math.round(w * K)), th = Math.max(1, Math.round(h * K));
-    const r = resampleLayer(L, tw, th, !!(leaf.text && tw > 3 && th > 3));
     const x0 = Math.round(x * K), y0 = Math.round(y * K);
+    if (x0 >= Wk || y0 >= Hk || x0 + tw <= 0 || y0 + th <= 0) continue; // מחוץ לקנבס: אין מה לצייר
+    const r = resampleLayer(L, tw, th, !!(leaf.text && tw > 3 && th > 3));
     const xa = Math.max(0, x0), ya = Math.max(0, y0), xb = Math.min(Wk, x0 + tw), yb = Math.min(Hk, y0 + th);
     // מצב מיזוג: טקסט בהיר על רקע כהה – מיזוג באור לינארי (קווים דקים לא נעשים אפורים); כהה על בהיר – sRGB רגיל
     let gam = 1;
