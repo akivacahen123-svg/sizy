@@ -7,7 +7,7 @@
     const sig = 0.10 * srcW, g = new Float32Array(srcW);
     for (let x = 0; x < srcW; x++) { const d = Math.min(x + .5, srcW - x - .5) / sig; g[x] = Math.exp(-d * d); }
     const total = c => { let t = 0; for (let x = 0; x < srcW; x++) t += c + (s - c) * g[x]; return t; };
-    let lo = 0.05 * s, hi = s;
+    let lo = 0.55 * s, hi = s; // מכווצים לכל היותר ל-55% מקנה המידה; מעבר לזה חותכים (cover)
     if (total(lo) > Wk) return null;
     for (let i = 0; i < 40; i++) { const m = (lo + hi) / 2; if (total(m) > Wk) hi = m; else lo = m; }
     const c = lo, xs = new Float32Array(Wk + 1);

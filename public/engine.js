@@ -233,7 +233,7 @@ function harmonicFill(img, hole, init) {
   }
   return out;
 }
-function msFill(img, hole) {
+function msFill(img, hole, opts) {
   const { w, h } = img, N = w * h;
   let any = false; for (let i = 0; i < N; i++) if (hole[i]) { any = true; break; }
   if (!any) return { w, h, c: 3, d: Float32Array.from(img.d) };
@@ -258,6 +258,8 @@ function msFill(img, hole) {
       for (let i = 0; i < N; i++) { const wg = clp((dens.d[i] - 0.2) / 0.5, 0, 1); if (wg > 0 && hole[i]) for (let k = 0; k < 3; k++) fill[i * 3 + k] = fill[i * 3 + k] * (1 - wg) + hf[i * 3 + k] * wg; }
     }
   }
+  let texW = null; // כמה מכל פיקסל מולא בטקסטורה מסונתזת (PatchMatch) ולא במילוי חלק
+  if (opts && opts.tex && G.SizyFill) { const r = G.SizyFill.refine(img, hole, fill, opts.tex === true ? {} : opts.tex); fill.set(r.fill); texW = r.weight; }
   const m3 = blur(hm, 1.2);
   // גרעיניות
   const lap = []; const gray = i => 0.299 * img.d[i * 3] + 0.587 * img.d[i * 3 + 1] + 0.114 * img.d[i * 3 + 2];
@@ -269,20 +271,25 @@ function msFill(img, hole) {
   const rnd = mulberry(7), out = new Float32Array(N * 3);
   const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
   for (let i = 0; i < N; i++) {
-    const m = m3.d[i], nz = clp(m * 2, 0, 1);
+    const m = m3.d[i], nz = clp(m * 2, 0, 1) * (texW ? 1 - texW[i] : 1);
     for (let ch = 0; ch < 3; ch++) out[i * 3 + ch] = img.d[i * 3 + ch] * (1 - m) + fill[i * 3 + ch] * m + (nz > 0 ? gauss() * noise * nz : 0);
   }
-  return { w, h, c: 3, d: out };
+  return { w, h, c: 3, d: out, tex: texW };
 }
-function softenDenseHoles(plate, hole) {
+function softenDenseHoles(plate, hole, tex) {
   const { w, h } = plate, N = w * h, base = Math.min(w, h);
   const hf = plane(w, h); for (let i = 0; i < N; i++) hf.d[i] = hole[i] ? 1 : 0;
   const dens = blur(hf, Math.max(8, base * 0.04));
   const bl = blur(plate, Math.max(5, base * 0.012));
   const out = new Float32Array(N * 3);
+  // הטשטוש מוחק גם את הגרעיניות ולכן נראה כמריחה ליד רקע חד: מחזירים גרעיניות בעוצמה של הרקע הידוע (סטיית תקן של תדר גבוה מחוץ לחורים)
+  const sm = blur(plate, 1.2), ea = [];
+  for (let i = 0; i < N; i += 3) if (!hole[i]) ea.push(Math.abs(plate.d[i * 3 + 1] - sm.d[i * 3 + 1]));
+  const gsd = ea.length ? clp(median(ea) * 1.4826 * 0.9, 0, 5) : 0, rnd = mulberry(11);
+  const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
   for (let i = 0; i < N; i++) {
-    const wl = clp((dens.d[i] - 0.14) / 0.30, 0, 0.65);
-    for (let ch = 0; ch < 3; ch++) out[i * 3 + ch] = plate.d[i * 3 + ch] * (1 - wl) + bl.d[i * 3 + ch] * wl;
+    const wl = clp((dens.d[i] - 0.14) / 0.30, 0, 0.65) * (tex ? 1 - tex[i] : 1), nz = wl > 0.02 ? gauss() * gsd * wl : 0;
+    for (let ch = 0; ch < 3; ch++) out[i * 3 + ch] = plate.d[i * 3 + ch] * (1 - wl) + bl.d[i * 3 + ch] * wl + nz;
   }
   return { w, h, c: 3, d: out };
 }
@@ -938,8 +945,8 @@ function buildScene(img, elements, onProgress) {
     leaves.push(e);
   }
   tell('משלים את הרקע…');
-  let plate = msFill(clean, holes2);
-  plate = softenDenseHoles(plate, holes2);
+  let plate = msFill(clean, holes2, { tex: true });
+  plate = softenDenseHoles(plate, holes2, plate.tex);
   for (let i = 0; i < plate.d.length; i++) plate.d[i] = clp(plate.d[i], 0, 255);
   for (const e of leaves) { const L = e.layer; e.x = L.x; e.y = L.y; e.w = L.w; e.h = L.h; }
   for (const t of leaves) {
@@ -999,7 +1006,7 @@ function buildScene(img, elements, onProgress) {
   }
   const holeRows = new Float32Array(H);
   for (let y = 0; y < H; y++) { let c = 0; for (let x = 0; x < W; x++) c += holes2[y * W + x]; holeRows[y] = c / W; }
-  return { W, H, plate, units, leaves, holeRows, boxes: leaves.map(e => ({ id: e.id, role: e.role, x: e.x / W, y: e.y / H, w: e.w / W, h: e.h / H })) };
+  return { W, H, plate, units, leaves, holeRows, holes2, boxes: leaves.map(e => ({ id: e.id, role: e.role, x: e.x / W, y: e.y / H, w: e.w / W, h: e.h / H })) };
 }
 
 // ---------------------------------------------------------------- גלריה

@@ -1,5 +1,5 @@
 // סייזי · עובד רקע: מריץ את המנוע מחוץ לחוט הראשי כדי שהדף לא ייתקע.
-importScripts('/bgmap.js', '/engine.js');
+importScripts('/bgmap.js', '/inpaint.js', '/engine.js');
 let scene = null;
 onmessage = e => {
   const m = e.data;
