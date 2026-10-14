@@ -1323,7 +1323,7 @@ function splits(n, k) {
   })(0, k, []);
   return res;
 }
-function layout(W, H, units, sw, sh, forceWide) {
+function layoutBase(W, H, units, sw, sh, forceWide) {
   const out = [];
   const heroes = units.filter(u => u.role === 'hero');
   const hero = heroes.length ? heroes.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)) : null;
@@ -1479,7 +1479,7 @@ function rankOf(u, sh, wide) {
   if (u.cards || r.includes('photo')) return 1;
   return 1.5;
 }
-function layoutTall(W, H, units, sw, sh) {
+function layoutTallBase(W, H, units, sw, sh) {
   const m = Math.min(W, H) * 0.07, aw = W - 2 * m, rtl = units.some(u => HEB.test((u.lines || []).join('')));
   const rank = u => rankOf(u, sh, false);
   const fine = units.filter(u => finePrint(u, sh)), out0 = [];
@@ -1526,6 +1526,117 @@ function layoutTall(W, H, units, sw, sh) {
   list.forEach(({ u }, i) => { const w = u.w * f[i], h = u.h * f[i]; out.push([u, (W - w) / 2, y, w, h]); y += h + gap; });
   return out;
 }
+// ---- היררכיה, פסים וסימני פינה
+// סימן קטן (קישוט) ליד הקצה של הבאנר נשאר בפינה שלו ולא נכנס לזרימת התוכן
+const isMark = (u, sw, sh) => {
+  if (u.role !== 'decor' || u.kids.length !== 1 || u.kids[0].text || u.cards || u.kids[0].isPlate || u.w * u.h >= 0.05 * sw * sh) return false;
+  const cx = (u.x + u.w / 2) / sw, cy = (u.y + u.h / 2) / sh;
+  return cx < 0.22 || cx > 0.78 || cy < 0.22 || cy > 0.78;
+};
+function markBox(u, W, H, sw, sh) {
+  const k = Math.min(W / sw, H / sh), w = u.w * k, h = u.h * k, cx = (u.x + u.w / 2) / sw, cy = (u.y + u.h / 2) / sh;
+  const x = cx < 0.3 ? u.x * k : cx > 0.7 ? W - (sw - u.x - u.w) * k - w : cx * W - w / 2;
+  const y = cy < 0.3 ? u.y * k : cy > 0.7 ? H - (sh - u.y - u.h) * k - h : cy * H - h / 2;
+  const mg = 0.025 * Math.min(W, H);
+  return [clp(x, mg, Math.max(mg, W - w - mg)), clp(y, mg, Math.max(mg, H - h - mg)), w, h];
+}
+// לוגו (או לוגו עם כתובת) לעולם לא גדול מהכותרת: כשהמקום צפוף הוא מצטמק והכותרת והתמונות גדלות
+const isLogoU = u => !u.cards && u.kids.some(k => k.role === 'logo' || k.role === 'brand') && u.kids.every(k => k.role === 'logo' || k.role === 'brand' || (k.text && ['caption', 'label', 'body'].includes(k.role)));
+function shrinkUnit(u, f) {
+  const rel = new Map(u.kids.map(k => { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; return [k, [dx * f, dy * f]]; }));
+  return { ...u, w: u.w * f, h: u.h * f, rel, kf: (u.kf || 1) * f };
+}
+const headArea = res => { let a = 0; for (const [u, , , w] of res) { const s = w / u.w * (u.kf || 1); for (const k of u.kids) if (k.text && k.role === 'headline') a += k.w * k.h * s * s; } return a; };
+function capLogos(run, units) {
+  let res = run(units);
+  if (!units.some(isLogoU)) return res;
+  let f = 1;
+  for (let it = 0; it < 5; it++) {
+    const hd = headArea(res); let lg = 0;
+    for (const [u, , , w, h] of res) if (isLogoU(u)) lg += w * h;
+    if (!hd || lg <= 0.55 * hd || f <= 0.4) break;
+    f *= Math.max(0.4 / f, Math.sqrt(0.5 * hd / lg));
+    res = run(units.map(u => isLogoU(u) ? shrinkUnit(u, f) : u));
+  }
+  return res;
+}
+const headLineH = res => { let best = 0; for (const [u, , , w] of res) { const s = w / u.w * (u.kf || 1); for (const k of u.kids) if (k.text && k.role === 'headline') best = Math.max(best, k.h * s / Math.max(1, (k.layer && k.layer.k) || (k.lines || []).length || 1)); } return best; };
+// פס צר מאוד (728×90, 1200×60...): שורה אחת, הכול באמצע האנכי. הכותרת בשורה אחת כשזה מגדיל את האותיות. stacked: כותרת משנה מעל הכותרת במקום לידה.
+function stripRow(W, H, units, sw, sh, ctx, stacked) {
+  const heroes = units.filter(u => u.role === 'hero'), hero = heroes.length ? heroes.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)) : null;
+  const rtl = units.some(u => HEB.test((u.lines || []).join('')));
+  const m = Math.max(4, H * 0.06), rh = H - 2 * m, gap = Math.max(6, H * 0.12);
+  const oneLine = (k, mh) => { const ok = (ctx && ctx.byId.get(k.id)) || k, L2 = reflowLeaf(ok, 1e5, mh, 0); return L2 ? { ...ok, layer: L2, w: L2.lw / L2.up, h: L2.lh / L2.up, reflowed: true } : k; };
+  let atoms = [];
+  for (const u of units) {
+    if (u === hero || u.role === 'hero') continue;
+    const hk = u.kids.find(k => k.text && k.role === 'headline');
+    if (!hk || u.cards || u.kids.some(k => k.isPlate || k.solid)) { atoms.push(u); continue; }
+    const H1 = oneLine(hk, rh * 0.6), subs = u.kids.filter(k => k.text && k.role === 'subheadline').map(k => oneLine(k, rh * 0.4));
+    const g1 = Math.max(3, H1.h * 0.3), rel = new Map(), kids = [...subs, H1];
+    let uw, uh;
+    if (stacked) {
+      uw = Math.max(H1.w, ...subs.map(k => k.w)); uh = H1.h + subs.reduce((a, k) => a + k.h + Math.min(k.h, H1.h) * 0.2, 0);
+      let y = 0; for (const k of subs) { rel.set(k, [(uw - k.w) / 2, y]); y += k.h + Math.min(k.h, H1.h) * 0.2; }
+      rel.set(H1, [(uw - H1.w) / 2, y]);
+    } else {
+      uw = H1.w + subs.reduce((a, k) => a + k.w + g1, 0); uh = Math.max(H1.h, ...subs.map(k => k.h));
+      let x = 0; for (const k of (rtl ? [H1, ...subs] : [...subs, H1])) { rel.set(k, [x, (uh - k.h) / 2]); x += k.w + g1; }
+    }
+    atoms.push({ role: 'unit', kids, x: hk.x, y: hk.y, w: uw, h: uh, lines: u.lines, rel, head: H1 });
+    for (const k of u.kids) if (k !== hk && !(k.text && k.role === 'subheadline')) atoms.push({ role: k.role, kids: [k], x: k.x, y: k.y, w: k.w, h: k.h, lines: k.lines });
+  }
+  if (!atoms.some(a => a.head)) return null;
+  atoms.sort((a, b) => rankOf(a, sh, 'strip') - rankOf(b, sh, 'strip') || (rtl ? (b.x + b.w / 2) - (a.x + a.w / 2) : (a.x + a.w / 2) - (b.x + b.w / 2)));
+  let ax0 = m, ax1 = W - m; const out = [];
+  if (hero) {
+    const right = hero.x + hero.w / 2 > sw / 2, s = Math.min((H - m) / hero.h, W * 0.32 / hero.w, 1.2), hw = hero.w * s, hh = hero.h * s, hx = right ? W - hw - m * 0.3 : m * 0.3;
+    out.push([hero, hx, (H - hh) / 2, hw, hh]);
+    if (right) ax1 = hx - gap * 0.8; else ax0 = hx + hw + gap * 0.8;
+  }
+  const aw = ax1 - ax0, ess = a => a.kids.some(k => ['headline', 'button', 'logo', 'brand'].includes(k.role)), isBtn = a => a.kids.every(k => k.role === 'button');
+  const minTextH = a => { const hs = a.kids.filter(k => k.text).map(k => k.h / Math.max(1, (k.layer && k.layer.k) || (k.lines || []).length || 1)); return hs.length ? Math.min(...hs) : Infinity; };
+  let sc = [], s = 0;
+  const solve = () => {
+    const Ah = atoms.reduce((t, a) => t + (a.head ? a.head.w * a.head.h : 0), 0);
+    const rat = (pred, lim) => { const A = atoms.filter(pred).reduce((t, a) => t + a.w * a.h, 0); return A > 0 ? Math.min(1, Math.sqrt(lim * Ah / A)) : 1; };
+    const rl = rat(isLogoU, 0.5), rb = rat(isBtn, 0.45);
+    const hk = atoms.find(a => a.head).head;
+    const fac = a => isLogoU(a) ? rl : isBtn(a) ? rb : 1;
+    const sc1 = (a, v) => Math.min(v * fac(a), rh / a.h, a.head ? 0.68 * H / hk.h : 1e9);
+    const tot = v => atoms.reduce((t, a) => t + a.w * sc1(a, v), 0) + (atoms.length - 1) * gap;
+    let lo = 0, hi = 1.5; for (let i = 0; i < 40; i++) { const mid = (lo + hi) / 2; if (tot(mid) <= aw) lo = mid; else hi = mid; }
+    s = lo; sc = atoms.map(a => sc1(a, s));
+  };
+  for (let it = 0; it < 7; it++) {
+    solve();
+    const bad = atoms.map((a, i) => [a, i]).filter(([a, i]) => !ess(a) && a.kids.every(k => k.text) && minTextH(a) * sc[i] < 5.5).sort((p, q) => minTextH(p[0]) * sc[p[1]] - minTextH(q[0]) * sc[q[1]]);
+    if (!bad.length || atoms.length < 3) break;
+    atoms = atoms.filter(a => a !== bad[0][0]);
+  }
+  solve();
+  if (s < 0.05) return null;
+  const ws = atoms.map((a, i) => a.w * sc[i]), T = ws.reduce((p, q) => p + q, 0), n = atoms.length;
+  const sp = n > 1 ? Math.min(gap * 4, gap + Math.max(0, aw - T - (n - 1) * gap) / (n - 1)) : 0, used = T + (n - 1) * sp;
+  let cur = rtl ? ax1 - Math.max(0, aw - used) / 2 : ax0 + Math.max(0, aw - used) / 2;
+  atoms.forEach((a, i) => {
+    const w = ws[i], h = a.h * sc[i];
+    out.push([a, Math.round(rtl ? cur - w : cur), Math.round((H - h) / 2), w, h]);
+    cur = rtl ? cur - w - sp : cur + w + sp;
+  });
+  return out;
+}
+function layout(W, H, units, sw, sh, forceWide, ctx) {
+  const base = capLogos(us => layoutBase(W, H, us, sw, sh, forceWide), units);
+  if (W / H <= 4.2 || units.length < 2) return base;
+  let best = base, bl = headLineH(base) * 1.08;
+  for (const stacked of [false, true]) {
+    const row = stripRow(W, H, units, sw, sh, ctx, stacked), l = row ? headLineH(row) : 0;
+    if (l > bl) { best = row; bl = l; }
+  }
+  return best;
+}
+const layoutTall = (W, H, units, sw, sh) => capLogos(us => layoutTallBase(W, H, us, sw, sh), units);
 // ---- תכנון של AI: לכל יחידה ה-AI קובע תיבה (x,y,w,h בפיקסלים של הגודל החדש) והמנוע מסדר בתוכה
 function describeUnits(sc) {
   return sc.units.map((u, i) => ({ id: 'u' + i, role: u.role, lines: (u.lines || []).filter(Boolean), kind: u.cards ? 'gallery of ' + u.cards.length + ' photos with captions' : u.kids.length > 1 ? 'group' : u.kids[0].role, x: Math.round(u.x), y: Math.round(u.y), w: Math.round(u.w), h: Math.round(u.h) }));
@@ -1567,28 +1678,34 @@ function autoplaceRules(sc, W, H) {
 }
 function autoplaceRules0(sc, W, H) {
   const pl = [];
-  const add = (u, x, y, w, h) => { const s = w / u.w; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * s, y + dy * s, k.w * s, k.h * s]); } };
-  const units = sc.units.map(u => reflowUnit(u, W, H));
+  const add = (u, x, y, w, h) => { const s = w / u.w, kf = u.kf || 1; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * s, y + dy * s, k.w * s * kf, k.h * s * kf]); } };
+  const units0 = sc.units.map(u => reflowUnit(u, W, H));
+  const marks = units0.length > 1 ? units0.filter(u => isMark(u, sc.W, sc.H)) : [], units = marks.length ? units0.filter(u => !marks.includes(u)) : units0;
+  const ctx = { byId: new Map(sc.leaves.map(l => [l.id, l])) };
+  const addMarks = () => { for (const u of marks) { const [x, y, w, h] = markBox(u, W, H, sc.W, sc.H); add(u, x, y, w, h); } };
   const noHero = !units.some(u => u.role === 'hero'), asp = W / H;
   let useTall = noHero && asp < 0.9, mid = null;
   if (noHero && asp >= 0.9 && asp < 1.8) { // יחס בינוני: מנסים גם סידור לגובה וגם לרוחב, ובוחרים את זה שממלא יותר מהבאנר
     const cover = o => o.reduce((a, e) => a + e[3] * e[4], 0);
-    const t = layoutTall(W, H, units, sc.W, sc.H), w2 = layout(W, H, units.filter(u => !u.pin || true), sc.W, sc.H, true);
+    const t = layoutTall(W, H, units, sc.W, sc.H), w2 = layout(W, H, units.filter(u => !u.pin || true), sc.W, sc.H, true, ctx);
     useTall = cover(t) >= cover(w2); mid = useTall ? t : w2;
   }
-  if (mid && !useTall) { for (const [u, x, y, w, h] of mid) add(u, x, y, w, h); pl.sort((a, b) => (a[0].isPlate ? 0 : 1) - (b[0].isPlate ? 0 : 1) || a[0].z - b[0].z); return pl; }
+  if (mid && !useTall) { for (const [u, x, y, w, h] of mid) add(u, x, y, w, h); addMarks(); pl.sort((a, b) => (a[0].isPlate ? 0 : 1) - (b[0].isPlate ? 0 : 1) || a[0].z - b[0].z); return pl; }
   if (useTall) {
     for (const [u, x, y, w, h] of (mid || layoutTall(W, H, units, sc.W, sc.H))) add(u, x, y, w, h);
+    addMarks();
     pl.sort((a, b) => (a[0].isPlate ? 0 : 1) - (b[0].isPlate ? 0 : 1) || a[0].z - b[0].z);
     return pl;
   }
   const pins = [], rest = [], mg = Math.min(W, H) * 0.06;
-  for (const u of units) { if (u.pin) { const k = Math.min((W - 2 * mg) / u.w, 1.4); pins.push([u, k, u.h * k, u.w * k]); } else rest.push(u); }
+  const strip = W / H > 4.2;
+  for (const u of units) { if (u.pin && !strip) { const k = Math.min((W - 2 * mg) / u.w, 1.4); pins.push([u, k, u.h * k, u.w * k]); } else rest.push(u); }
   const hasTop = pins.some(p => p[0].pin === 'top'), hasBot = pins.some(p => p[0].pin === 'bottom');
   const topH = pins.filter(p => p[0].pin === 'top').reduce((a, p) => a + p[2], 0) + (hasTop ? mg : 0);
   const botH = pins.filter(p => p[0].pin === 'bottom').reduce((a, p) => a + p[2], 0) + (hasBot ? mg : 0);
   const avail = Math.max(20, H - topH - botH);
-  for (const [u, x, y0, w, h] of layout(W, avail, rest, sc.W, sc.H)) add(u, x, Math.max(0, Math.min(avail - h, y0)) + topH, w, h);
+  for (const [u, x, y0, w, h] of layout(W, avail, rest, sc.W, sc.H, false, ctx)) add(u, x, Math.max(0, Math.min(avail - h, y0)) + topH, w, h);
+  addMarks();
   let yt = mg, yb = H - mg;
   for (const [u, , h, w] of pins) { let y; if (u.pin === 'top') { y = yt; yt += h; } else { y = yb - h; yb -= h; } add(u, (W - w) / 2, y, w, h); }
   pl.sort((a, b) => (a[0].role === 'hero' ? 0 : 1) - (b[0].role === 'hero' ? 0 : 1) || (a[0].isPlate ? 0 : 1) - (b[0].isPlate ? 0 : 1) || a[0].z - b[0].z);
