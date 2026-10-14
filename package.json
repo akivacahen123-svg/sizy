@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node --experimental-transform-types test/server.test.ts && node test/engine.test.mjs",
+    "test": "node --experimental-transform-types test/server.test.ts && node test/engine.test.mjs && node test/qa.test.mjs",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
