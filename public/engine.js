@@ -819,7 +819,41 @@ function graphicLayer(clean, e, grad) {
     const f = shape === 'hero' ? Math.max(28, Math.min(w, h) * 0.1) : 3;
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) a[j * w + i] = clp(Math.min(i, j, w - 1 - i, h - 1 - j) / f, 0, 1);
   }
-  return { rgb: crop.d, a, lw: w, lh: h, up: 1, x, y, w, h };
+  return { rgb: crop.d, a, lw: w, lh: h, up: 1, x, y, w, h, rectHero: shape === 'hero' };
+}
+
+// ---- תמונה ראשית (hero): חיתוך "cover" לחלון עם הכי הרבה פרטים, והצמדה לקצה הקנבס בלי הילה רכה
+// אנרגיית קצוות (אינטגרל) של השכבה, נשמרת על השכבה
+function heroEnergy(L) {
+  if (L._en) return L._en;
+  const w = L.lw, h = L.lh, lum = new Float32Array(w * h), I = new Float64Array((w + 1) * (h + 1));
+  for (let i = 0; i < w * h; i++) lum[i] = 0.299 * L.rgb[i * 3] + 0.587 * L.rgb[i * 3 + 1] + 0.114 * L.rgb[i * 3 + 2];
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const e = (i < w - 1 ? Math.abs(lum[j * w + i + 1] - lum[j * w + i]) : 0) + (j < h - 1 ? Math.abs(lum[(j + 1) * w + i] - lum[j * w + i]) : 0);
+    I[(j + 1) * (w + 1) + i + 1] = e + I[j * (w + 1) + i + 1] + I[(j + 1) * (w + 1) + i] - I[j * (w + 1) + i];
+  }
+  return (L._en = { I, w, h });
+}
+// החלון [x,y,w,h] (בפיקסלי השכבה) בעל יחס tw:th שמכיל הכי הרבה אנרגיית קצוות; מחזיר גם איזה חלק מהשטח נשאר
+function heroWindow(L, tw, th) {
+  const a = tw / th, cw = Math.min(L.lw, Math.floor(L.lh * a)), ch = Math.min(L.lh, Math.floor(cw / a)), { I, w } = heroEnergy(L);
+  const sum = (x, y) => I[(y + ch) * (w + 1) + x + cw] - I[y * (w + 1) + x + cw] - I[(y + ch) * (w + 1) + x] + I[y * (w + 1) + x];
+  let best = null; const sx = Math.max(1, Math.floor((L.lw - cw) / 40)), sy = Math.max(1, Math.floor((L.lh - ch) / 40));
+  for (let y = 0; y <= L.lh - ch; y += sy) for (let x = 0; x <= L.lw - cw; x += sx) { const v = sum(x, y); if (!best || v > best.v) best = { v, x, y }; }
+  return { x: best.x, y: best.y, w: cw, h: ch, kept: (cw * ch) / (L.lw * L.lh) };
+}
+// שכבת hero חדשה מחלון חיתוך. bleed = הצדדים שנוגעים בקצה הקנבס (אלפא מלא); בשאר הצדדים שוליים חדים (פיזור קטן)
+function heroVariant(hero, win, bleed) {
+  const kid = hero.kids[0], L = kid.layer, { x: wx, y: wy, w, h } = win, rgb = new Float32Array(w * h * 3), a = new Float32Array(w * h), f = Math.max(2, 0.02 * Math.min(w, h));
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const si = (wy + j) * L.lw + wx + i, di = j * w + i;
+    rgb[di * 3] = L.rgb[si * 3]; rgb[di * 3 + 1] = L.rgb[si * 3 + 1]; rgb[di * 3 + 2] = L.rgb[si * 3 + 2];
+    let v = 1;
+    if (!bleed.l) v = Math.min(v, (i + 0.5) / f); if (!bleed.r) v = Math.min(v, (w - i - 0.5) / f);
+    if (!bleed.t) v = Math.min(v, (j + 0.5) / f); if (!bleed.b) v = Math.min(v, (h - j - 0.5) / f);
+    a[di] = clp(v, 0, 1);
+  }
+  return { ...hero, kids: [{ ...kid, layer: { ...L, rgb, a, lw: w, lh: h, w, h, x: 0, y: 0, _en: null, _uni: null }, x: 0, y: 0, w, h }], x: 0, y: 0, w, h, rel: null };
 }
 
 // מחלק שכבת טקסט ל-n שורות (פסי גובה): לפי רווחים ריקים, ואם השורות נוגעות זו בזו חותך בעמק הדל ביותר
@@ -1348,9 +1382,13 @@ function layout(W, H, units, sw, sh, forceWide) {
     let ax0 = m * 1.5, ax1 = W - m * 1.5;
     if (hero) {
       const right = hero.x + hero.w / 2 > sw / 2;
-      const s = Math.min((H - m) / hero.h, W * 0.32 / hero.w, 1.2), hw = hero.w * s, hh = hero.h * s;
-      const hx = right ? W - hw - m * 0.3 : m * 0.3;
-      out.push([hero, hx, (H - hh) / 2, hw, hh]);
+      const rect = hero.kids.length === 1 && hero.kids[0].layer && hero.kids[0].layer.rectHero;
+      // תמונה שבמקור נוגעת בקצה הבאנר נשארת נוגעת בו (בלי שוליים והילה); אחרת נשארת צפה
+      const bSide = rect && (right ? hero.x + hero.w >= sw - 2 : hero.x <= 2), bV = rect && hero.y <= 2 && hero.y + hero.h >= sh - 2;
+      const s = Math.min((bV ? H : H - m) / hero.h, W * 0.32 / hero.w, 1.2), hw = hero.w * s, hh = hero.h * s;
+      const hx = bSide ? (right ? W - hw : 0) : right ? W - hw - m * 0.3 : m * 0.3, hy = bV ? 0 : (H - hh) / 2;
+      const hl = rect ? heroVariant(hero, { x: 0, y: 0, w: hero.kids[0].layer.lw, h: hero.kids[0].layer.lh }, { l: bSide && !right, r: bSide && right, t: bV, b: bV }) : hero;
+      out.push([hl, hx, hy, hw, hh]);
       if (right) ax1 = hx - m; else ax0 = hx + hw + m;
     }
     const aw = ax1 - ax0, cg = Math.max(m * 1.6, H * 0.1);
@@ -1383,13 +1421,20 @@ function layout(W, H, units, sw, sh, forceWide) {
     const eff = u => u.boost || 1;
     const plan = () => {
       const mw = tx.length ? Math.max(...tx.map(u => u.w)) : 1, tH = n ? gh(allg) : 1;
-      let best = null;
-      for (const fr of (hero ? [0.42, 0.34, 0.26] : [0])) {
-        const hs = hero ? Math.min(fr * H / hero.h, aw / hero.w, 1.2) : 0, hh = hero ? hero.h * hs : 0;
-        const th = H - 2 * m - hh - (hero ? vg * 2 : 0), s = Math.min(aw / mw, th / tH, 1.15);
+      let best = null; const cands = [];
+      for (const fr of (hero ? (H / W > 1.5 ? [0.36, 0.3, 0.24] : [0.42, 0.34, 0.26]) : [0])) {
+        let hs = hero ? Math.min(fr * H / hero.h, aw / hero.w, 1.2) : 0, hh = hero ? hero.h * hs : 0, hb = null;
+        if (hero && hero.kids.length === 1 && hero.kids[0].layer && hero.kids[0].layer.rectHero) { // cover + bleed: רוחב מלא, גובה fr*H, חלון עם הכי הרבה פרטים; אם חותך יותר מדי מהתמונה – נשארים עם contain
+          const tH = fr * H, win = heroWindow(hero.kids[0].layer, W, tH), sc = W / win.w;
+          if (win.kept >= 0.45 && sc <= 1.6 && sc >= 0.2) { hb = { win, sc }; hh = tH; hs = Math.max(sc, hs); }
+        }
+        const th = H - (hb ? m : 2 * m) - hh - (hero ? vg * 2 : 0), s = Math.min(aw / mw, th / tH, 1.15);
         const score = hero ? Math.min(s, hs) : s;
-        if (!best || score > best[0]) best = [score, hs, hh, s, th];
+        cands.push([score, hs, hh, s, th, hb]);
+        if (!best || score > best[0]) best = [score, hs, hh, s, th, hb];
       }
+      // תמונה גדולה מועדפת: הגדולה ביותר שהטקסט מפסיד ממנה עד 20% בלבד
+      if (best && hero) for (const c of cands) if (c[5] && c[0] >= 0.8 * best[0] && (!best[5] || c[2] > best[2])) best = c;
       return best;
     };
     // גלריות: בוחרים כמה עמודות ואיזו הגדלה נותנות תמונות גדולות ככל האפשר בלי לחרוג מהבאנר
@@ -1406,15 +1451,16 @@ function layout(W, H, units, sw, sh, forceWide) {
       }
       tx[gi] = pick.u2; tx[gi].boost = pick.b;
     }
-    const [, hs, hh, s, th] = plan();
+    const [, hs, hh, s, th, hb] = plan();
     const tg = gp.slice(0, -1).reduce((a, b) => a + b, 0);
     const tHb = tx.reduce((a, u) => a + u.h * eff(u), 0) + tg;
     let used = s * tHb;
     if (tg > 0) { gm = Math.max(1, Math.min(2.2, 1 + (th - used) / (tg * s))); used = s * (tHb - tg) + s * tg * gm; }
     const bottom = !hero || (hero.y + hero.h / 2) / sh > 0.35;
-    const y0 = bottom ? m + (th - used) / 2 : m + hh + vg * 2 + (th - used) / 2;
+    const y0 = bottom ? m + (th - used) / 2 : (hb ? 0 : m) + hh + vg * 2 + (th - used) / 2;
     put(allg, s, 0, W, y0);
-    if (hero) out.push([hero, (W - hero.w * hs) / 2, bottom ? H - m - hh : m, hero.w * hs, hh]);
+    if (hero && hb) out.push([heroVariant(hero, hb.win, { l: true, r: true, t: !bottom, b: bottom }), 0, bottom ? H - hh : 0, W, hh]);
+    else if (hero) out.push([hero, (W - hero.w * hs) / 2, bottom ? H - m - hh : m, hero.w * hs, hh]);
   }
   return out;
 }
