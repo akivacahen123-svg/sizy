@@ -69,7 +69,8 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
 #empty[hidden]{display:none}#empty svg{opacity:.55}
 .foot{text-align:center;color:var(--mut);font-size:12px;padding:0 16px 28px}
 .pick{display:inline-flex;align-items:center;margin-inline-end:8px}.pick input{width:18px;height:18px;accent-color:var(--acc);cursor:pointer}
-.rh .ttl{display:flex;align-items:center}
+.rh .ttl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.qa{font-size:13px;font-weight:700;border-radius:999px;padding:3px 11px;border:1px solid;cursor:default}.qa.green{background:#dff3e6;color:#17683a;border-color:#9fd6b4}.qa.orange{background:#fdebd0;color:#8a4b00;border-color:#f0c383}.qa.red{background:#fbdcdc;color:#9b1c1c;border-color:#eba0a0}
 .txt{margin-bottom:10px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--inp)}
 .txt[hidden],.lv[hidden]{display:none}
 .txt textarea{width:100%;box-sizing:border-box;min-height:84px;padding:10px 12px;font:inherit;font-size:16px;line-height:1.35;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);resize:vertical}
@@ -143,6 +144,11 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
   <section class="results">
     <div class="rhead"><h2>התוצאות</h2><div id="bulk" hidden><button class="chip" id="selall">בחר הכל</button><button class="chip" id="selnone">נקה בחירה</button><button class="go" id="dlall">הורדת הנבחרים (ZIP)</button></div></div>
     <p class="sub" id="hint" hidden style="margin-bottom:12px">כל באנר נבנה מחדש מהאלמנטים של המקור. לחצו על אלמנט כדי להזיז, להגדיל, למרכז או לערוך אותו. אפשר להוריד כל באנר בנפרד, או לבחור כמה ולהוריד אותם יחד ב-ZIP.</p>
+    <details id="settings" style="margin-bottom:14px;padding:12px 14px;border-radius:14px;background:#fff;border:1px solid #dbe3f3">
+      <summary style="cursor:pointer;font-weight:700">הגדרות</summary>
+      <label style="display:block;margin:8px 0 4px"><input type="checkbox" id="qaInc" checked> לצרף דוח איכות (report.html) לקובץ ה-ZIP</label>
+      <p class="sub" style="margin:0">דף בעברית עם תמונה קטנה וסימון בדיקות לכל גודל, מוכן להדפסה ולשליחה ללקוח.</p>
+    </details>
     <details id="bans" style="margin-bottom:14px;padding:12px 14px;border-radius:14px;background:#fff;border:1px solid #dbe3f3">
       <summary style="cursor:pointer;font-weight:700">איסורים: מה סייזי אף פעם לא יעשה</summary>
       <p class="sub" style="margin:8px 0">כללים שסייזי בודק בכל באנר ומתקן אם נשברו. אפשר לכבות כלל אם הוא מפריע.</p>
@@ -167,6 +173,7 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
 <p class="foot"><a href="/logout" style="color:inherit">יציאה</a> · סייזי · Sizes</p>
 
 <script src="/bgmap.js"></script>
+<script src="/qa.js"></script>
 <script>
 const $=s=>document.querySelector(s);
 const ROLES={caption:'כיתוב',label:'טקסט כפתור',photo:'תמונה',button:'כפתור',badge:'תגית',decor:'עיטור',headline:'כותרת',subheadline:'תת־כותרת',bullets:'יתרונות',brand:'מותג',body:'טקסט',logo:'לוגו',hero:'ויזואל'};
@@ -375,7 +382,7 @@ function addCard(w,h,placed,slot,idx){
   const st={w,h,items:placed.map(p=>{let leaf=SC.leaves.get(p.z);if(leaf&&p.layer){const c=mk(p.layer.lw,p.layer.lh);c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(p.layer.rgba),p.layer.lw,p.layer.lh),0,0);leaf={...leaf,canvas:c,lw:p.layer.lw,lh:p.layer.lh,cache:new Map(),frame:null}}return{z:p.z,leaf,x:p.x,y:p.y,w:p.w,h:p.h,o:{x:p.x,y:p.y,w:p.w,h:p.h},hidden:false,tm:null}})};
   st.items=st.items.filter(i=>i.leaf);
   const d=document.createElement('div');d.className='card res wide';
-  d.innerHTML=`<div class="rh"><div class="ttl"><label class="pick" title="בחירה להורדה"><input type="checkbox" checked></label><h3>${w} × ${h}</h3></div><div class="bt"><button class="ghost" data-a="reset">איפוס הכל</button><button class="ghost" data-a="dl">הורדת PNG</button></div></div>
+  d.innerHTML=`<div class="rh"><div class="ttl"><label class="pick" title="בחירה להורדה"><input type="checkbox" checked></label><h3>${w} × ${h}</h3><span class="qa" hidden></span></div><div class="bt"><button class="ghost" data-a="reset">איפוס הכל</button><button class="ghost" data-a="dl">הורדת PNG</button></div></div>
   <p class="help">לחצו על אלמנט כדי לבחור אותו: גררו להזזה, משכו את הפינה לשינוי גודל. Ctrl+Z מחזיר צעד אחורה. כדי לבחור כמה אלמנטים: Ctrl + לחיצה, או גרירת מסגרת על הרקע, ואז אפשר להזיז ולשנות גודל את כולם יחד.</p>
   <div class="ctl" hidden><b class="nm"></b><input type="range" class="sc" min="30" max="300" value="100" title="גודל"><span class="sep"></span>
    <button class="chip al" data-c="l" title="יישור לשמאל">⇤</button><button class="chip al" data-c="hc" title="מרכוז אופקי">↔</button><button class="chip al" data-c="r" title="יישור לימין">⇥</button><button class="chip al" data-c="t" title="יישור למעלה">⤒</button><button class="chip al" data-c="vc" title="מרכוז אנכי">↕</button><button class="chip al" data-c="b" title="יישור למטה">⤓</button><button class="chip al" data-c="c" title="מרכוז לאמצע הבאנר">✛ מרכז</button><span class="sep"></span>
@@ -385,7 +392,10 @@ function addCard(w,h,placed,slot,idx){
   const canvas=d.querySelector('canvas'),stage=d.querySelector('.stage'),ctl=d.querySelector('.ctl'),txt=d.querySelector('.txt');
   let sels=[],sel=null,raf=0,base=null;
   const dispKK=()=>{const cw=stage.clientWidth||w;return Math.max(.5,Math.min(3,cw/w*Math.max(1,window.devicePixelRatio||1)),Math.min(4e6/(w*h)>1?1:Math.sqrt(4e6/(w*h)),.5))};
-  const draw=()=>{raf=0;compose(st,Math.min(dispKK(),Math.sqrt(5e6/(w*h))),canvas);canvas.style.width='100%';canvas.style.maxWidth=w+'px'};
+  const qaEl=d.querySelector('.qa');
+  const qaNow=()=>window.SizyQA.qaCheck({leaves:SC.leaves},w,h,st.items.filter(i=>!i.hidden).map(i=>[i.leaf,i.x,i.y,i.w,i.h]));
+  const qaPaint=()=>{try{const q=qaNow();qaEl.hidden=false;qaEl.className='qa '+q.status;qaEl.textContent=(q.status==='green'?'✓ ':q.status==='orange'?'! ':'✗ ')+window.SizyQA.statusText(q);qaEl.title=q.issues.map(i=>i.textHe).join('\n')||'כל הבדיקות עברו'}catch(e){qaEl.hidden=true}};
+  const draw=()=>{raf=0;compose(st,Math.min(dispKK(),Math.sqrt(5e6/(w*h))),canvas);canvas.style.width='100%';canvas.style.maxWidth=w+'px';qaPaint()};
   if(window.ResizeObserver){let lw0=0;new ResizeObserver(()=>{const cw=stage.clientWidth;if(cw&&Math.abs(cw-lw0)>1){lw0=cw;redraw()}}).observe(stage)}
   const redraw=()=>{if(!raf)raf=requestAnimationFrame(draw)};
   const pos=it=>{const o=it.ob;o.style.left=it.x/w*100+'%';o.style.top=it.y/h*100+'%';o.style.width=it.w/w*100+'%';o.style.height=it.h/h*100+'%';o.classList.toggle('hid',it.hidden)};
@@ -466,7 +476,8 @@ function addCard(w,h,placed,slot,idx){
   d.querySelector('[data-a=dl]').onclick=async()=>dlBlob(await blobFor(),fname(w,h));
   d.querySelector('[data-a=reset]').onclick=()=>{before('reset',true);st.items.forEach(i=>{Object.assign(i,{x:i.o.x,y:i.o.y,w:i.o.w,h:i.o.h,hidden:false,tm:null});pos(i)});select(null);redraw()};
   const pick=d.querySelector('.pick input');pick.onchange=updBulk;
-  if(slot&&slot.isConnected)slot.replaceWith(d);else $('#out').appendChild(d);made.push({idx:idx==null?made.length:idx,w,h,pick,blobFor,name:fname(w,h)});made.sort((p,q)=>p.idx-q.idx);
+  const thumbFor=async()=>{await ensureFonts();const c=mk(1,1);compose(st,Math.min(1,360/Math.max(w,h)),c);return c.toDataURL('image/jpeg',.85)};
+  if(slot&&slot.isConnected)slot.replaceWith(d);else $('#out').appendChild(d);made.push({idx:idx==null?made.length:idx,w,h,pick,blobFor,thumbFor,qa:qaNow,name:fname(w,h)});made.sort((p,q)=>p.idx-q.idx);
   draw();
 }
 
@@ -606,11 +617,14 @@ function makeZip(files){
 }
 $('#dlall').onclick=async()=>{
   const chosen=made.filter(m=>m.pick.checked);if(!chosen.length)return;$('#dlall').disabled=true;
-  try{const files=[];for(const m of chosen)files.push({name:m.name,data:new Uint8Array(await (await m.blobFor()).arrayBuffer())});dlBlob(makeZip(files),'sizes.zip')}
+  try{const files=[],rep=[];for(const m of chosen){files.push({name:m.name,data:new Uint8Array(await (await m.blobFor()).arrayBuffer())});if($('#qaInc').checked)rep.push({w:m.w,h:m.h,name:m.name,thumb:await m.thumbFor(),qa:m.qa()})}
+    if(rep.length)files.push({name:'report.html',data:new TextEncoder().encode(window.SizyQA.qaReportHtml(rep,{title:file&&file.name?'הבאנר: '+file.name:'',date:new Date().toLocaleDateString('he-IL')}))});
+    dlBlob(makeZip(files),'sizes.zip')}
   catch(e){$('#st').textContent='לא הצלחתי להוריד את הקובץ.'}
   finally{updBulk()}
 };
 
+(()=>{const c=$('#qaInc'),v=LS.get('sizy.qa');if(v)c.checked=v!=='0';c.onchange=()=>LS.set('sizy.qa',c.checked?'1':'0')})();
 function getBans(){try{return JSON.parse(localStorage.getItem('sizy.bans')||'{}')}catch(e){return {}}}
 document.querySelectorAll('#bans [data-ban]').forEach(c=>{const b=getBans();if(c.dataset.ban in b)c.checked=!!b[c.dataset.ban];c.onchange=()=>{const cur=getBans();cur[c.dataset.ban]=c.checked;try{localStorage.setItem('sizy.bans',JSON.stringify(cur))}catch(e){}broadcastBans(cur);}});
 const banSend=document.getElementById('bansend');
