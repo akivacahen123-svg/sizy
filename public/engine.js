@@ -1126,7 +1126,7 @@ function layoutTall(W, H, units, sw, sh) {
     if (!u.cards) return { u, cap: (u.role === 'button' || u.kids.some(k => k.role === 'button')) ? Math.min(2.6, 0.85 * W / u.w, Math.max(0.1 * H, 28) / u.h) : rank(u) === 0 ? 3.2 : 2.2 };
     let pick = null; const total = u.cards.length;
     for (const cols of [...new Set([total, Math.ceil(total / 2), 2, 1])].filter(c => c >= 1 && c <= total)) {
-      const a = arrange(u, cols, rtl), f = Math.min(aw / a.w, 1.8, (0.34 * H) / a.h);
+      const a = arrange(u, cols, rtl), f = Math.min(aw / a.w, 2.6, (0.4 * H) / a.h);
       const dia = f * Math.min(...u.cards.map(c => c.kids[0].w)); // קוטר העיגול הקטן ביותר אחרי ההגדלה
       if (cols === total && total >= 3 && dia >= 0.17 * W) { pick = { a, f }; break; } // שורה אחת, כמו שמעצבים עושים - רק אם העיגולים נשארים גדולים וקריאים
       if (!pick || f > pick.f * 1.04) pick = { a, f };
