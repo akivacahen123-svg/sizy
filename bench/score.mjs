@@ -197,11 +197,11 @@ function layoutHealth(items, W, H, flags, sceneMode, pix) {
   }
   // היררכיה מבנית (נלמד מ-14 גדלים שמעצבים עשו ידנית, ראו bench/exemplars/HIERARCHY.md)
   const U = list => list.length ? [Math.min(...list.map(e => e.box[0])), Math.min(...list.map(e => e.box[1])), Math.max(...list.map(e => e.box[0] + e.box[2])), Math.max(...list.map(e => e.box[1] + e.box[3]))] : null;
-  const hb = U(head), lb = U(content.filter(e => e.role === 'logo')), bb = U(content.filter(e => e.role === 'button'));
+  const hb = U(head), lb = (l => l.length ? l.reduce((a, b) => (b.box[2] * b.box[3] > a.box[2] * a.box[3] ? b : a)) : null)(content.filter(e => e.role === 'logo')), lbb = lb && [lb.box[0], lb.box[1], lb.box[0] + lb.box[2], lb.box[1] + lb.box[3]], bb = U(content.filter(e => e.role === 'button'));
   if (hb) {
     const ha = (hb[2] - hb[0]) * (hb[3] - hb[1]);
     if ((W / H) < 4.2 && ha / (W * H) < 0.045) { pen += 8; flags.add('weak_headline'); }
-    if (lb && (lb[2] - lb[0]) * (lb[3] - lb[1]) > 1.1 * ha) { pen += 12; flags.add('logo_dominant'); }
+    if (lbb && (lbb[2] - lbb[0]) * (lbb[3] - lbb[1]) > 1.1 * ha) { pen += 12; flags.add('logo_dominant'); }
     if (bb && (W / H) < 2 && (bb[1] + bb[3]) / 2 < (hb[1] + hb[3]) / 2) { pen += 8; flags.add('cta_order'); }
   }
   return { score: clamp(100 - pen, 0, 100), detail };
