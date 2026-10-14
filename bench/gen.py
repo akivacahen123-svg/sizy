@@ -65,7 +65,7 @@ def make(kind,seed,out):
             cx,cy=r.randint(w//5,w*4//5),r.randint(h//4,h*4//5); rr=r.randint(h//8,h//3); col=tuple(r.randint(30,250) for _ in range(3))+(255,); d2.ellipse([cx-rr,cy-rr,cx+rr,cy+rr],fill=col)
         im=im.filter(ImageFilter.GaussianBlur(1)); bg.paste(im,(x,y),im); add(id='hero',role='hero',shape='hero',box=box([x,y,x+w,y+h],W,H,0),group=None)
     if kind=='wide_hero':
-        hero(40,50,380,330); headline(820,70,620,92); text_c(dr,820,250,sub,font(FR,44),fg); add(id='sub',role='subheadline',box=box([640,245,1000,300],W,H),lines=[sub],group='gh'); button(820,350,260,64,btn); logo(1080,24,90)
+        hero(40,50,380,330); yy=headline(820,50,620,80); bs=text_c(dr,820,yy+10,sub,font(FR,44),fg); add(id='sub',role='subheadline',box=box(bs,W,H,3),lines=[sub],group='gh'); button(820,370,260,60,btn); logo(1080,14,80)
     elif kind=='tall_gallery':
         logo(300,40,100); y=headline(350,190,560,84); photos(4,y+60,120,24); button(350,880,360,90,btn)
     elif kind=='promo_badge':

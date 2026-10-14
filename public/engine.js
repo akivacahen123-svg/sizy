@@ -204,6 +204,35 @@ function medianBg(crop, k) {
 
 // ---------------------------------------------------------------- מילוי רקע
 function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+// מילוי הרמוני של חורים גדולים: מקרב את הצבעים מהשוליים (פתרון משוואת לפלס ברזולוציה נמוכה), כך שמעבר צבע ברקע ממשיך בצורה חלקה בלי כתם.
+function harmonicFill(img, hole, init) {
+  const { w, h } = img, f = Math.max(2, Math.ceil(Math.max(w, h) / 160)), cw = Math.ceil(w / f), ch = Math.ceil(h / f), C = cw * ch;
+  const val = new Float32Array(C * 3), cnt = new Float32Array(C), area = new Float32Array(C), hd = new Uint8Array(C), ini = new Float32Array(C * 3);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, c = ((y / f) | 0) * cw + ((x / f) | 0); area[c]++;
+    if (!hole[i]) { cnt[c]++; val[c * 3] += img.d[i * 3]; val[c * 3 + 1] += img.d[i * 3 + 1]; val[c * 3 + 2] += img.d[i * 3 + 2]; }
+    ini[c * 3] += init[i * 3]; ini[c * 3 + 1] += init[i * 3 + 1]; ini[c * 3 + 2] += init[i * 3 + 2];
+  }
+  for (let c = 0; c < C; c++) {
+    if (cnt[c] < 0.5 * area[c]) { hd[c] = 1; for (let k = 0; k < 3; k++) val[c * 3 + k] = ini[c * 3 + k] / area[c]; }
+    else for (let k = 0; k < 3; k++) val[c * 3 + k] /= cnt[c];
+  }
+  const list = []; for (let c = 0; c < C; c++) if (hd[c]) list.push(c);
+  for (let it = 0; it < 500; it++) for (const c of list) {
+    const x = c % cw, y = (c / cw) | 0;
+    const l = x > 0 ? c - 1 : c, r = x < cw - 1 ? c + 1 : c, u = y > 0 ? c - cw : c, d = y < ch - 1 ? c + cw : c;
+    for (let k = 0; k < 3; k++) val[c * 3 + k] = (val[l * 3 + k] + val[r * 3 + k] + val[u * 3 + k] + val[d * 3 + k]) / 4;
+  }
+  const out = new Float32Array(w * h * 3);
+  for (let y = 0; y < h; y++) {
+    const fy = Math.min(ch - 1, Math.max(0, (y + 0.5) / f - 0.5)), y0 = Math.floor(fy), y1 = Math.min(ch - 1, y0 + 1), ty = fy - y0;
+    for (let x = 0; x < w; x++) {
+      const fx = Math.min(cw - 1, Math.max(0, (x + 0.5) / f - 0.5)), x0 = Math.floor(fx), x1 = Math.min(cw - 1, x0 + 1), tx = fx - x0;
+      for (let k = 0; k < 3; k++) out[(y * w + x) * 3 + k] = (val[(y0 * cw + x0) * 3 + k] * (1 - tx) + val[(y0 * cw + x1) * 3 + k] * tx) * (1 - ty) + (val[(y1 * cw + x0) * 3 + k] * (1 - tx) + val[(y1 * cw + x1) * 3 + k] * tx) * ty;
+    }
+  }
+  return out;
+}
 function msFill(img, hole) {
   const { w, h } = img, N = w * h;
   let any = false; for (let i = 0; i < N; i++) if (hole[i]) { any = true; break; }
@@ -222,6 +251,13 @@ function msFill(img, hole) {
     sig *= 2;
   }
   const hm = plane(w, h); for (let i = 0; i < N; i++) hm.d[i] = hole[i] ? 1 : 0;
+  { // חורים גדולים (למשל תמונה ראשית): ממלאים בצורה הרמונית כדי שלא ייווצר כתם
+    let big = 0; for (let i = 0; i < N; i++) big += hole[i] ? 1 : 0;
+    if (big > 0.02 * N) {
+      const dens = blur(hm, Math.max(6, Math.min(w, h) * 0.03)), hf = harmonicFill(img, hole, fill);
+      for (let i = 0; i < N; i++) { const wg = clp((dens.d[i] - 0.2) / 0.5, 0, 1); if (wg > 0 && hole[i]) for (let k = 0; k < 3; k++) fill[i * 3 + k] = fill[i * 3 + k] * (1 - wg) + hf[i * 3 + k] * wg; }
+    }
+  }
   const m3 = blur(hm, 1.2);
   // גרעיניות
   const lap = []; const gray = i => 0.299 * img.d[i * 3] + 0.587 * img.d[i * 3 + 1] + 0.114 * img.d[i * 3 + 2];
@@ -1110,7 +1146,14 @@ function planValid(plan, sc, W, H) {
   }
   return true;
 }
+// שורות קטנות מדי לקריאה (פחות מכ-6.5 פיקסלים) בכיתובים מוסרות, כדי שלא יישארו כתמים לא קריאים
+function dropTiny(pl) {
+  return pl.filter(e => !(e[0].text && ['caption', 'body', 'subheadline'].includes(e[0].role) && e[4] / Math.max(1, (e[0].lines || [1]).length) < 6.5));
+}
 function autoplaceRules(sc, W, H) {
+  return dropTiny(autoplaceRules0(sc, W, H));
+}
+function autoplaceRules0(sc, W, H) {
   const pl = [];
   const add = (u, x, y, w, h) => { const s = w / u.w; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * s, y + dy * s, k.w * s, k.h * s]); } };
   const units = sc.units.map(u => reflowUnit(u, W, H));
