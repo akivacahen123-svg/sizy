@@ -822,6 +822,75 @@ function buildScene(img, elements, onProgress) {
     const big = ov ? (a.lines.join('').length >= b.lines.join('').length ? a.lines : b.lines) : (up ? a.lines.concat(b.lines) : b.lines.concat(a.lines));
     a.lines = big; a.phrases = null; els.splice(j, 1);
   }
+  { // כיתוב מתחת לתמונה שה-AI תפס רק בחלקו: מרחיבים את התיבה לכל רוחב העמודה של התמונה ומטה, כדי שלא יחתכו מילים וישארו שאריות
+    const photos = els.filter(p => !p.text && (p.role === 'photo' || p.shape === 'circle'));
+    for (const c of els) {
+      if (c.role !== 'caption' || !c.text || !photos.length || c.group === 'none') continue;
+      const cx = c.px[0] + c.px[2] / 2; let best = null, bd = 1e9;
+      for (const p of photos) {
+        const pcx = p.px[0] + p.px[2] / 2, pb = p.px[1] + p.px[3];
+        if (c.px[1] + c.px[3] < pb - 2) continue;
+        const dx = Math.abs(cx - pcx), dy = c.px[1] - pb;
+        if (dx > 1.3 * Math.max(p.px[2], 40) || dy > 3.5 * p.px[2]) continue;
+        const d = dx + Math.max(0, dy); if (d < bd) { bd = d; best = p; }
+      }
+      if (!best) continue;
+      const bcx = best.px[0] + best.px[2] / 2, bcy = best.px[1] + best.px[3] / 2, pb = best.px[1] + best.px[3];
+      let pitch = 2.4 * best.px[2];
+      for (const p of photos) if (p !== best && Math.abs(p.px[1] + p.px[3] / 2 - bcy) < 0.6 * best.px[3]) pitch = Math.min(pitch, Math.abs(p.px[0] + p.px[2] / 2 - bcx));
+      const half = Math.max(c.px[2] / 2, 0.6 * pitch - 2);
+      let y1 = Math.min(c.px[1], pb + 1), y2 = Math.max(c.px[1] + c.px[3], pb + 1 + 0.7 * best.px[2]);
+      let nx1 = Math.max(0, Math.round(bcx - half)), nx2 = Math.min(W, Math.round(bcx + half));
+      for (const o of els) { if (o === c || o === best || photos.includes(o)) continue; const ox1 = o.px[0], ox2 = o.px[0] + o.px[2]; if (ox2 > nx1 && ox1 < nx2 && o.px[1] > pb && o.px[1] < y2 && o.px[1] > c.px[1]) y2 = Math.max(c.px[1] + c.px[3], o.px[1] - 1); }
+      for (const o of els) { // אלמנט אחר שחופף לתיבה המורחבת: מצמצמים לצד של הכיתוב המקורי
+        if (o === c || o === best || photos.includes(o) || o.role === 'caption') continue;
+        const ox1 = o.px[0], ox2 = o.px[0] + o.px[2], oy1 = o.px[1], oy2 = o.px[1] + o.px[3];
+        if (ox2 <= nx1 || ox1 >= nx2 || oy2 <= y1 || oy1 >= y2) continue;
+        if ((ox1 + ox2) / 2 < cx) nx1 = Math.max(nx1, ox2 + 1); else nx2 = Math.min(nx2, ox1 - 1);
+      }
+      if (nx2 - nx1 < 8) continue;
+      y1 = clp(Math.round(y1), 0, H - 4); y2 = clp(Math.round(y2), y1 + 4, H);
+      c._col = { photo: best, nx1, nx2, y1, y2, pitch };
+      c.px = [nx1, y1, Math.max(4, nx2 - nx1), y2 - y1];
+      if (c.lines.length < 2) c.lines = c.lines.length ? c.lines : ['x'];
+    }
+  }
+  { // מחלקים את שורת הכיתובים לפי רווחים אמיתיים בין כיתובים (ולא לפי עמודות התמונות): כיתוב רחב מהעמודה שלו לא נחתך ולא נגרר לשכן
+    const cs = els.filter(c => c._col);
+    const rows = [];
+    for (const c of cs) { const r = rows.find(r => Math.abs(r.y1 - c._col.y1) < 0.5 * c._col.photo.px[2]); if (r) r.cs.push(c); else rows.push({ y1: c._col.y1, cs: [c] }); }
+    for (const r of rows) {
+      if (r.cs.length < 2) continue;
+      const pw = Math.min(...r.cs.map(c => c._col.photo.px[2])), pitch = Math.min(...r.cs.map(c => c._col.pitch));
+      const X1 = clp(Math.min(...r.cs.map(c => c._col.photo.px[0])) - Math.round(0.5 * pitch), 0, W - 8), X2 = clp(Math.max(...r.cs.map(c => c._col.photo.px[0] + c._col.photo.px[2])) + Math.round(0.5 * pitch), X1 + 8, W);
+      const Y1 = Math.min(...r.cs.map(c => c._col.y1)), Y2 = Math.max(...r.cs.map(c => c._col.y2));
+      if (Y2 - Y1 < 6) continue;
+      const crop = cropImg(img, X1, Y1, X2, Y2), cw = crop.w, ch = crop.h, bgm = medianBg(crop, 15), df = new Float32Array(cw * ch);
+      for (let i = 0; i < cw * ch; i++) df[i] = Math.max(Math.abs(crop.d[i * 3] - bgm.d[i * 3]), Math.abs(crop.d[i * 3 + 1] - bgm.d[i * 3 + 1]), Math.abs(crop.d[i * 3 + 2] - bgm.d[i * 3 + 2]));
+      for (const o of els) { // אלמנטים אחרים (כפתור, לוגו…) לא שייכים לכיתובים
+        if (o.role === 'caption' || o.role === 'photo' || (!o.text && o.shape === 'circle')) continue;
+        for (let yy = Math.max(0, o.px[1] - Y1 - 1); yy < Math.min(ch, o.px[1] + o.px[3] - Y1 + 1); yy++) for (let xx = Math.max(0, o.px[0] - X1 - 1); xx < Math.min(cw, o.px[0] + o.px[2] - X1 + 1); xx++) df[yy * cw + xx] = 0;
+      }
+      const p98 = percentile(Array.from(df), 98), thr = Math.max(30, 0.3 * p98), colInk = new Int32Array(cw), rowInk = new Int32Array(ch);
+      for (let yy = 0; yy < ch; yy++) for (let xx = 0; xx < cw; xx++) if (df[yy * cw + xx] > thr) { colInk[xx]++; rowInk[yy]++; }
+      const gmin = Math.max(4, Math.round(0.17 * pw)), segs = []; let st = -1, last = -1;
+      for (let xx = 0; xx < cw; xx++) if (colInk[xx] > 0) { if (st < 0) st = xx; else if (xx - last > gmin) { segs.push([st, last]); st = xx; } last = xx; }
+      if (st >= 0) segs.push([st, last]);
+      const asg = new Map();
+      for (const sg of segs) {
+        if (sg[1] - sg[0] < 3) continue;
+        const mid = X1 + (sg[0] + sg[1]) / 2; let bc = null, bd = 1e9;
+        for (const c of r.cs) { const d = Math.abs(c._col.photo.px[0] + c._col.photo.px[2] / 2 - mid); if (d < bd) { bd = d; bc = c; } }
+        const a0 = asg.get(bc); if (a0) { a0[0] = Math.min(a0[0], sg[0]); a0[1] = Math.max(a0[1], sg[1]); } else asg.set(bc, [sg[0], sg[1]]);
+      }
+      for (const [c, [sx1, sx2]] of asg) {
+        let ry1 = -1, ry2 = -1; for (let yy = 0; yy < ch; yy++) { let n = 0; for (let xx = sx1; xx <= sx2; xx++) if (df[yy * cw + xx] > thr) n++; if (n > 0) { if (ry1 < 0) ry1 = yy; ry2 = yy; } }
+        if (ry1 < 0) continue;
+        const bx1 = clp(X1 + sx1 - 2, 0, W - 4), bx2 = clp(X1 + sx2 + 3, bx1 + 4, W), by1 = clp(Y1 + ry1 - 2, 0, H - 4), by2 = clp(Y1 + ry2 + 3, by1 + 4, H);
+        c.px = [bx1, by1, bx2 - bx1, by2 - by1];
+      }
+    }
+  }
   const leaves = [], holes = new Uint8Array(W * H);
   tell('חותך את הטקסטים…');
   for (const e of els) {
