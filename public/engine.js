@@ -426,7 +426,7 @@ function textLayer(img, box, nlines, upMax, outline, bullets, holes) {
   const up = lw * lh * upMax * upMax < 8e6 ? upMax : 2;
   let aUp = resize(a0, lw * up, lh * up, 'cubic');
   aUp = blur(aUp, 0.33 * up);
-  for (let i = 0; i < aUp.d.length; i++) aUp.d[i] = clp((aUp.d[i] - 0.5) / 0.3 + 0.5, 0, 1);
+  for (let i = 0; i < aUp.d.length; i++) aUp.d[i] = clp((aUp.d[i] - 0.42) / 0.3 + 0.5, 0, 1); // מרכז מעט נמוך מ-0.5: שומר על עובי האותיות המקורי
   const rgbUp = resize(rgb0, lw * up, lh * up, 'linear');
   if (outline) { // מנקים את כל פס המסגרת סביב הכפתור
     const bx0 = x, by0 = y, bxe = x + w, bye = y + h;
@@ -1041,12 +1041,12 @@ function layoutTall(W, H, units, sw, sh) {
     if (!u.cards) return { u, cap: rank(u) === 0 ? 3.2 : 2.2 };
     let pick = null; const total = u.cards.length;
     for (const cols of [...new Set([total, Math.ceil(total / 2), 2, 1])].filter(c => c >= 1 && c <= total)) {
-      const a = arrange(u, cols, rtl), f = Math.min(aw / a.w, 1.7, (0.3 * H) / a.h);
+      const a = arrange(u, cols, rtl), f = Math.min(aw / a.w, 1.8, (0.34 * H) / a.h);
       const dia = f * Math.min(...u.cards.map(c => c.kids[0].w)); // קוטר העיגול הקטן ביותר אחרי ההגדלה
-      if (cols === total && total >= 3 && dia >= 0.11 * W) { pick = { a, f }; break; } // שורה אחת, כמו שמעצבים עושים
+      if (cols === total && total >= 3 && dia >= 0.17 * W) { pick = { a, f }; break; } // שורה אחת, כמו שמעצבים עושים - רק אם העיגולים נשארים גדולים וקריאים
       if (!pick || f > pick.f * 1.04) pick = { a, f };
     }
-    return { u: pick.a, cap: Math.min(1.9, pick.f) };
+    return { u: pick.a, cap: Math.min(2.0, pick.f) };
   });
   let f = list.map(({ u, cap }) => { const lg = u.kids.some(k => k.role === 'logo') && u.kids.length === 1 && u.w / u.h > 2.2; return Math.min(aw / u.w, cap, lg ? 0.6 * W / u.w : u.kids.some(k => k.role === 'logo') ? 0.5 * W / u.w : 9); });
   const gmin = Math.max(5, H * 0.025), nGap = Math.max(0, list.length - 1);
