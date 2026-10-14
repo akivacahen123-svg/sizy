@@ -630,5 +630,6 @@ document.querySelectorAll('#bans [data-ban]').forEach(c=>{const b=getBans();if(c
 const banSend=document.getElementById('bansend');
 if(banSend)banSend.onclick=async()=>{const t=document.getElementById('bantxt').value.trim(),st=document.getElementById('banst');if(!t)return;st.textContent='שומר…';try{const r=await fetch('/api/feedback',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({note:'איסור קבוע (לעולם לא לעשות): '+t})});st.textContent=r.ok?'נשמר. סייזי יכבד את האיסור הזה בבאנרים הבאים.':'לא הצלחתי לשמור כרגע, נסו שוב.';if(r.ok)document.getElementById('bantxt').value=''}catch(e){st.textContent='לא הצלחתי לשמור כרגע, נסו שוב.'}};
 </script>
+<script>try{if(!/[?&]admin\b/.test(location.search)){['settings','bans'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none'})}}catch(e){}</script>
 </body>
 </html>

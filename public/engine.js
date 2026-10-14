@@ -1274,7 +1274,7 @@ function layout(W, H, units, sw, sh, forceWide) {
   const heroes = units.filter(u => u.role === 'hero');
   const hero = heroes.length ? heroes.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)) : null;
   const wideMode = forceWide || W / H >= 1.6;
-  let tx = units.filter(u => u !== hero && u.role !== 'hero').sort(wideMode ? ((a, b) => rankOf(a, sh, true) - rankOf(b, sh, true) || a.y - b.y) : ((a, b) => a.y - b.y));
+  let tx = units.filter(u => u !== hero && u.role !== 'hero').sort(wideMode ? ((a, b) => rankOf(a, sh, W / H > 4.2 ? 'strip' : true) - rankOf(b, sh, W / H > 4.2 ? 'strip' : true) || a.y - b.y) : ((a, b) => a.y - b.y));
   if (wideMode && tx.length > 2) { // בבאנר רחב וצר מאוד: מוותרים על מה שהיה נהיה קטן מדי לקריאה (הערות שוליים, כיתובים), ומשאירים כותרת, כפתור ולוגו
     const m0 = Math.max(5, H * 0.05), heroW = hero ? hero.w * Math.min((H - m0) / hero.h, W * 0.32 / hero.w, 1.2) + m0 : 0;
     const essential = u => u.kids.some(k => ['headline', 'button', 'logo', 'brand'].includes(k.role));
@@ -1292,6 +1292,29 @@ function layout(W, H, units, sw, sh, forceWide) {
       const sv = solveS(tx), bad = tx.filter(u => !essential(u) && minTextH(u) * sv < 5.5).sort((a, b) => minTextH(a) - minTextH(b));
       if (!bad.length) break;
       tx = tx.filter(u => u !== bad[0]);
+    }
+  }
+  if (wideMode) { // גלריה בבאנר רחב: אם שורה אחת הופכת את התמונות לעיגולים זעירים, מנסים 2×2 (או חצי-חצי) ובוחרים את מה שנותן תמונות גדולות יותר
+    const rtl0 = units.some(u => HEB.test((u.lines || []).join('')));
+    const m0 = Math.max(5, H * 0.05), heroW = hero ? hero.w * Math.min((H - m0) / hero.h, W * 0.32 / hero.w, 1.2) + m0 : 0;
+    const evalS = list => {
+      let best = 0;
+      for (const sp of splits(Math.min(list.length, 9), W / H >= 5 ? 9 : 4)) {
+        const cols = sp.map(g => ({ w: Math.max(...g.map(i => list[i].w)), h: g.reduce((a, i) => a + list[i].h, 0) }));
+        const sv = Math.min((W - 3 * m0 - heroW - (cols.length - 1) * m0 * 1.6) / cols.reduce((a, c) => a + c.w, 0), ...cols.map(c => (H - 2 * m0) / c.h), 1.15);
+        if (sv > best) best = sv;
+      }
+      return best;
+    };
+    for (const gi of tx.map((u, i) => (u.cards && u.cards.length >= 3 ? i : -1)).filter(i => i >= 0)) {
+      const orig = tx[gi], total = orig.cards.length;
+      const rowS = evalS(tx), cwMax = Math.max(...orig.cards.map(c => c.w)), small = rowS * cwMax < 0.3 * H; // עיגולים קטנים מ-30% מגובה הבאנר: עדיף 2×2 גדולים
+      let pick = { u2: orig, score: rowS * (small ? 0.85 : 1.08) }; // אחרת: שורה, אלא אם 2×2 גדול ב-8% לפחות
+      for (const cols of [...new Set([2, Math.ceil(total / 2)])].filter(c => c >= 2 && c < total)) {
+        tx[gi] = arrange(orig, cols, rtl0);
+        const sc2 = evalS(tx); if (sc2 > pick.score) pick = { u2: tx[gi], score: sc2 };
+      }
+      tx[gi] = pick.u2;
     }
   }
   let n = tx.length; if (n > 14) { tx = tx.slice(0, 14); n = 14; }
@@ -1382,10 +1405,10 @@ const finePrint = (u, sh) => u.kids.every(k => k.text && ['caption', 'body', 'la
 function rankOf(u, sh, wide) {
   const r = u.kids.map(k => k.role);
   if (finePrint(u, sh)) return 9;
-  if ((r.includes('logo') || r.includes('brand')) && !r.includes('headline')) { if (wide) return 5; if (u.y + u.h / 2 < 0.22 * sh) return -1; }
+  if ((r.includes('logo') || r.includes('brand')) && !r.includes('headline')) { if (wide) return wide === 'strip' ? 5 : 2.5; if (u.y + u.h / 2 < 0.22 * sh) return -1; }
   if (r.includes('headline')) return 0;
   if (r.includes('button')) return 3;
-  if (r.includes('logo') || r.includes('badge') || r.includes('brand')) return wide ? 5 : 2;
+  if (r.includes('logo') || r.includes('badge') || r.includes('brand')) return wide ? (wide === 'strip' ? 5 : 2.5) : 2;
   if (u.cards || r.includes('photo')) return 1;
   return 1.5;
 }
