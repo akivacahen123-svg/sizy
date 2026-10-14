@@ -28,6 +28,13 @@ assert.equal((await call('/api/status', { headers: { Cookie: cookie } }, { ...en
 const img = 'A'.repeat(200), post = (body: any, extra: any = {}) => ({ method: 'POST', headers: { Cookie: cookie, Origin: 'https://sizy.example', 'Content-Type': 'application/json', ...extra }, body: JSON.stringify(body) });
 assert.equal((await call('/api/analyze', post({ image: img }, { Origin: 'https://evil.example' }))).status, 403);
 assert.equal((await call('/api/analyze', post({ image: 'x' }), env, gemini([]))).status, 400);
+// מעצב ה-AI: תכנית תקינה מומרת מ-0-1000 לפיקסלים, ויחידה לא מוכרת נזרקת.
+const designReply = async () => Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify({ sizes: [{ w: 300, h: 600, why: 'x', units: [{ id: 'u0', x: 100, y: 500, w: 500, h: 100 }, { id: 'zz', x: 0, y: 0, w: 100, h: 100 }] }] }) }] } }] });
+const dbody = { image: img, srcW: 700, srcH: 500, sizes: [[300, 600]], units: [{ id: 'u0', role: 'button', lines: ['x'], kind: 'button', x: 1, y: 2, w: 30, h: 10 }] };
+r = await call('/api/design', post(dbody), env, designReply as any); assert.equal(r.status, 200);
+const dj: any = await r.json(); assert.deepEqual(dj.plans[0].units, [{ id: 'u0', x: 30, y: 300, w: 150, h: 60 }]);
+assert.equal((await call('/api/design', post({ ...dbody, units: [] }), env, designReply as any)).status, 400);
+assert.equal((await call('/api/design', post(dbody, { Origin: 'https://evil.example' }), env, designReply as any)).status, 403);
 // אתר פתוח: מבקר אנונימי משתמש במפתח של בעל האתר; בלי מפתח בשרת ובלי מפתח אישי מקבלים בקשה להדביק מפתח.
 const open = { ...env, PUBLIC_ACCESS: 'true' }, anon = (extra: any = {}) => ({ method: 'POST', headers: { Origin: 'https://sizy.example', 'Content-Type': 'application/json', ...extra }, body: JSON.stringify({ image: img }) });
 r = await call('/api/analyze', anon(), { ...open, GEMINI_API_KEY: '' }, gemini([])); assert.equal(r.status, 401); assert.equal(((await r.json()) as any).code, 'NEED_KEY');

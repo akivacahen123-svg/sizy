@@ -151,7 +151,7 @@ const GROUPS=[['כל הגדלים',[...new Set(('1200x200 1200x60 120x500 300x60
 const sizesIn=()=>[...new Set([...$('#sz').value.matchAll(SZRE)].map(m=>(+m[1])+'x'+(+m[2])))];
 const setSizes=a=>{$('#sz').value=a.join(', ');paintChips()};
 function paintChips(){const cur=new Set(sizesIn());document.querySelectorAll('.chip[data-s]').forEach(b=>b.classList.toggle('on',cur.has(b.dataset.s)));$('#cnt').textContent=cur.size?cur.size+' גדלים נבחרו':''}
-let file=null,srcCanvas=null,built=false,made=[],busy=false,worker=null,nextId=1;const pending=new Map();
+let units=null,srcDim=null,plansBy={};let file=null,srcCanvas=null,built=false,made=[],busy=false,worker=null,nextId=1;const pending=new Map();
 
 let serverAI=false;
 const LS={get(k){try{return localStorage.getItem(k)||''}catch(e){return ''}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
@@ -198,7 +198,7 @@ function load(f){
   im.onload=()=>{
     const sc=Math.min(1,MAXSIDE/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.round(im.naturalWidth*sc),h=Math.round(im.naturalHeight*sc);
     const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.imageSmoothingQuality='high';x.drawImage(im,0,0,w,h);
-    file=f;srcCanvas=c;built=false;
+    file=f;srcCanvas=c;built=false;units=null;plansBy={};
     $('#pi').src=url;$('#pv').style.display='block';$('#pv').querySelectorAll('.bx').forEach(n=>n.remove());
     drop.textContent='הבאנר נטען: '+f.name+' (לחצו להחלפה)';$('#st').textContent='';
   };
@@ -392,6 +392,16 @@ function jpegB64(){
   c.width=Math.round(srcCanvas.width*s);c.height=Math.round(srcCanvas.height*s);const x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(srcCanvas,0,0,c.width,c.height);
   return c.toDataURL('image/jpeg',.9).split(',')[1];
 }
+function rgbaToJpeg(r){
+  const c=document.createElement('canvas');c.width=r.w;c.height=r.h;c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(r.rgba),r.w,r.h),0,0);
+  const k=Math.min(1,900/Math.max(r.w,r.h));if(k<1){const d=document.createElement('canvas');d.width=Math.round(r.w*k);d.height=Math.round(r.h*k);d.getContext('2d').drawImage(c,0,0,d.width,d.height);return d.toDataURL('image/jpeg',.85).split(',')[1]}
+  return c.toDataURL('image/jpeg',.85).split(',')[1];
+}
+async function designCall(extra){
+  const r=await fetch('/api/design',{method:'POST',headers:{'Content-Type':'application/json','X-Gemini-Key':$('#key').value.trim()},body:JSON.stringify({image:jpegB64(),srcW:srcDim[0],srcH:srcDim[1],units,...extra})});
+  if(!r.ok)throw new Error('design '+r.status);
+  return (await r.json()).plans;
+}
 $('#go').onclick=async()=>{
   if(busy)return;const st=$('#st');
   if(!keyOk($('#key').value)&&!serverAI){st.textContent='קודם מדביקים מפתח Gemini אישי (שלב 1).';return}
@@ -407,16 +417,31 @@ $('#go').onclick=async()=>{
       const {elements}=await r.json();
       const ctx=srcCanvas.getContext('2d'),id=ctx.getImageData(0,0,srcCanvas.width,srcCanvas.height);
       const res=await ask({type:'build',w:srcCanvas.width,h:srcCanvas.height,rgba:id.data.buffer,elements},[id.data.buffer],t=>st.textContent=t);
-      setScene(res.scene);built=true;showBoxes(res.boxes);
+      setScene(res.scene);built=true;units=res.units;srcDim=[res.srcW,res.srcH];plansBy={};showBoxes(res.boxes);
+    }
+    let aiFail=false;
+    {
+      const need=units?sizes.filter(([w,h])=>!plansBy[w+'x'+h]):[];
+      const chunks=[];for(let i=0;i<need.length;i+=8)chunks.push(need.slice(i,i+8));
+      for(const ch of chunks){
+        try{
+          st.textContent='מעצב ה-AI מתכנן את הסידור לכל גודל…';
+          const ps=await designCall({sizes:ch});ps.forEach(q=>plansBy[q.w+'x'+q.h]=q);
+          const renders=[],cur=[];
+          st.textContent='ה-AI בודק את התוצאות ומשפר…';
+          for(const[w,h]of ch){const q=plansBy[w+'x'+h];if(!q)continue;const r=await ask({type:'render',w,h,k:1,plan:q});renders.push({w,h,image:rgbaToJpeg(r)});cur.push(q)}
+          if(cur.length){const ps2=await designCall({sizes:cur.map(q=>[q.w,q.h]),renders,plans:cur});ps2.forEach(q=>plansBy[q.w+'x'+q.h]=q)}
+        }catch(e){console.warn('design',e);aiFail=true}
+      }
     }
     $('#out').innerHTML='';made.length=0;$('#hint').hidden=false;$('#empty').hidden=true;$('#bulk').hidden=true;
     for(const[w,h]of sizes){
       st.textContent=`בונה ${w}×${h}…`;
-      const r=await ask({type:'place',w,h});
+      const r=await ask({type:'place',w,h,plan:plansBy[w+'x'+h]});
       addCard(w,h,r.items);
       await new Promise(r=>setTimeout(r,0));
     }
-    $('#bulk').hidden=false;updBulk();st.textContent='מוכן. אפשר ללחוץ על כל אלמנט כדי להזיז, להגדיל או לערוך אותו.';
+    $('#bulk').hidden=false;updBulk();st.textContent='מוכן. אפשר ללחוץ על כל אלמנט כדי להזיז, להגדיל או לערוך אותו.'+(aiFail?' (מעצב ה-AI לא היה זמין, הסידור נעשה בכללים הרגילים.)':'');
   }catch(e){console.error(e);st.textContent='משהו השתבש בבניית הבאנר. נסו שוב, ואם זה חוזר נסו קובץ אחר.'}
   finally{busy=false;$('#go').disabled=false;$('#sp').hidden=true}
 };

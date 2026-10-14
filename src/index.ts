@@ -1,5 +1,6 @@
 import { session, signIn, googleSignIn, signOutCookie, loginPage } from './auth.ts';
 import { analyzeImage, AnalyzeError } from './analyze.ts';
+import { designPlans } from './design.ts';
 
 const PUBLIC_FILES = new Set<string>(['/favicon.svg']);
 const running = new Set<string>();
@@ -41,6 +42,31 @@ async function analyzeRoute(request: Request, env: any, user: string, fetcher: t
   } finally { running.delete(user); }
 }
 
+async function designRoute(request: Request, env: any, user: string, fetcher: typeof fetch) {
+  if (request.method !== 'POST') return json({ error: 'הבקשה אינה תקינה.' }, 405);
+  if (request.headers.get('Origin') !== new URL(request.url).origin) return json({ error: 'הבקשה אינה מהאתר.' }, 403);
+  if (running.has(user)) return json({ error: 'כבר מתבצעת בקשה. המתינו לסיום.' }, 429);
+  running.add(user);
+  try {
+    const text = await request.text();
+    if (text.length > 12_000_000) return json({ error: 'הבקשה גדולה מדי.' }, 413);
+    let b: any; try { b = JSON.parse(text); } catch { return json({ error: 'הבקשה אינה תקינה.' }, 400); }
+    const okImg = (s: unknown) => typeof s === 'string' && s.length > 100 && /^[A-Za-z0-9+/=]+$/.test(s);
+    const sizes = (Array.isArray(b.sizes) ? b.sizes : []).map((s: any) => [Number(s?.[0]), Number(s?.[1])]).filter((s: number[]) => s[0] >= 16 && s[1] >= 16 && s[0] <= 4000 && s[1] <= 4000).slice(0, 40);
+    const units = (Array.isArray(b.units) ? b.units : []).slice(0, 40).map((u: any) => ({ id: String(u?.id), role: String(u?.role ?? ''), lines: Array.isArray(u?.lines) ? u.lines.map(String).slice(0, 8) : [], kind: String(u?.kind ?? ''), x: Number(u?.x), y: Number(u?.y), w: Number(u?.w), h: Number(u?.h) })).filter((u: any) => [u.x, u.y, u.w, u.h].every(Number.isFinite));
+    if (!okImg(b.image) || !sizes.length || !units.length || !(b.srcW > 0) || !(b.srcH > 0)) return json({ error: 'הבקשה אינה תקינה.' }, 400);
+    const userKey = (request.headers.get('X-Gemini-Key') ?? '').trim();
+    if (userKey && !/^[A-Za-z0-9_-]{20,120}$/.test(userKey)) return json({ error: 'המפתח לא נראה תקין.' }, 400);
+    const renders = Array.isArray(b.renders) ? b.renders.filter((r: any) => okImg(r?.image)).map((r: any) => ({ w: Number(r.w), h: Number(r.h), image: r.image })) : undefined;
+    const plans = Array.isArray(b.plans) ? b.plans : undefined;
+    return json({ plans: await designPlans(env, { image: b.image, srcW: Number(b.srcW), srcH: Number(b.srcH), units, sizes, renders, plans }, fetcher, userKey) });
+  } catch (e) {
+    if (e instanceof AnalyzeError) return json({ error: e.message, code: e.code, detail: e.detail }, e.status);
+    console.error('design failed', (e as any)?.message);
+    return json({ error: 'התכנון לא הושלם.' }, 500);
+  } finally { running.delete(user); }
+}
+
 export default {
   async fetch(request: Request, env: any, _ctx?: any, fetcher: typeof fetch = fetch): Promise<Response> {
     const { pathname } = new URL(request.url);
@@ -66,6 +92,10 @@ export default {
         if (!success) return json({ error: 'נשלחו הרבה בקשות בזמן קצר. נסו שוב בעוד דקה.' }, 429);
       }
       return analyzeRoute(request, env, user, fetcher);
+    }
+    if (pathname === '/api/design') {
+      if (env.LIMITER) { const { success } = await env.LIMITER.limit({ key: user }); if (!success) return json({ error: 'נשלחו הרבה בקשות בזמן קצר. נסו שוב בעוד דקה.' }, 429); }
+      return designRoute(request, env, user, fetcher);
     }
     if (pathname.startsWith('/api/')) return json({ error: 'לא נמצא.' }, 404);
     const response = await env.ASSETS.fetch(request);

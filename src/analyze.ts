@@ -92,6 +92,15 @@ function parseJson(text: string): any {
 }
 
 export async function analyzeImage(env: any, imageBase64: string, fetcher: typeof fetch = fetch, userKey = ''): Promise<El[]> {
+  return geminiRun(env, userKey, fetcher, [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }, { text: PROMPT }], reply => {
+    const els = cleanElements(parseJson(reply).elements);
+    if (!els.length) throw new AnalyzeError(422, 'NONE', 'ה-AI לא זיהה אלמנטים בבאנר. נסו תמונה אחרת.');
+    return els;
+  }, 16000);
+}
+
+// קריאה כללית ל-Gemini: מנסה דגמים לפי הסדר, ומחזירה את מה ש-parse הוציא מהתשובה.
+export async function geminiRun<T>(env: any, userKey: string, fetcher: typeof fetch, parts: any[], parse: (reply: string) => T, maxTokens: number): Promise<T> {
   const key = userKey || env.GEMINI_API_KEY;
   if (!key) throw new AnalyzeError(401, 'NEED_KEY', 'כדי להשתמש באתר צריך להדביק מפתח Gemini אישי (בחינם). ראו את שלב 1 בצד.');
   // כשדגם עמוס (503) או לא זמין (404) עוברים לדגם הבא, ואם כולם עמוסים מנסים שוב אחרי רגע.
@@ -100,8 +109,8 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
   // חשיבה מינימלית: הזיהוי הוא משימת ראייה פשוטה, וחשיבה ארוכה רק מאריכה את ההמתנה בלי לשפר.
   const thinking = (model: string) => (parseFloat(model.match(/gemini-(\d+(?:\.\d+)?)/)?.[1] ?? '0') >= 3 ? { thinkingLevel: 'minimal' } : { thinkingBudget: 0 });
   const bodyFor = (model: string, withThinking: boolean) => JSON.stringify({
-    contents: [{ parts: [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }, { text: PROMPT }] }],
-    generationConfig: { temperature: 0, maxOutputTokens: 16000, responseMimeType: 'application/json', ...(withThinking ? { thinkingConfig: thinking(model) } : {}) },
+    contents: [{ parts }],
+    generationConfig: { temperature: 0, maxOutputTokens: maxTokens, responseMimeType: 'application/json', ...(withThinking ? { thinkingConfig: thinking(model) } : {}) },
   });
   let lastStatus = 0, lastDetail = '', sawBusy = false, sawInvalid = false, sawLimit = false;
   // Cloudflare מנתקת בקשה שלא נענתה כ-100 שניות, לכן מגבילים את כל הניסיונות ל-85 שניות.
@@ -142,10 +151,7 @@ export async function analyzeImage(env: any, imageBase64: string, fetcher: typeo
     if (!Array.isArray(parts)) throw new AnalyzeError(422, 'EMPTY', 'גוגל לא החזיר תשובה לבאנר הזה. נסו תמונה אחרת.');
     const reply = parts.filter((p: any) => !p.thought).map((p: any) => p.text ?? '').join('');
     console.log('gemini reply', model, data?.candidates?.[0]?.finishReason, reply.length);
-    let els: El[];
-    try { els = cleanElements(parseJson(reply).elements); } catch (e: any) { if (e instanceof AnalyzeError) { e.detail = `${model} ${data?.candidates?.[0]?.finishReason ?? ''}: ${e.detail}`; sawInvalid = true; lastDetail = e.detail; continue; } throw e; }
-    if (!els.length) throw new AnalyzeError(422, 'NONE', 'ה-AI לא זיהה אלמנטים בבאנר. נסו תמונה אחרת.');
-    return els;
+    try { return parse(reply); } catch (e: any) { if (e instanceof AnalyzeError) { if (e.code === 'NONE') throw e; e.detail = `${model} ${data?.candidates?.[0]?.finishReason ?? ''}: ${e.detail}`; sawInvalid = true; lastDetail = e.detail; continue; } throw e; }
   }
   }
   if (sawLimit && !sawInvalid) throw new AnalyzeError(429, 'LIMIT', 'מכסת הבקשות החינמית של גוגל התמלאה כרגע. נסו שוב בעוד דקה.', lastDetail);

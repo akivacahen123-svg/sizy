@@ -678,7 +678,7 @@ function solidLayer(w, h, color) {
   for (let i = 0; i < lw * lh; i++) { rgb[i * 3] = color[0]; rgb[i * 3 + 1] = color[1]; rgb[i * 3 + 2] = color[2]; }
   return { rgb, a, lw, lh, up: 1 };
 }
-function reflowUnit(u, W, H) {
+function reflowUnit(u, W, H, box) {
   const plate = u.kids.find(k => !k.text && k.solid);
   if (plate) { // לוח צבע עם טקסט עליו: שוברים שורות מחדש ומותחים את הלוח סביב הטקסט
     const tk = u.kids.filter(k => k !== plate);
@@ -697,8 +697,8 @@ function reflowUnit(u, W, H) {
   }
   if (!u.kids.every(k => k.text && ['headline', 'subheadline', 'body'].includes(k.role))) return u;
   const heads = u.kids.filter(k => (k.role === 'headline' || ((k.role === 'subheadline' || k.role === 'body') && W / H < 1.15)) && wordsOf(k)); if (!heads.length) return u;
-  const m = Math.min(W, H) * 0.07, wide = W / H >= 1.6;
-  const bw = wide ? W * 0.46 : W - 2 * m, bh = (wide ? (H - 2 * m) * 0.8 : H * 0.42) * (u.kids.length > 1 ? 0.85 : 1);
+  const m = Math.min(W, H) * 0.07, wide = box ? box[2] / box[3] >= 1.6 : W / H >= 1.6;
+  const bw = box ? box[2] : wide ? W * 0.46 : W - 2 * m, bh = box ? box[3] * (u.kids.length > 1 ? 0.85 : 1) : (wide ? (H - 2 * m) * 0.8 : H * 0.42) * (u.kids.length > 1 ? 0.85 : 1);
   const orig = u.kids.slice().sort((p, q) => p.y - q.y);
   const kids = orig.map(k => {
     if (!heads.includes(k)) return k;
@@ -1063,9 +1063,48 @@ function layoutTall(W, H, units, sw, sh) {
   list.forEach(({ u }, i) => { const w = u.w * f[i], h = u.h * f[i]; out.push([u, (W - w) / 2, y, w, h]); y += h + gap; });
   return out;
 }
-function autoplace(sc, W, H) {
+// ---- תכנון של AI: לכל יחידה ה-AI קובע תיבה (x,y,w,h בפיקסלים של הגודל החדש) והמנוע מסדר בתוכה
+function describeUnits(sc) {
+  return sc.units.map((u, i) => ({ id: 'u' + i, role: u.role, lines: (u.lines || []).filter(Boolean), kind: u.cards ? 'gallery of ' + u.cards.length + ' photos with captions' : u.kids.length > 1 ? 'group' : u.kids[0].role, x: Math.round(u.x), y: Math.round(u.y), w: Math.round(u.w), h: Math.round(u.h) }));
+}
+function placeInBox(u, box, W, H) {
+  const [bx, by, bw, bh] = box, rtl = (u.lines || []).some(l => HEB.test(l));
+  let v = u;
+  if (u.cards) {
+    let best = null; const total = u.cards.length;
+    for (const cols of [...new Set([total, Math.ceil(total / 2), 2, 1])].filter(c => c >= 1 && c <= total)) { const a = arrange(u, cols, rtl), f = Math.min(bw / a.w, bh / a.h); if (!best || f > best.f * 1.04) best = { a, f }; }
+    v = best.a;
+  } else v = reflowUnit(u, W, H, box);
+  const f = Math.min(bw / v.w, bh / v.h, v.role === 'hero' ? 9 : 2.6), w = v.w * f, h = v.h * f;
+  return [v, bx + (bw - w) / 2, by + (bh - h) / 2, w, h];
+}
+function planValid(plan, sc, W, H) {
+  if (!plan || !Array.isArray(plan.units)) return false;
+  const boxes = [];
+  for (const p of plan.units) {
+    const i = parseInt(String(p.id).replace(/^u/, ''), 10), u = sc.units[i];
+    if (!u || ![p.x, p.y, p.w, p.h].every(Number.isFinite) || p.w < 4 || p.h < 4) return false;
+    boxes.push([p.x, p.y, p.w, p.h]);
+  }
+  if (!boxes.length) return false;
+  for (const b of boxes) if (b[0] < -2 || b[1] < -2 || b[0] + b[2] > W + 2 || b[1] + b[3] > H + 2) return false;
+  for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+    const a = boxes[i], b = boxes[j], ix = Math.min(a[0] + a[2], b[0] + b[2]) - Math.max(a[0], b[0]), iy = Math.min(a[1] + a[3], b[1] + b[3]) - Math.max(a[1], b[1]);
+    if (ix > 0 && iy > 0 && ix * iy > 0.12 * Math.min(a[2] * a[3], b[2] * b[3])) return false;
+  }
+  return true;
+}
+function autoplace(sc, W, H, plan) {
   const pl = [];
   const add = (u, x, y, w, h) => { const s = w / u.w; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * s, y + dy * s, k.w * s, k.h * s]); } };
+  if (plan && planValid(plan, sc, W, H)) {
+    for (const p of plan.units) {
+      const u = sc.units[parseInt(String(p.id).replace(/^u/, ''), 10)];
+      const [v, x, y, w, h] = placeInBox(u, [p.x, p.y, p.w, p.h], W, H); add(v, x, y, w, h);
+    }
+    pl.sort((a, b) => (a[0].role === 'hero' ? 0 : 1) - (b[0].role === 'hero' ? 0 : 1) || (a[0].isPlate ? 0 : 1) - (b[0].isPlate ? 0 : 1) || a[0].z - b[0].z);
+    return pl;
+  }
   const units = sc.units.map(u => reflowUnit(u, W, H));
   const noHero = !units.some(u => u.role === 'hero'), asp = W / H;
   let useTall = noHero && asp < 0.9, mid = null;
@@ -1095,7 +1134,7 @@ function autoplace(sc, W, H) {
 
 // ---------------------------------------------------------------- רינדור
 // מחזיר { w, h, rgba: Uint8ClampedArray }
-function render(sc, W, H, K) {
+function render(sc, W, H, K, plan) {
   K = K || 1;
   const Wk = Math.floor(W * K), Hk = Math.floor(H * K);
   const s = Math.max(Wk / sc.W, Hk / sc.H);
@@ -1121,7 +1160,7 @@ function render(sc, W, H, K) {
   }
   const out = new Float32Array(Wk * Hk * 3);
   for (let y = 0; y < Hk; y++) out.set(bg.d.subarray(((y + oy) * nw + ox) * 3, ((y + oy) * nw + ox + Wk) * 3), y * Wk * 3);
-  for (const [leaf, x, y, w, h] of autoplace(sc, W, H)) {
+  for (const [leaf, x, y, w, h] of autoplace(sc, W, H, plan)) {
     if (w < 1 || h < 1) continue;
     const L = leaf.layer, n = L.lw * L.lh;
     const pm = { w: L.lw, h: L.lh, c: 4, d: new Float32Array(n * 4) };
@@ -1187,13 +1226,13 @@ function exportScene(sc) {
   });
   return { W: sc.W, H: sc.H, plate, leaves, holeRows: sc.holeRows };
 }
-function placements(sc, W, H) {
-  return autoplace(sc, W, H).map(([k, x, y, w, h]) => {
+function placements(sc, W, H, plan) {
+  return autoplace(sc, W, H, plan).map(([k, x, y, w, h]) => {
     const o = { z: k.z, x, y, w, h };
     if (k.reflowed) { const L = k.layer, n = L.lw * L.lh, rgba = new Uint8ClampedArray(n * 4); for (let i = 0; i < n; i++) { rgba[i * 4] = L.rgb[i * 3]; rgba[i * 4 + 1] = L.rgb[i * 3 + 1]; rgba[i * 4 + 2] = L.rgb[i * 3 + 2]; rgba[i * 4 + 3] = L.a[i] * 255; } o.layer = { lw: L.lw, lh: L.lh, rgba }; }
     return o;
   });
 }
 
-G.SizyEngine = { buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
