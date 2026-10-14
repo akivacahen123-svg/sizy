@@ -831,6 +831,11 @@ function buildScene(img, elements, onProgress) {
       }
     }
   }
+  for (const lb of leaves) { // כיתוב שיושב בתוך כפתור: תמיד מצמידים אותו אליו, גם אם ה-AI לא קבץ אותם
+    if (lb.role !== 'label') continue;
+    const bt = leaves.find(b => b.role === 'button' && !b.text && lb.x + lb.w / 2 > b.x && lb.x + lb.w / 2 < b.x + b.w && lb.y + lb.h / 2 > b.y && lb.y + lb.h / 2 < b.y + b.h);
+    if (bt) { const g = bt.group || lb.group || 'btn_' + bt.id; bt.group = g; lb.group = g; }
+  }
   const groups = new Map();
   for (const e of leaves) if (e.group) { if (!groups.has(e.group)) groups.set(e.group, []); groups.get(e.group).push(e); }
   const units = [];
