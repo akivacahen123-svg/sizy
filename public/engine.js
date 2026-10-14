@@ -1406,6 +1406,7 @@ function rankOf(u, sh, wide) {
   const r = u.kids.map(k => k.role);
   if (finePrint(u, sh)) return 9;
   if ((r.includes('logo') || r.includes('brand')) && !r.includes('headline')) { if (wide) return wide === 'strip' ? 5 : 2.5; if (u.y + u.h / 2 < 0.22 * sh) return -1; }
+  if (wide === true && u.cards && !r.includes('headline')) return -0.5; // באנר רחב רגיל: הגלריה בקצה (ימין בעברית), הכותרת במרכז, לוגו וכפתור בקצה השני, כמו שמעצבים עושים
   if (r.includes('headline')) return 0;
   if (r.includes('button')) return 3;
   if (r.includes('logo') || r.includes('badge') || r.includes('brand')) return wide ? (wide === 'strip' ? 5 : 2.5) : 2;

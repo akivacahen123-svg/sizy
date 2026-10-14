@@ -94,3 +94,6 @@ In 301x601 and 160x600 the one-line subheadline wraps into 2 and 3 lines (orphan
 - 321x71: bigger, more readable headline and logo.
 - 1200x200 and 728x90: a good, full use of the space (human reference not available).
 - Text is crisp at every size.
+
+## 1200x300 (לקוח, נלמד)
+שלושה אזורים: גלריה 2×2 בקצה ימין, כותרת+כותרת משנה במרכז (הכי גדולה), לוגו עם כפתור מתחתיו בקצה שמאל. המנוע מיישם את זה בבאנר רחב רגיל (יחס עד 4.2); פסים צרים יותר נשארים בשורה אחת.
