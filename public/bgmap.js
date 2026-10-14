@@ -40,5 +40,34 @@
     const pool = ok.length ? ok : cands.sort((p, q) => p.hole - q.hole).slice(0, 3);
     return pool.reduce((p, q) => (q.sc > p.sc ? q : p)).t;
   }
-  G.SizyBg = { map, rowEnergy, pickTop };
+  // פאנלים שטוחים בצבעים שונים (למשל גוף טורקיז ופס לבן בתחתית): מחזיר {y0,y1,c} של הפאנל השולט (לפי שטח) או null אם הרקע תמונה/אין פאנלים נפרדים
+  function panels(d, stride, W, H) {
+    const m = new Float32Array(H * 3), flat = new Uint8Array(H), step = Math.max(1, Math.floor(W / 64));
+    for (let y = 0; y < H; y++) {
+      let n = 0; for (let x = 0; x < W; x += step) { const o = (y * W + x) * stride; m[y * 3] += d[o]; m[y * 3 + 1] += d[o + 1]; m[y * 3 + 2] += d[o + 2]; n++; }
+      for (let k = 0; k < 3; k++) m[y * 3 + k] /= n;
+      let dev = 0; for (let x = 0; x < W; x += step) { const o = (y * W + x) * stride; dev += Math.max(Math.abs(d[o] - m[y * 3]), Math.abs(d[o + 1] - m[y * 3 + 1]), Math.abs(d[o + 2] - m[y * 3 + 2])); }
+      flat[y] = dev / n < 28 ? 1 : 0;
+    }
+    const dist = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2]));
+    const bands = []; let cur = null;
+    for (let y = 0; y < H; y++) {
+      const c = [m[y * 3], m[y * 3 + 1], m[y * 3 + 2]];
+      if (cur && dist(c, cur.c) < 40) { cur.y1 = y + 1; cur.n++; cur.fl += flat[y]; for (let k = 0; k < 3; k++) cur.c[k] += (c[k] - cur.c[k]) / cur.n; }
+      else { cur = { y0: y, y1: y + 1, n: 1, fl: flat[y], c }; bands.push(cur); }
+    }
+    const big = bands.filter(b => b.n >= 0.04 * H);
+    if (big.length < 2) return null;
+    const dom = big.reduce((p, q) => (q.n > p.n ? q : p));
+    if (dom.n < 0.4 * H || dom.fl < 0.7 * dom.n) return null;
+    if (big.some(b => b !== dom && b.n * 1.8 > dom.n)) return null; // שני פאנלים בגודל דומה: אין פאנל ראשי ברור
+    if (!big.some(b => b !== dom && dist(b.c, dom.c) > 60)) return null;
+    return { y0: dom.y0, y1: dom.y1, c: dom.c, bands: big };
+  }
+  // האם חלון (שורות מקור) נוגע בפאנל משני בצבע שונה בבירור
+  function touchesOther(P, t, vis) {
+    const a = t, b = t + vis;
+    return P.bands.some(q => q.y0 !== P.y0 && Math.max(0, Math.min(b, q.y1) - Math.max(a, q.y0)) > 0.03 * vis && Math.max(Math.abs(q.c[0] - P.c[0]), Math.abs(q.c[1] - P.c[1]), Math.abs(q.c[2] - P.c[2])) > 60);
+  }
+  G.SizyBg = { map, rowEnergy, pickTop, panels, touchesOther };
 })(globalThis);

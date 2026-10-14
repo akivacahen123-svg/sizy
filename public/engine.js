@@ -1815,7 +1815,7 @@ function render(sc, W, H, K, plan) {
   const s = Math.max(Wk / sc.W, Hk / sc.H);
   let nw = Math.max(Wk, Math.round(sc.W * s)), nh = Math.max(Hk, Math.round(sc.H * s));
   const xs = G.SizyBg ? G.SizyBg.map(sc.W, sc.H, Wk, Hk) : null;
-  let bg, ox, oy;
+  let bg, ox, oy, panelBg = false;
   if (xs) {
     const tall = resizePlate(sc.plate, sc.W, Hk); bg = { w: Wk, h: Hk, c: 3, d: new Float32Array(Wk * Hk * 3) }; ox = 0; oy = 0; nw = Wk; nh = Hk;
     for (let u = 0; u < Wk; u++) {
@@ -1830,7 +1830,16 @@ function render(sc, W, H, K, plan) {
     ox = Math.floor((nw - Wk) / 2); oy = Math.floor((nh - Hk) / 2);
     if (G.SizyBg && nh > Hk + 2) { // חיתוך אנכי: שומרים את החלק העשיר בפרטים
       if (!sc.energy) sc.energy = G.SizyBg.rowEnergy(sc.plate.d, 3, sc.W, sc.H);
-      oy = Math.max(0, Math.min(nh - Hk, Math.round(G.SizyBg.pickTop(sc.energy, sc.H, Hk / s, sc.holeRows) * s)));
+      const vis = Hk / s; let t0 = G.SizyBg.pickTop(sc.energy, sc.H, vis, sc.holeRows);
+      if (sc.panels === undefined) sc.panels = G.SizyBg.panels(sc.plate.d, 3, sc.W, sc.H);
+      const P = sc.panels; // פאנל ראשי + פס משני בצבע אחר: הרקע נלקח מהפאנל הראשי ולא מחיתוך שנוחת על הפס
+      if (P && Wk / Hk >= 2 * sc.W / sc.H && G.SizyBg.touchesOther(P, t0, vis)) { // רק כשהבאנר החדש רחב בהרבה מהמקור
+        const y0 = P.y0, n = P.y1 - P.y0;
+        const es = sc.energy.subarray(y0, P.y1), mx = es.reduce((a, b) => Math.max(a, b), 0), calm = es.map(v => mx - v); // פאנל שטוח: בוחרים את הקטע השקט ביותר (בלי כתמים)
+        t0 = y0 + G.SizyBg.pickTop(calm, n, Math.min(vis, n), sc.holeRows ? sc.holeRows.subarray(y0, P.y1) : null);
+        t0 = Math.max(y0, Math.min(t0, Math.max(y0, P.y1 - vis))); panelBg = true;
+      }
+      oy = Math.max(0, Math.min(nh - Hk, Math.round(t0 * s)));
     }
     bg = resizePlate(sc.plate, nw, nh, { x0: ox, y0: oy, w: Wk, h: Hk }); nw = Wk; ox = 0; oy = 0;
   }
@@ -1841,7 +1850,7 @@ function render(sc, W, H, K, plan) {
     const L = leaf.layer, tw = Math.max(1, Math.round(w * K)), th = Math.max(1, Math.round(h * K));
     const x0 = Math.round(x * K), y0 = Math.round(y * K);
     if (x0 >= Wk || y0 >= Hk || x0 + tw <= 0 || y0 + th <= 0) continue; // מחוץ לקנבס: אין מה לצייר
-    const r = resampleLayer(L, tw, th, !!(leaf.text && tw > 3 && th > 3));
+    let r = resampleLayer(L, tw, th, !!(leaf.text && tw > 3 && th > 3));
     const xa = Math.max(0, x0), ya = Math.max(0, y0), xb = Math.min(Wk, x0 + tw), yb = Math.min(Hk, y0 + th);
     // מצב מיזוג: טקסט בהיר על רקע כהה – מיזוג באור לינארי (קווים דקים לא נעשים אפורים); כהה על בהיר – sRGB רגיל
     let gam = 1;
@@ -1852,6 +1861,7 @@ function render(sc, W, H, K, plan) {
         if (r.a[si] > 0.6) { lt += 0.299 * r.rgb[si * 3] + 0.587 * r.rgb[si * 3 + 1] + 0.114 * r.rgb[si * 3 + 2]; nt++; } else if (r.a[si] < 0.05) { lb += 0.299 * out[di] + 0.587 * out[di + 1] + 0.114 * out[di + 2]; nb++; }
       }
       if (nt && nb) gam = lt / nt > lb / nb ? TUNE().gamLight : TUNE().gamDark;
+      if (panelBg && nt && nb && lb / nb < 128 && (Math.max(lt / nt, lb / nb) + 13) / (Math.min(lt / nt, lb / nb) + 13) < 3) { r = { a: r.a, rgb: new Float32Array(r.rgb.length).fill(255) }; gam = TUNE().gamLight; } // רקע הפאנל הכהה החליף רקע בהיר: טקסט כהה (למשל כפתור) הופך ללבן כדי לא להיעלם
     }
     for (let yy = ya; yy < yb; yy++) for (let xx = xa; xx < xb; xx++) {
       const si = (yy - y0) * tw + (xx - x0), di = (yy * Wk + xx) * 3, al = r.a[si];
