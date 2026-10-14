@@ -554,7 +554,7 @@ function ringDiff(clean, box, pad) {
 function graphicLayer(clean, e, grad) {
   const W = clean.w, H = clean.h;
   let [x, y, w, h] = e.px;
-  const shape = e.shape;
+  let shape = e.shape;
   if (shape === 'circle') {
     const [cx, cy, r] = fitCircle(grad, W, H, [x, y, w, h]), rr = Math.round(r);
     x = Math.round(cx) - rr; y = Math.round(cy) - rr; w = 2 * rr; h = 2 * rr;
@@ -569,6 +569,13 @@ function graphicLayer(clean, e, grad) {
   }
   x = clp(x, 0, W - 4); y = clp(y, 0, H - 4); w = Math.min(w, W - x); h = Math.min(h, H - y);
   if (w < 4 || h < 4) return null;
+  if (shape === 'hero' && w > 24 && h > 24) { // "תמונה ראשית" שהיא בעצם גזורה (השוליים זהים לרקע): חותכים לפי הצורה כדי שלא יישאר מלבן רקע
+    let nb = 0, nd = 0; const bw2 = Math.max(2, Math.floor(Math.min(w, h) * 0.03)), dd = bw2 + 4, D = clean.d;
+    const cmp = (i0, j0, i1, j1) => { if (i1 < 0 || j1 < 0 || i1 >= W || j1 >= H) return; nb++; const a0 = (j0 * W + i0) * 3, a1 = (j1 * W + i1) * 3; if (Math.max(Math.abs(D[a0] - D[a1]), Math.abs(D[a0 + 1] - D[a1 + 1]), Math.abs(D[a0 + 2] - D[a1 + 2])) > 18) nd++; };
+    for (let i = 0; i < w; i++) { cmp(x + i, y, x + i, y - dd); cmp(x + i, y + h - 1, x + i, y + h - 1 + dd); }
+    for (let j = 0; j < h; j++) { cmp(x, y + j, x - dd, y + j); cmp(x + w - 1, y + j, x + w - 1 + dd, y + j); }
+    if (nb && nd / nb < 0.2) shape = 'free';
+  }
   const crop = cropImg(clean, x, y, x + w, y + h), a = new Float32Array(w * h);
   if (shape === 'circle') {
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) a[j * w + i] = clp(Math.min(w, h) / 2 - Math.hypot(i + .5 - w / 2, j + .5 - h / 2) + .5, 0, 1);
@@ -581,7 +588,7 @@ function graphicLayer(clean, e, grad) {
   } else if (shape === 'free') {
     const { df, cw, x0, y0 } = ringDiff(clean, [x, y, w, h], Math.max(6, Math.floor(Math.min(w, h) * 0.2)));
     const sub = new Float32Array(w * h);
-    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) sub[j * w + i] = clp((df[(y - y0 + j) * cw + (x - x0 + i)] - 10) / 26, 0, 1);
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) sub[j * w + i] = clp((df[(y - y0 + j) * cw + (x - x0 + i)] - (e.shape === "hero" ? 22 : 10)) / 26, 0, 1);
     const r0 = Math.max(2, Math.round(Math.min(w, h) * 0.04));
     const cl = boxMin(boxMax(sub, w, h, r0), w, h, r0);
     for (let i = 0; i < w * h; i++) a[i] = clp(cl[i], 0, 1);
@@ -772,7 +779,7 @@ function reflowUnit(u, W, H, box) {
   });
   if (kids.every((k, i) => k === orig[i])) return u;
   const uw = Math.max(...kids.map(k => k.w)), rel = new Map(); let y = 0;
-  kids.forEach((k, i) => { if (i > 0) y += Math.min(Math.max(0, orig[i].y - (orig[i - 1].y + orig[i - 1].h)), 0.03 * Math.min(k.h, kids[i - 1].h)); rel.set(k, [(uw - k.w) / 2, y]); y += k.h; });
+  kids.forEach((k, i) => { if (i > 0) { const mh = Math.min(k.h, kids[i - 1].h), og = Math.max(0, orig[i].y - (orig[i - 1].y + orig[i - 1].h)); y += Math.max(0.2 * mh, Math.min(og, 0.35 * mh)); } rel.set(k, [(uw - k.w) / 2, y]); y += k.h; });
   return { ...u, kids, w: uw, h: y, rel, pin: null, reflowed: true };
 }
 
@@ -1110,7 +1117,7 @@ function layoutTall(W, H, units, sw, sh) {
   const ah = yb - m;
   let list = units.filter(u => u.role !== 'hero' && !fine.includes(u) && !(foot && foot.includes(u))).sort((p, q) => rank(p) - rank(q) || p.y - q.y).slice(0, 14);
   list = list.map(u => {
-    if (!u.cards) return { u, cap: rank(u) === 0 ? 3.2 : 2.2 };
+    if (!u.cards) return { u, cap: u.role === 'button' ? Math.min(2.2, 0.6 * W / u.w, Math.max(0.1 * H, 28) / u.h) : rank(u) === 0 ? 3.2 : 2.2 };
     let pick = null; const total = u.cards.length;
     for (const cols of [...new Set([total, Math.ceil(total / 2), 2, 1])].filter(c => c >= 1 && c <= total)) {
       const a = arrange(u, cols, rtl), f = Math.min(aw / a.w, 1.8, (0.34 * H) / a.h);
@@ -1168,7 +1175,7 @@ function planValid(plan, sc, W, H) {
 }
 // שורות קטנות מדי לקריאה (פחות מכ-6.5 פיקסלים) בכיתובים מוסרות, כדי שלא יישארו כתמים לא קריאים
 function dropTiny(pl) {
-  return pl.filter(e => !(e[0].text && ['caption', 'body', 'subheadline'].includes(e[0].role) && e[4] / Math.max(1, (e[0].lines || [1]).length) < 6.5));
+  return pl.filter(e => !(e[0].text && ['caption', 'body', 'subheadline'].includes(e[0].role) && e[4] / Math.max(1, (e[0].lines || [1]).length) < 7.5));
 }
 function autoplaceRules(sc, W, H) {
   return dropTiny(autoplaceRules0(sc, W, H));
