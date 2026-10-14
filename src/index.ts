@@ -1,6 +1,7 @@
 import { session, signIn, googleSignIn, signOutCookie, loginPage } from './auth.ts';
 import { analyzeImage, AnalyzeError } from './analyze.ts';
 import { designPlans } from './design.ts';
+import { readLessons, promptLessons, saveLessons, logNote, distillNote, consolidate } from './learn.ts';
 
 const PUBLIC_FILES = new Set<string>(['/favicon.svg']);
 const running = new Set<string>();
@@ -59,12 +60,33 @@ async function designRoute(request: Request, env: any, user: string, fetcher: ty
     if (userKey && !/^[A-Za-z0-9_-]{20,120}$/.test(userKey)) return json({ error: 'המפתח לא נראה תקין.' }, 400);
     const renders = Array.isArray(b.renders) ? b.renders.filter((r: any) => okImg(r?.image)).map((r: any) => ({ w: Number(r.w), h: Number(r.h), image: r.image })) : undefined;
     const plans = Array.isArray(b.plans) ? b.plans : undefined;
-    return json({ plans: await designPlans(env, { image: b.image, srcW: Number(b.srcW), srcH: Number(b.srcH), units, sizes, renders, plans }, fetcher, userKey) });
+    const note = typeof b.note === 'string' ? b.note.trim().slice(0, 600) : '';
+    const lessons = promptLessons(await readLessons(env));
+    const res = await designPlans(env, { image: b.image, srcW: Number(b.srcW), srcH: Number(b.srcH), units, sizes, renders, plans, lessons, note }, fetcher, userKey);
+    const learned = await saveLessons(env, res.lessons, false); // הביקורת האוטומטית של ה-AI מוסיפה כללים בכל בנייה
+    return json({ plans: res.plans, learned, newLessons: res.lessons.length });
   } catch (e) {
     if (e instanceof AnalyzeError) return json({ error: e.message, code: e.code, detail: e.detail }, e.status);
     console.error('design failed', (e as any)?.message);
     return json({ error: 'התכנון לא הושלם.' }, 500);
   } finally { running.delete(user); }
+}
+
+async function feedbackRoute(request: Request, env: any, user: string, fetcher: typeof fetch) {
+  if (request.method !== 'POST') return json({ error: 'הבקשה אינה תקינה.' }, 405);
+  if (request.headers.get('Origin') !== new URL(request.url).origin) return json({ error: 'הבקשה אינה מהאתר.' }, 403);
+  const b: any = await request.json().catch(() => null);
+  const note = typeof b?.note === 'string' ? b.note.trim().slice(0, 600) : '';
+  if (note.length < 3) return json({ error: 'כתבו הערה קצרה.' }, 400);
+  if (!env.LEARN) return json({ error: 'זיכרון הלמידה עדיין לא פעיל באתר.', code: 'NOLEARN' }, 503);
+  const userKey = (request.headers.get('X-Gemini-Key') ?? '').trim();
+  if (userKey && !/^[A-Za-z0-9_-]{20,120}$/.test(userKey)) return json({ error: 'המפתח לא נראה תקין.' }, 400);
+  const ctx = { sizes: b.sizes, units: b.units };
+  await logNote(env, { ts: Date.now(), note, sizes: b.sizes });
+  let lesson: string | null = null;
+  try { lesson = await distillNote(env, userKey, fetcher, note, ctx); } catch (e) { console.error('distill failed', (e as any)?.message); }
+  if (lesson) { await saveLessons(env, [lesson], true); try { await consolidate(env, userKey, fetcher); } catch { /* לא קריטי */ } }
+  return json({ ok: true, learned: Boolean(lesson) });
 }
 
 export default {
@@ -85,13 +107,17 @@ export default {
     const user = signedIn?.who ?? (open ? 'ip:' + (request.headers.get('CF-Connecting-IP') ?? 'unknown') : null);
     if (!user) return pathname.startsWith('/api/') ? json({ error: 'יש להיכנס עם הסיסמה כדי להמשיך.' }, 401) : Response.redirect(new URL('/login', request.url).toString(), 303);
 
-    if (pathname === '/api/status') return json({ ai: Boolean(env.GEMINI_API_KEY), ownKey: true });
+    if (pathname === '/api/status') return json({ ai: Boolean(env.GEMINI_API_KEY), ownKey: true, learn: Boolean(env.LEARN) });
     if (pathname === '/api/analyze') {
       if (env.LIMITER) {
         const { success } = await env.LIMITER.limit({ key: user });
         if (!success) return json({ error: 'נשלחו הרבה בקשות בזמן קצר. נסו שוב בעוד דקה.' }, 429);
       }
       return analyzeRoute(request, env, user, fetcher);
+    }
+    if (pathname === '/api/feedback') {
+      if (env.LIMITER) { const { success } = await env.LIMITER.limit({ key: user }); if (!success) return json({ error: 'נשלחו הרבה בקשות בזמן קצר. נסו שוב בעוד דקה.' }, 429); }
+      return feedbackRoute(request, env, user, fetcher);
     }
     if (pathname === '/api/design') {
       if (env.LIMITER) { const { success } = await env.LIMITER.limit({ key: user }); if (!success) return json({ error: 'נשלחו הרבה בקשות בזמן קצר. נסו שוב בעוד דקה.' }, 429); }

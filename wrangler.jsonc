@@ -8,7 +8,9 @@
   "assets": { "directory": "public", "binding": "ASSETS", "run_worker_first": true },
   "observability": { "enabled": true },
   // מגביל כמה ניתוחים מותר לכל משתמש בדקה, כדי שאף אחד לא ינצל את המפתח שלך.
-  "ratelimits": [{ "name": "LIMITER", "namespace_id": "1002", "simple": { "limit": 12, "period": 60 } }],
+  // זיכרון הלמידה של סייזי (חינמי). Cloudflare יוצרת אותו אוטומטית בפריסה הראשונה.
+  "kv_namespaces": [{ "binding": "LEARN" }],
+  "ratelimits": [{ "name": "LIMITER", "namespace_id": "1002", "simple": { "limit": 20, "period": 60 } }],
   "vars": {
     // "true": כל אחד נכנס בלי סיסמה ועובד עם המפתח שלך (GEMINI_API_KEY).
     // "false": נדרשת סיסמה (APP_PASSWORD).

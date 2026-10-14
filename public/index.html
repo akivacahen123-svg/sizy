@@ -133,8 +133,15 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
     </div>
   </aside>
   <section class="results">
-    <div class="rhead"><h2>התוצאות</h2><div id="bulk" hidden><button class="chip" id="selall">בחר הכל</button><button class="chip" id="selnone">נקה בחירה</button><button class="go" id="dlall">הורדת הנבחרים (ZIP)</button><button class="chip" id="rep" title="קובץ אחד עם הבאנר המקורי, מה ש-AI זיהה ותכנן, והתוצאות. שולחים אותו לקלוד כדי שיתקן.">שמירת דוח לתיקון</button></div></div>
+    <div class="rhead"><h2>התוצאות</h2><div id="bulk" hidden><button class="chip" id="selall">בחר הכל</button><button class="chip" id="selnone">נקה בחירה</button><button class="go" id="dlall">הורדת הנבחרים (ZIP)</button></div></div>
     <p class="sub" id="hint" hidden style="margin-bottom:12px">כל באנר נבנה מחדש מהאלמנטים של המקור. לחצו על אלמנט כדי להזיז, להגדיל, למרכז או לערוך אותו. אפשר להוריד כל באנר בנפרד, או לבחור כמה ולהוריד אותם יחד ב-ZIP.</p>
+    <div id="fb" hidden style="margin-bottom:14px;padding:14px;border-radius:14px;background:#fff;border:1px solid #dbe3f3">
+      <b>הערות לסייזי</b>
+      <p class="sub" style="margin:4px 0 8px">כתבו מה לא טוב ומה לתקן. סייזי יתקן את הבאנרים, ויזכור את זה לכל הבאנרים הבאים.</p>
+      <textarea id="fbt" rows="3" maxlength="600" placeholder="למשל: העיגולים קטנים מדי, הכותרת צריכה להיות גדולה יותר, הלוגו והכפתור לא ביחד..." style="width:100%;padding:10px;border:1px solid #dbe3f3;border-radius:10px;font:inherit;resize:vertical"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="go" id="fbsend">שלח הערה ותקן</button><button class="chip" id="train" title="סייזי מריץ את כל הגדלים של האתר על הבאנר הזה, בודק את עצמו ולומד כללים">אימון מהיר על הבאנר הזה</button></div>
+      <p class="sub" id="fbst" style="margin-top:8px"></p>
+    </div>
     <div id="empty"><svg width="54" height="54" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m3 15 5-5 4 4 3-3 6 6"/></svg><b>הבאנרים יופיעו כאן</b><span>העלו באנר, בחרו גדלים ולחצו "צור באנרים".</span></div>
     <div id="out"></div>
   </section>
@@ -151,7 +158,7 @@ const GROUPS=[['כל הגדלים',[...new Set(('1200x200 1200x60 120x500 300x60
 const sizesIn=()=>[...new Set([...$('#sz').value.matchAll(SZRE)].map(m=>(+m[1])+'x'+(+m[2])))];
 const setSizes=a=>{$('#sz').value=a.join(', ');paintChips()};
 function paintChips(){const cur=new Set(sizesIn());document.querySelectorAll('.chip[data-s]').forEach(b=>b.classList.toggle('on',cur.has(b.dataset.s)));$('#cnt').textContent=cur.size?cur.size+' גדלים נבחרו':''}
-let units=null,srcDim=null,plansBy={},lastEls=null;let file=null,srcCanvas=null,built=false,made=[],busy=false,worker=null,nextId=1;const pending=new Map();
+let units=null,srcDim=null,plansBy={},lastEls=null,learnOn=false;let file=null,srcCanvas=null,built=false,made=[],busy=false,worker=null,nextId=1;const pending=new Map();
 
 let serverAI=false;
 const LS={get(k){try{return localStorage.getItem(k)||''}catch(e){return ''}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
@@ -159,7 +166,7 @@ const keyOk=v=>/^[A-Za-z0-9_-]{20,120}$/.test(v.trim());
 function paintKey(){const v=$('#key').value.trim();$('#keyst').textContent=v?(keyOk(v)?'✅ המפתח נשמר בדפדפן הזה':'⚠️ המפתח לא נראה תקין. העתיקו אותו שוב במלואו.'):(serverAI?'':'עוד לא הוכנס מפתח.');
   $('#mode').textContent=(keyOk(v)||serverAI)?'✅ מחובר ל-AI: פירוק חכם זמין':'⚠️ צריך להדביק מפתח Gemini אישי (שלב 1)'}
 $('#key').value=LS.get('sizy_key');$('#key').addEventListener('input',()=>{LS.set('sizy_key',$('#key').value.trim());paintKey()});
-fetch('/api/status').then(r=>r.json()).then(j=>{serverAI=!!j.ai;$('#keycard').hidden=serverAI;if(!serverAI)$('#keycard').hidden=false;if(serverAI){document.querySelectorAll('.card:not([hidden]) .n').forEach((n,i)=>{n.textContent=i+1})}paintKey()}).catch(()=>{$('#mode').textContent='⚠️ אין חיבור'});paintKey();
+fetch('/api/status').then(r=>r.json()).then(j=>{serverAI=!!j.ai;learnOn=!!j.learn;$('#keycard').hidden=serverAI;if(!serverAI)$('#keycard').hidden=false;if(serverAI){document.querySelectorAll('.card:not([hidden]) .n').forEach((n,i)=>{n.textContent=i+1})}paintKey()}).catch(()=>{$('#mode').textContent='⚠️ אין חיבור'});paintKey();
 
 GROUPS.forEach(([name,list])=>{
   const g=document.createElement('div');g.className='grp';
@@ -400,7 +407,27 @@ function rgbaToJpeg(r){
 async function designCall(extra){
   const r=await fetch('/api/design',{method:'POST',headers:{'Content-Type':'application/json','X-Gemini-Key':$('#key').value.trim()},body:JSON.stringify({image:jpegB64(),srcW:srcDim[0],srcH:srcDim[1],units,...extra})});
   if(!r.ok)throw new Error('design '+r.status);
-  return (await r.json()).plans;
+  return await r.json();
+}
+// תכנון + בדיקה אוטומטית של ה-AI לקבוצת גדלים. מחזיר כמה כללים חדשים סייזי למד מהבדיקה.
+async function planSizes(ch,note,st,label){
+  st.textContent=label||'מעצב ה-AI מתכנן את הסידור לכל גודל…';
+  const first=await designCall({sizes:ch,note});first.plans.forEach(q=>plansBy[q.w+'x'+q.h]=q);
+  const renders=[],cur=[];
+  st.textContent=(label?label+' ':'')+'ה-AI בודק את התוצאות ומשפר…';
+  for(const[w,h]of ch){const q=plansBy[w+'x'+h];if(!q)continue;const r=await ask({type:'render',w,h,k:1,plan:q});renders.push({w,h,image:rgbaToJpeg(r)});cur.push(q)}
+  if(!cur.length)return 0;
+  const second=await designCall({sizes:cur.map(q=>[q.w,q.h]),renders,plans:cur,note});second.plans.forEach(q=>plansBy[q.w+'x'+q.h]=q);
+  return second.learned||0;
+}
+async function buildCards(sizes,st){
+  $('#out').innerHTML='';made.length=0;$('#hint').hidden=false;$('#empty').hidden=true;$('#bulk').hidden=true;
+  for(const[w,h]of sizes){
+    st.textContent=`בונה ${w}×${h}…`;
+    const r=await ask({type:'place',w,h,plan:plansBy[w+'x'+h]});
+    addCard(w,h,r.items);
+    await new Promise(r=>setTimeout(r,0));
+  }
 }
 $('#go').onclick=async()=>{
   if(busy)return;const st=$('#st');
@@ -422,28 +449,52 @@ $('#go').onclick=async()=>{
     let aiFail=false;
     {
       const need=units?sizes.filter(([w,h])=>!plansBy[w+'x'+h]):[];
-      const chunks=[];for(let i=0;i<need.length;i+=8)chunks.push(need.slice(i,i+8));
-      for(const ch of chunks){
-        try{
-          st.textContent='מעצב ה-AI מתכנן את הסידור לכל גודל…';
-          const ps=await designCall({sizes:ch});ps.forEach(q=>plansBy[q.w+'x'+q.h]=q);
-          const renders=[],cur=[];
-          st.textContent='ה-AI בודק את התוצאות ומשפר…';
-          for(const[w,h]of ch){const q=plansBy[w+'x'+h];if(!q)continue;const r=await ask({type:'render',w,h,k:1,plan:q});renders.push({w,h,image:rgbaToJpeg(r)});cur.push(q)}
-          if(cur.length){const ps2=await designCall({sizes:cur.map(q=>[q.w,q.h]),renders,plans:cur});ps2.forEach(q=>plansBy[q.w+'x'+q.h]=q)}
-        }catch(e){console.warn('design',e);aiFail=true}
+      for(let i=0;i<need.length;i+=8){
+        try{await planSizes(need.slice(i,i+8),'',st)}catch(e){console.warn('design',e);aiFail=true}
       }
     }
-    $('#out').innerHTML='';made.length=0;$('#hint').hidden=false;$('#empty').hidden=true;$('#bulk').hidden=true;
-    for(const[w,h]of sizes){
-      st.textContent=`בונה ${w}×${h}…`;
-      const r=await ask({type:'place',w,h,plan:plansBy[w+'x'+h]});
-      addCard(w,h,r.items);
-      await new Promise(r=>setTimeout(r,0));
-    }
-    $('#bulk').hidden=false;updBulk();st.textContent='מוכן. אפשר ללחוץ על כל אלמנט כדי להזיז, להגדיל או לערוך אותו.'+(aiFail?' (מעצב ה-AI לא היה זמין, הסידור נעשה בכללים הרגילים.)':'');
+    await buildCards(sizes,st);
+    $('#bulk').hidden=false;$('#fb').hidden=false;updBulk();st.textContent='מוכן. אפשר ללחוץ על כל אלמנט כדי להזיז, להגדיל או לערוך אותו.'+(aiFail?' (מעצב ה-AI לא היה זמין, הסידור נעשה בכללים הרגילים.)':'');
   }catch(e){console.error(e);st.textContent='משהו השתבש בבניית הבאנר. נסו שוב, ואם זה חוזר נסו קובץ אחר.'}
   finally{busy=false;$('#go').disabled=false;$('#sp').hidden=true}
+};
+
+// ---- הערות ולמידה
+$('#fbsend').onclick=async()=>{
+  if(busy||!made.length)return;const fs=$('#fbst'),note=$('#fbt').value.trim();
+  if(note.length<3){fs.textContent='כתבו הערה קצרה.';return}
+  busy=true;$('#fbsend').disabled=true;$('#train').disabled=true;$('#sp').hidden=false;
+  try{
+    const sizes=made.map(m=>[m.w,m.h]);let msg='';
+    fs.textContent='סייזי קורא את ההערה ולומד ממנה…';
+    const r=await fetch('/api/feedback',{method:'POST',headers:{'Content-Type':'application/json','X-Gemini-Key':$('#key').value.trim()},body:JSON.stringify({note,sizes,units})});
+    if(r.ok){const j=await r.json();msg=j.learned?'סייזי למד כלל חדש מההערה. ':'ההערה נשמרה. '}
+    else if(r.status===503)msg='(זיכרון הלמידה עדיין לא פעיל באתר, אבל התיקון רץ עכשיו.) ';
+    sizes.forEach(([w,h])=>delete plansBy[w+'x'+h]);
+    let fail=false;
+    for(let i=0;i<sizes.length;i+=8){try{await planSizes(sizes.slice(i,i+8),note,fs,'מתקן לפי ההערה…')}catch(e){console.warn(e);fail=true}}
+    await buildCards(sizes,fs);$('#bulk').hidden=false;updBulk();
+    fs.textContent=msg+(fail?'לא הצלחתי לתקן עם ה-AI כרגע, נסו שוב בעוד דקה.':'הבאנרים תוקנו לפי ההערה.');
+    if(!fail)$('#fbt').value='';
+  }catch(e){console.error(e);fs.textContent='משהו השתבש. נסו שוב.'}
+  finally{busy=false;$('#fbsend').disabled=false;$('#train').disabled=false;$('#sp').hidden=true}
+};
+// אימון: מריצים את כל הגדלים של האתר על הבאנר הזה. הביקורת האוטומטית של ה-AI מוסיפה כללים לזיכרון.
+$('#train').onclick=async()=>{
+  if(busy||!built||!units)return;const fs=$('#fbst');
+  if(!learnOn){fs.textContent='זיכרון הלמידה עדיין לא פעיל באתר (הוא נוצר בפריסה הבאה).';return}
+  busy=true;$('#fbsend').disabled=true;$('#train').disabled=true;$('#sp').hidden=false;
+  try{
+    const all=[...new Set(GROUPS.flatMap(g=>g[1]))].map(s=>s.split('x').map(Number)).filter(([w,h])=>w>=16&&h>=16);
+    let learned=0,done=0;
+    for(let i=0;i<all.length;i+=6){
+      const ch=all.slice(i,i+6);
+      try{learned+=await planSizes(ch,'',fs,`אימון ${Math.min(all.length,i+6)}/${all.length}…`)}catch(e){console.warn(e);await new Promise(r=>setTimeout(r,4000))}
+      done+=ch.length;await new Promise(r=>setTimeout(r,2500));
+    }
+    fs.textContent=`האימון הסתיים: נבדקו ${done} גדלים וסייזי הוסיף ${learned} כללים לזיכרון. הבנייה הבאה תשתמש בהם.`;
+  }catch(e){console.error(e);fs.textContent='האימון נעצר. נסו שוב.'}
+  finally{busy=false;$('#fbsend').disabled=false;$('#train').disabled=false;$('#sp').hidden=true}
 };
 
 // ---- ZIP (ללא דחיסה)
@@ -462,17 +513,6 @@ function makeZip(files){
   e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,csz,true);e.setUint32(16,off,true);
   return new Blob([...parts,...cen,new Uint8Array(e.buffer)],{type:'application/zip'});
 }
-$('#rep').onclick=async()=>{
-  const b=$('#rep');b.disabled=true;const t=b.textContent;b.textContent='מכין דוח…';
-  try{
-    const enc=new TextEncoder(),files=[];
-    files.push({name:'report.json',data:enc.encode(JSON.stringify({when:new Date().toISOString(),file:file&&file.name,srcW:srcDim&&srcDim[0],srcH:srcDim&&srcDim[1],elements:lastEls,units,plans:plansBy,sizes:made.map(m=>[m.w,m.h])},null,1))});
-    const orig=await new Promise(r=>srcCanvas.toBlob(r,'image/jpeg',.95));files.push({name:'original.jpg',data:new Uint8Array(await orig.arrayBuffer())});
-    for(const m of made)files.push({name:m.name,data:new Uint8Array(await (await m.blobFor()).arrayBuffer())});
-    dlBlob(makeZip(files),'sizy-report.zip');$('#st').textContent='הדוח ירד כקובץ sizy-report.zip. שלחו אותו לקלוד כאן בצ׳אט.';
-  }catch(e){console.error(e);$('#st').textContent='לא הצלחתי להכין את הדוח.'}
-  finally{b.disabled=false;b.textContent=t}
-};
 $('#dlall').onclick=async()=>{
   const chosen=made.filter(m=>m.pick.checked);if(!chosen.length)return;$('#dlall').disabled=true;
   try{const files=[];for(const m of chosen)files.push({name:m.name,data:new Uint8Array(await (await m.blobFor()).arrayBuffer())});dlBlob(makeZip(files),'sizes.zip')}

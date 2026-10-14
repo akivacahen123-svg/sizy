@@ -21,8 +21,8 @@ r = await call('/login', { method: 'POST', body: new URLSearchParams({ password:
 r = await call('/login', { method: 'POST', body: new URLSearchParams({ password: 'correct horse' }) }); assert.equal(r.status, 303);
 const cookie = r.headers.get('Set-Cookie')!.split(';')[0]; assert(cookie.startsWith('sizy_session='));
 assert.equal(await (await call('/', { headers: { Cookie: cookie } })).text(), 'asset:/');
-assert.deepEqual(await (await call('/api/status', { headers: { Cookie: cookie } })).json(), { ai: true, ownKey: true });
-assert.deepEqual(await (await call('/api/status', { headers: { Cookie: cookie } }, { ...env, GEMINI_API_KEY: '' })).json(), { ai: false, ownKey: true });
+assert.deepEqual(await (await call('/api/status', { headers: { Cookie: cookie } })).json(), { ai: true, ownKey: true, learn: false });
+assert.deepEqual(await (await call('/api/status', { headers: { Cookie: cookie } }, { ...env, GEMINI_API_KEY: '' })).json(), { ai: false, ownKey: true, learn: false });
 assert.equal((await call('/api/status', { headers: { Cookie: cookie } }, { ...env, APP_PASSWORD: 'other' })).status, 401);
 // ניתוח: מקור לא מהאתר נחסם; תמונה לא תקינה נדחית; תשובה תקינה מתורגמת לסדר x1,y1,x2,y2.
 const img = 'A'.repeat(200), post = (body: any, extra: any = {}) => ({ method: 'POST', headers: { Cookie: cookie, Origin: 'https://sizy.example', 'Content-Type': 'application/json', ...extra }, body: JSON.stringify(body) });
@@ -42,7 +42,7 @@ const shared: any[] = []; r = await call('/api/analyze', anon(), open, gemini(sh
 const own: any[] = []; r = await call('/api/analyze', anon({ 'X-Gemini-Key': 'USERKEY_12345678901234567890' }), open, gemini(own)); assert.equal(r.status, 200);
 assert.equal(own[0].init.headers['x-goog-api-key'], 'USERKEY_12345678901234567890');
 assert.equal((await call('/api/analyze', anon({ 'X-Gemini-Key': 'bad key!' }), open, gemini([]))).status, 400);
-assert.deepEqual(await (await call('/api/status', {}, open)).json(), { ai: true, ownKey: true });
+assert.deepEqual(await (await call('/api/status', {}, open)).json(), { ai: true, ownKey: true, learn: false });
 const calls: any[] = [];
 r = await call('/api/analyze', post({ image: img }), env, gemini(calls)); assert.equal(r.status, 200);
 const body: any = await r.json(); assert.equal(body.elements.length, 1);
@@ -74,3 +74,30 @@ await assert.rejects(() => analyzeImage(env, img, (async () => new Response('{}'
 await assert.rejects(() => analyzeImage({}, img), /מפתח Gemini/);
 assert.equal(cleanElements([{ box: [0, 0, 1, 1] }, { box: 'x' }, null, { box: [10, 20, 30, 40], role: 'weird', shape: 'circle', group: 'null' }]).length, 1);
 console.log('Passed: sign-in, wrong password, cookie signature, status, cross-site block, Gemini request and parsing, model fallback, errors.');
+
+// למידה: הערה הופכת לכלל כללי ונשמרת; הכללים נכנסים להוראות המעצב; כפילויות מתאחדות.
+{
+  const { mergeLessons, promptLessons } = await import('../src/learn.ts');
+  let m = mergeLessons([], ['Keep logo and button side by side in tall banners', 'short'], false);
+  assert.equal(m.length, 1);
+  m = mergeLessons(m, ['Keep the logo and the button side by side in tall banners.'], false); assert.equal(m.length, 1); assert.equal(m[0].n, 2);
+  m = mergeLessons(m, ['Never shrink the headline below 8% of height'], true); assert.equal(promptLessons(m)[0], 'Never shrink the headline below 8% of height');
+  const store = new Map<string, string>();
+  const kv = { get: async (k: string) => (store.has(k) ? JSON.parse(store.get(k)!) : null), put: async (k: string, v: string) => { store.set(k, v); } };
+  const lenv = { ...env, LEARN: kv };
+  const seen: string[] = [];
+  const g = async (url: any, init: any) => {
+    if (String(url).includes('?pageSize')) return Response.json({ models: [] });
+    const text = JSON.parse(init.body).contents[0].parts.map((p: any) => p.text ?? '').join('');
+    seen.push(text);
+    const out = text.includes('Turn the note into ONE') ? { lesson: 'Keep photo circles at least 16% of the banner width in tall banners.' } : { sizes: [{ w: 300, h: 600, units: [{ id: 'u0', x: 100, y: 500, w: 500, h: 100 }] }], lessons: ['Keep the headline at the full width in tall banners.'] };
+    return Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify(out) }] } }] });
+  };
+  const fb = await call('/api/feedback', post({ note: 'העיגולים קטנים מדי', sizes: [[300, 600]], units: [] }), lenv, g as any); assert.equal(fb.status, 200); assert.equal(((await fb.json()) as any).learned, true);
+  assert.equal((await call('/api/feedback', post({ note: 'x' }), lenv, g as any)).status, 400);
+  assert.equal((await call('/api/feedback', post({ note: 'העיגולים קטנים מדי' }), env, g as any)).status, 503);
+  const body = { image: img, srcW: 700, srcH: 500, sizes: [[300, 600]], units: [{ id: 'u0', role: 'button', lines: ['x'], kind: 'button', x: 1, y: 2, w: 30, h: 10 }], renders: [{ w: 300, h: 600, image: img }], plans: [{ w: 300, h: 600, units: [] }], note: 'הגדל את הכותרת' };
+  const dr = await call('/api/design', post(body), lenv, g as any); assert.equal(dr.status, 200); assert.equal(((await dr.json()) as any).newLessons, 1);
+  const last = seen[seen.length - 1]; assert.ok(last.includes('Keep photo circles at least 16%') && last.includes("OWNER'S NOTE"), 'lessons and note must reach the designer prompt');
+  assert.equal(JSON.parse(store.get('lessons')!).length, 2);
+}

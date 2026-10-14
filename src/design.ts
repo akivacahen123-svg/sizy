@@ -48,13 +48,15 @@ export function cleanPlans(raw: any, sizes: number[][], unitIds: Set<string>): P
 
 const norm = (u: Unit, sw: number, sh: number) => ({ id: u.id, kind: u.kind, text: u.lines.join(' / ').slice(0, 80) || undefined, x: Math.round(u.x / sw * 1000), y: Math.round(u.y / sh * 1000), w: Math.round(u.w / sw * 1000), h: Math.round(u.h / sh * 1000), ar: Math.round(u.w / Math.max(1, u.h) * 100) / 100 });
 
-export async function designPlans(env: any, body: { image: string; srcW: number; srcH: number; units: Unit[]; sizes: number[][]; renders?: { w: number; h: number; image: string }[]; plans?: Plan[] }, fetcher: typeof fetch = fetch, userKey = ''): Promise<Plan[]> {
+export async function designPlans(env: any, body: { image: string; srcW: number; srcH: number; units: Unit[]; sizes: number[][]; renders?: { w: number; h: number; image: string }[]; plans?: Plan[]; lessons?: string[]; note?: string }, fetcher: typeof fetch = fetch, userKey = ''): Promise<{ plans: Plan[]; lessons: string[] }> {
   const { image, srcW, srcH, units, sizes } = body;
   const ids = new Set(units.map(u => u.id));
   const parts: any[] = [{ inline_data: { mime_type: 'image/jpeg', data: image } }];
-  const info = `ORIGINAL banner ${srcW}x${srcH} (aspect ${(srcW / srcH).toFixed(2)}). UNITS: ${JSON.stringify(units.map(u => norm(u, srcW, srcH)))}\nREQUESTED SIZES (w,h in px): ${JSON.stringify(sizes)}`;
+  const learned = body.lessons?.length ? `\n\nRULES LEARNED FROM THE OWNER'S FEEDBACK AND PAST REVIEWS (follow them; they override the general rules above when they conflict):\n${body.lessons.map(l => '- ' + l).join('\n')}` : '';
+  const noteTxt = body.note ? `\n\nOWNER'S NOTE ABOUT THE CURRENT RESULT (highest priority, fix exactly this): "${body.note.slice(0, 600)}"` : '';
+  const info = `ORIGINAL banner ${srcW}x${srcH} (aspect ${(srcW / srcH).toFixed(2)}). UNITS: ${JSON.stringify(units.map(u => norm(u, srcW, srcH)))}\nREQUESTED SIZES (w,h in px): ${JSON.stringify(sizes)}${learned}${noteTxt}`;
   if (body.renders?.length && body.plans?.length) {
-    parts.push({ text: `${DESIGN_PROMPT}\n\n${info}\n\nREVIEW MODE: below are the current results rendered from your previous plan, one image per size in the order of the sizes, with the plan used. Judge each as a strict art director: overlaps, unreadably small text, content crammed or floating, wrong hierarchy, cropped or tiny logo, big empty areas, misalignment, anything a client would reject. Return the COMPLETE corrected JSON for every size (same schema); keep what already works unchanged. PREVIOUS PLAN (boxes as 0-1000 of each canvas):\n${JSON.stringify(body.plans.map(p => ({ w: p.w, h: p.h, units: p.units.map(u => ({ id: u.id, x: Math.round(u.x / p.w * 1000), y: Math.round(u.y / p.h * 1000), w: Math.round(u.w / p.w * 1000), h: Math.round(u.h / p.h * 1000) })) })))}` });
+    parts.push({ text: `${DESIGN_PROMPT}\n\n${info}\n\nREVIEW MODE: below are the current results rendered from your previous plan, one image per size in the order of the sizes, with the plan used. Judge each as a strict art director: overlaps, unreadably small text, content crammed or floating, wrong hierarchy, cropped or tiny logo, big empty areas, misalignment, anything a client would reject. Return the COMPLETE corrected JSON for every size (same schema); keep what already works unchanged. Also add a top-level "lessons" array: up to 3 short, GENERAL design rules (English, imperative, max 30 words, valid for any banner, never mentioning this creative's text) that you learned from the problems you fixed; use [] if none. PREVIOUS PLAN (boxes as 0-1000 of each canvas):\n${JSON.stringify(body.plans.map(p => ({ w: p.w, h: p.h, units: p.units.map(u => ({ id: u.id, x: Math.round(u.x / p.w * 1000), y: Math.round(u.y / p.h * 1000), w: Math.round(u.w / p.w * 1000), h: Math.round(u.h / p.h * 1000) })) })))}` });
     for (const r of body.renders.slice(0, 12)) { parts.push({ text: `Result for size ${r.w}x${r.h}:` }); parts.push({ inline_data: { mime_type: 'image/jpeg', data: r.image } }); }
   } else parts.push({ text: `${DESIGN_PROMPT}\n\n${info}` });
   return geminiRun(env, userKey, fetcher, parts, reply => {
@@ -62,6 +64,7 @@ export async function designPlans(env: any, body: { image: string; srcW: number;
     let j: any; try { j = JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); } catch { throw new AnalyzeError(502, 'INVALID', 'ה-AI לא החזיר תכנון תקין.', t.slice(0, 200)); }
     const plans = cleanPlans(j, sizes, ids);
     if (!plans.length) throw new AnalyzeError(502, 'INVALID', 'ה-AI לא החזיר תכנון תקין.', t.slice(0, 200));
-    return plans;
+    const lessons = Array.isArray(j.lessons) && body.renders?.length ? j.lessons.map(String).filter((x: string) => x.length >= 12 && x.length <= 300).slice(0, 3) : [];
+    return { plans, lessons };
   }, 24000);
 }
