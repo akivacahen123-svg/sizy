@@ -336,12 +336,13 @@ function kmeans2(pts) { // pts: מערך [r,g,b]
   return { cen, frac: [(n - c) / n, c / n] };
 }
 
-function textLayer(img, box, nlines, upMax, outline, bullets, holes, others, extBelow) {
+function textLayer(img, box, nlines, upMax, outline, bullets, holes, others, ext) {
+  const extBelow = ext && ext.below, extSide = ext && ext.side;
   const W = img.w, H = img.h;
   const [x, y, w, h] = box;
   upMax = upMax || 4;
   const ex = Math.floor(0.12 * Math.max(w, h) + 4);
-  const exw = Math.max(ex, Math.floor(1.1 * Math.max(6, h / Math.max(1, nlines)))); // לצדדים מרחיבים יותר: ה-AI נוטה לחתוך כיתוב קצר
+  const exw = Math.max(ex, Math.floor((extSide ? 2.4 : 1.1) * Math.max(6, h / Math.max(1, nlines)))); // לצדדים מרחיבים יותר: ה-AI נוטה לחתוך כיתוב קצר
   const pad = exw + Math.max(6, Math.floor(0.15 * Math.min(w, h)));
   const x0 = clp(x - pad, 0, W - 2), y0 = clp(y - pad, 0, H - 2);
   const x1 = clp(x + w + pad, x0 + 2, W), y1 = clp(y + h + pad, y0 + 2, H);
@@ -388,6 +389,7 @@ function textLayer(img, box, nlines, upMax, outline, bullets, holes, others, ext
   // כיתוב קצר שה-AI חתך באמצע (חסרה שורה אחרונה): מרחיבים מעט כלפי מטה, אבל לא לתוך אלמנט אחר
   const ev = extBelow && !innerMode ? Math.floor(1.1 * Math.max(6, h / Math.max(1, nlines))) : 0;
   const blocked = (xx, yy) => (others || []).some(o => xx >= o[0] && xx < o[0] + o[2] && yy >= o[1] && yy < o[1] + o[3]);
+  if (extSide) for (let yy = 0; yy < ch; yy++) for (let xx = 0; xx < cw; xx++) { const gx = x0 + xx, gy = y0 + yy; if (win[yy * cw + xx] && !(gx >= x && gx < x + w && gy >= y && gy < y + h) && blocked(gx, gy)) win[yy * cw + xx] = 0; }
   const extRows = [];
   if (ev) for (let yy = Math.max(0, y + h - y0); yy < Math.min(ch, y + h + ev - y0); yy++) { extRows.push(yy); for (let xx = Math.max(0, x - exw - x0); xx < Math.min(cw, x + w + exw - x0); xx++) if (!blocked(x0 + xx, y0 + yy)) win[yy * cw + xx] = 1; }
   const ref = []; { const msk = innerAny ? inner : win; for (let i = 0; i < CN; i++) if (msk[i]) ref.push(diff[i]); }
@@ -431,6 +433,23 @@ function textLayer(img, box, nlines, upMax, outline, bullets, holes, others, ext
   const cy1 = Math.max(0, Math.floor(y + h * 0.15 - y0)), cy2 = Math.min(ch, Math.floor(y + h * 0.85 - y0));
   const cx1 = Math.max(0, Math.floor(x - x0)), cx2 = Math.min(cw, Math.floor(x + w - x0));
   for (let yy = cy1; yy < cy2; yy++) for (let xx = cx1; xx < cx2; xx++) { const i = yy * cw + xx; if (ink[i] && lab[i] > 0) keepIds.add(lab[i]); }
+  if (extSide) { // מילים וסימנים שה-AI חתך בקצה השורה (כמו נקודתיים או המילה הראשונה): מצרפים רכיבים סמוכים באותו גובה
+    const bb = new Map();
+    for (let yy = 0; yy < ch; yy++) for (let xx = 0; xx < cw; xx++) { const i = yy * cw + xx, id = lab[i]; if (id > 0 && ink[i]) { let b = bb.get(id); if (!b) { b = [xx, yy, xx, yy, 0]; bb.set(id, b); } b[0] = Math.min(b[0], xx); b[1] = Math.min(b[1], yy); b[2] = Math.max(b[2], xx); b[3] = Math.max(b[3], yy); b[4]++; } }
+    const lh1 = Math.max(6, h / Math.max(1, nlines)), by0 = y - y0, by1 = y + h - y0;
+    let changed = true, guard = 0;
+    while (changed && guard++ < 6) {
+      changed = false;
+      let ux0 = 1e9, ux1 = -1e9; for (const id of keepIds) { const b = bb.get(id); if (b) { ux0 = Math.min(ux0, b[0]); ux1 = Math.max(ux1, b[2]); } }
+      if (ux1 < ux0) break;
+      for (const [id, b] of bb) {
+        if (keepIds.has(id) || b[4] < 4) continue;
+        const ov = Math.min(b[3] + 1, by1) - Math.max(b[1], by0); if (ov < 0.4 * (b[3] + 1 - b[1])) continue;
+        const gap = Math.max(0, b[0] - ux1, ux0 - b[2]); if (gap > 0.9 * lh1) continue;
+        keepIds.add(id); changed = true; ux0 = Math.min(ux0, b[0]); ux1 = Math.max(ux1, b[2]);
+      }
+    }
+  }
   if (ev) { // רכיבים שמתחילים ממש מתחת לתיבה ומתיישרים איתה: זו השורה החסרה
     const ys = Math.max(0, y + h - y0), ye = Math.min(ch, Math.floor(y + h + 0.7 * (h / Math.max(1, nlines)) - y0));
     for (let yy = ys; yy < ye; yy++) for (let xx = cx1; xx < cx2; xx++) { const i = yy * cw + xx; if (ink[i] && lab[i] > 0) keepIds.add(lab[i]); }
@@ -795,7 +814,7 @@ function buildScene(img, elements, onProgress) {
   for (const e of els) {
     if (!e.text) continue;
     const others = els.filter(o => o !== e).map(o => o.px);
-    const L = textLayer(img, e.px, e.role === 'button' ? 2 : Math.max(1, e.lines.length), 4, e.role === 'button', !!e.bullet, holes, others, ['caption', 'body', 'subheadline'].includes(e.role) && e.lines.length > 1);
+    const L = textLayer(img, e.px, e.role === 'button' ? 2 : Math.max(1, e.lines.length), 4, e.role === 'button', !!e.bullet, holes, others, { side: ['caption', 'body', 'subheadline'].includes(e.role), below: ['caption', 'body', 'subheadline'].includes(e.role) && e.lines.length > 1 });
     if (!L) continue;
     if (['caption', 'body', 'label'].includes(e.role)) { // פס רקע שנחתך במקום אותיות: שורה שכמעט כולה אטומה
       let rm = 0; for (let j = 0; j < L.lh; j++) { let r = 0; for (let i = 0; i < L.lw; i++) { if (L.a[j * L.lw + i] > 0.5) { r++; if (r > rm) rm = r; } else r = 0; } }
@@ -1074,7 +1093,8 @@ function layoutTall(W, H, units, sw, sh) {
   const rank = u => rankOf(u, sh, false);
   const fine = units.filter(u => finePrint(u, sh)), out0 = [];
   let yb = H - m * 0.7;
-  for (const u of fine) { const f0 = Math.min(aw / u.w, 1.5), w0 = u.w * f0, h0 = u.h * f0; if (h0 < 5) continue; yb -= h0; out0.push([u, (W - w0) / 2, yb, w0, h0]); yb -= m * 0.5; }
+  const s0 = Math.max(0.05, ...units.filter(q => !finePrint(q, sh) && q.role !== 'hero').map(q => aw / q.w));
+  for (const u of fine) { const f0 = Math.min(aw / u.w, 1.5, 0.8 * s0), w0 = u.w * f0, h0 = u.h * f0; if (h0 < 5) continue; yb -= h0; out0.push([u, (W - w0) / 2, yb, w0, h0]); yb -= m * 0.5; }
   // שורת תחתית: לוגו ליד כפתור, כמו שמעצבים עושים בבאנר גבוה
   let foot = null;
   { const lg = units.find(u => u.kids.some(k => k.role === 'logo') && !u.cards && !fine.includes(u) && rankOf(u, sh, false) >= 0), bt = units.find(u => u.role === 'button');
