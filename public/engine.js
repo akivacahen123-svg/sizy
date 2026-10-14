@@ -57,24 +57,221 @@ function flatten(taps) {
   let p = 0; taps.forEach((t, i) => { off[i] = p; for (let q = 0; q < t.idx.length; q++) { idx[p] = t.idx[q]; w[p] = t.w[q]; p++; } }); off[taps.length] = p;
   return { off, idx, w };
 }
-function resize(src, dw, dh, kind) {
+function resize(src, dw, dh, kind, win) { // win = {x0,y0,w,h}: מחשב רק חלון מתוך התמונה המוקטנת/מוגדלת (בלי לשלם על מה שייחתך)
   const { w: sw, h: sh, c } = src;
-  if (sw === dw && sh === dh) return { w: sw, h: sh, c, d: Float32Array.from(src.d) };
-  const tx = flatten(kernelWeights(sw, dw, kind)), ty = flatten(kernelWeights(sh, dh, kind));
-  const sd = src.d, tmp = new Float32Array(dw * sh * c);
-  for (let y = 0; y < sh; y++) {
-    const ro = y * sw * c;
+  if (!win && sw === dw && sh === dh) return { w: sw, h: sh, c, d: Float32Array.from(src.d) };
+  const wx = win ? win.x0 : 0, wy = win ? win.y0 : 0, ow = win ? win.w : dw, oh = win ? win.h : dh;
+  const tx = flatten(kernelWeights(sw, dw, kind).slice(wx, wx + ow)), ty = flatten(kernelWeights(sh, dh, kind).slice(wy, wy + oh));
+  let r0 = sh, r1 = -1; for (let q = 0; q < ty.idx.length; q++) { if (ty.idx[q] < r0) r0 = ty.idx[q]; if (ty.idx[q] > r1) r1 = ty.idx[q]; }
+  const rows = r1 - r0 + 1;
+  const sd = src.d, tmp = new Float32Array(ow * rows * c);
+  for (let y = 0; y < rows; y++) {
+    const ro = (y + r0) * sw * c;
+    for (let x = 0; x < ow; x++) {
+      const o = (y * ow + x) * c, q0 = tx.off[x], q1 = tx.off[x + 1];
+      for (let ch = 0; ch < c; ch++) { let acc = 0; for (let q = q0; q < q1; q++) acc += sd[ro + tx.idx[q] * c + ch] * tx.w[q]; tmp[o + ch] = acc; }
+    }
+  }
+  const out = new Float32Array(ow * oh * c), stride = ow * c;
+  for (let y = 0; y < oh; y++) {
+    const q0 = ty.off[y], q1 = ty.off[y + 1], base = y * stride;
+    for (let x = 0; x < stride; x++) { let acc = 0; for (let q = q0; q < q1; q++) acc += tmp[(ty.idx[q] - r0) * stride + x] * ty.w[q]; out[base + x] = acc; }
+  }
+  return { w: ow, h: oh, c, d: out };
+}
+
+// ---------------------------------------------------------------- resample איכותי (Lanczos3 + הגבלת הילות + חידוד)
+// כוונון: כל הערכים ניתנים לדריסה דרך globalThis.__SIZY_TUNE (לבדיקות בלבד)
+const TUNE = () => Object.assign({ gamLight: 2.2, gamDark: 1.0, usmPhoto: 1, usmText: 1, upAdapt: 0.7, upAmt: 1.0, esMix: 0.85, esThr: 6, preK: 2.5, gainDn: 0.16, gainCenter: 0.45 }, G.__SIZY_TUNE || {});
+const S2L = new Float32Array(1024), L2S = new Float32Array(4097);
+for (let i = 0; i < 1024; i++) { const v = i / 1023; S2L[i] = v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
+for (let i = 0; i <= 4096; i++) { const v = i / 4096; L2S[i] = 255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055); }
+const toLin = v => { const t = clp(v, 0, 255) * (1023 / 255), i = Math.min(1022, t | 0); return S2L[i] + (S2L[i + 1] - S2L[i]) * (t - i); };
+const fromLin = v => { const t = clp(v, 0, 1) * 4096, i = Math.min(4095, t | 0); return L2S[i] + (L2S[i + 1] - L2S[i]) * (t - i); };
+// Lanczos3 עם הגבלה לטווח המינימום/מקסימום של הגרעין החיובי (בלי הילות/צלצולי קצה). בהקטנה גדולה: קודם area עד פי 2 מהיעד (כמו pica)
+function resizeLim(src, dw, dh) {
+  const T = TUNE(), { w: sw, h: sh } = src;
+  let cur = src;
+  const pw = sw / dw > T.preK ? Math.round(dw * 2) : sw, ph = sh / dh > T.preK ? Math.round(dh * 2) : sh;
+  if (pw !== sw || ph !== sh) cur = resize(src, pw, ph, 'area');
+  const c = cur.c, iw = cur.w, ih = cur.h;
+  if (iw === dw && ih === dh) return cur;
+  const tx = flatten(kernelWeights(iw, dw, 'lanczos')), ty = flatten(kernelWeights(ih, dh, 'lanczos'));
+  const sd = cur.d, n1 = dw * ih * c, tmp = new Float32Array(n1), tlo = new Float32Array(n1), thi = new Float32Array(n1);
+  for (let y = 0; y < ih; y++) {
+    const ro = y * iw * c;
     for (let x = 0; x < dw; x++) {
       const o = (y * dw + x) * c, q0 = tx.off[x], q1 = tx.off[x + 1];
-      for (let ch = 0; ch < c; ch++) { let acc = 0; for (let q = q0; q < q1; q++) acc += sd[ro + tx.idx[q] * c + ch] * tx.w[q]; tmp[o + ch] = acc; }
+      for (let ch = 0; ch < c; ch++) {
+        let acc = 0, lo = 1e30, hi = -1e30;
+        for (let q = q0; q < q1; q++) { const v = sd[ro + tx.idx[q] * c + ch], wq = tx.w[q]; acc += v * wq; if (wq > 0) { if (v < lo) lo = v; if (v > hi) hi = v; } }
+        tmp[o + ch] = acc; tlo[o + ch] = lo; thi[o + ch] = hi;
+      }
     }
   }
   const out = new Float32Array(dw * dh * c), stride = dw * c;
   for (let y = 0; y < dh; y++) {
     const q0 = ty.off[y], q1 = ty.off[y + 1], base = y * stride;
-    for (let x = 0; x < stride; x++) { let acc = 0; for (let q = q0; q < q1; q++) acc += tmp[ty.idx[q] * stride + x] * ty.w[q]; out[base + x] = acc; }
+    for (let x = 0; x < stride; x++) {
+      let acc = 0, lo = 1e30, hi = -1e30;
+      for (let q = q0; q < q1; q++) { const j = ty.idx[q] * stride + x, wq = ty.w[q]; acc += tmp[j] * wq; if (wq > 0) { if (tlo[j] < lo) lo = tlo[j]; if (thi[j] > hi) hi = thi[j]; } }
+      out[base + x] = acc < lo ? lo : acc > hi ? hi : acc;
+    }
   }
   return { w: dw, h: dh, c, d: out };
+}
+// unsharp 3×3 עם הגבלת אוברשוט לטווח השכנות (אין הילות). adapt>0: החידוד נחלש באזורים שטוחים (לא מגביר רעש)
+function usmLim(img, A, chans, adapt) {
+  const { w, h, c } = img, s = img.d, o = Float32Array.from(s);
+  if (w < 3 || h < 3) return img;
+  for (let y = 0; y < h; y++) {
+    const ym = y ? y - 1 : 0, yp = y < h - 1 ? y + 1 : h - 1;
+    for (let x = 0; x < w; x++) {
+      const xm = x ? x - 1 : 0, xp = x < w - 1 ? x + 1 : w - 1;
+      for (const ch of chans) {
+        const a = s[(ym * w + xm) * c + ch], b = s[(ym * w + x) * c + ch], cc = s[(ym * w + xp) * c + ch], d = s[(y * w + xm) * c + ch], e = s[(y * w + x) * c + ch], f = s[(y * w + xp) * c + ch], g = s[(yp * w + xm) * c + ch], hh = s[(yp * w + x) * c + ch], ii = s[(yp * w + xp) * c + ch];
+        const bl = (a + cc + g + ii + 2 * (b + d + f + hh) + 4 * e) / 16;
+        let lo = a, hi = a; if (b < lo) lo = b; else if (b > hi) hi = b; if (cc < lo) lo = cc; else if (cc > hi) hi = cc; if (d < lo) lo = d; else if (d > hi) hi = d; if (e < lo) lo = e; else if (e > hi) hi = e; if (f < lo) lo = f; else if (f > hi) hi = f; if (g < lo) lo = g; else if (g > hi) hi = g; if (hh < lo) lo = hh; else if (hh > hi) hi = hh; if (ii < lo) lo = ii; else if (ii > hi) hi = ii;
+        let k = A; if (adapt) { const r = (hi - lo) * adapt; k = A * r / (r + 1); }
+        const v = e + k * (e - bl);
+        o[(y * w + x) * c + ch] = v < lo ? lo : v > hi ? hi : v;
+      }
+    }
+  }
+  return { w, h, c, d: o };
+}
+// כמו usmLim אבל על בהירות בלבד (פי 3 פחות עבודה): ה-delta של הבהירות מתווסף לכל הערוצים. img: c=3 או c=4 (ערוצים 0..2)
+function usmLum(img, A, adapt) {
+  const { w, h, c } = img, s = img.d, o = Float32Array.from(s);
+  if (w < 3 || h < 3) return img;
+  const N = w * h, Y = new Float32Array(N), hb = new Float32Array(N), hlo = new Float32Array(N), hhi = new Float32Array(N);
+  for (let i = 0, j = 0; i < N; i++, j += c) Y[i] = 0.299 * s[j] + 0.587 * s[j + 1] + 0.114 * s[j + 2];
+  for (let y = 0; y < h; y++) {
+    const r0 = y * w;
+    for (let x = 0; x < w; x++) {
+      const m = Y[r0 + (x ? x - 1 : 0)], e = Y[r0 + x], p = Y[r0 + (x < w - 1 ? x + 1 : w - 1)];
+      hb[r0 + x] = m + 2 * e + p;
+      let lo = m, hi = m; if (e < lo) lo = e; else if (e > hi) hi = e; if (p < lo) lo = p; else if (p > hi) hi = p;
+      hlo[r0 + x] = lo; hhi[r0 + x] = hi;
+    }
+  }
+  for (let y = 0; y < h; y++) {
+    const rm = (y ? y - 1 : 0) * w, r0 = y * w, rp = (y < h - 1 ? y + 1 : h - 1) * w;
+    for (let x = 0; x < w; x++) {
+      const i = r0 + x, e = Y[i], bl = (hb[rm + x] + 2 * hb[i] + hb[rp + x]) / 16;
+      let lo = hlo[rm + x], hi = hhi[rm + x]; const l1 = hlo[i], h1 = hhi[i], l2 = hlo[rp + x], h2 = hhi[rp + x];
+      if (l1 < lo) lo = l1; if (l2 < lo) lo = l2; if (h1 > hi) hi = h1; if (h2 > hi) hi = h2;
+      let k = A; if (adapt) { const r = (hi - lo) * adapt; k = A * r / (r + 1); }
+      let v = e + k * (e - bl); v = v < lo ? lo : v > hi ? hi : v;
+      const dl = v - e;
+      if (dl > 0.01 || dl < -0.01) { const q = i * c; o[q] = s[q] + dl; o[q + 1] = s[q + 1] + dl; o[q + 2] = s[q + 2] + dl; }
+    }
+  }
+  return { w, h, c, d: o };
+}
+// החלקה מכוונת-קצה להגדלה (זול, בלי מודלים): מחליקים לאורך כיוון הקצה (ניצב לגרדיאנט) – מוחקת מדרגות/פיקסלציה – והחידוד שאחריה משפר את חדות הקצה עצמו.
+// dist = מרחק הדגימה לאורך הקצה בפיקסלי פלט (≈ מקדם ההגדלה), mix = עוצמה, thr = סף חוזק קצה
+function edgeSmooth(img, dist, mix, thr) {
+  const { w, h, c } = img, s = img.d, N = w * h;
+  if (w < 4 || h < 4) return img;
+  const Y = new Float32Array(N); for (let i = 0, j = 0; i < N; i++, j += c) Y[i] = 0.299 * s[j] + 0.587 * s[j + 1] + 0.114 * s[j + 2];
+  const o = Float32Array.from(s), W1 = w - 1, H1 = h - 1;
+  const samp = (px, py, ch) => {
+    px = px < 0 ? 0 : px > W1 ? W1 : px; py = py < 0 ? 0 : py > H1 ? H1 : py;
+    const x0 = px | 0, y0 = py | 0, x1 = x0 < W1 ? x0 + 1 : x0, y1 = y0 < H1 ? y0 + 1 : y0, fx = px - x0, fy = py - y0;
+    const a = s[(y0 * w + x0) * c + ch], b = s[(y0 * w + x1) * c + ch], d = s[(y1 * w + x0) * c + ch], e = s[(y1 * w + x1) * c + ch];
+    return (a + (b - a) * fx) * (1 - fy) + (d + (e - d) * fx) * fy;
+  };
+  for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+    const i = y * w + x;
+    const gx = (Y[i - w + 1] + 2 * Y[i + 1] + Y[i + w + 1]) - (Y[i - w - 1] + 2 * Y[i - 1] + Y[i + w - 1]);
+    const gy = (Y[i + w - 1] + 2 * Y[i + w] + Y[i + w + 1]) - (Y[i - w - 1] + 2 * Y[i - w] + Y[i - w + 1]);
+    const g = Math.sqrt(gx * gx + gy * gy) / 8;
+    if (g < thr * 0.5) continue;
+    const wgt = mix * g / (g + thr), tx = -gy / (g * 8), ty = gx / (g * 8);
+    for (let ch = 0; ch < 3; ch++) {
+      const a = samp(x + tx * dist, y + ty * dist, ch), b = samp(x - tx * dist, y - ty * dist, ch), v = s[i * c + ch];
+      o[i * c + ch] = v + wgt * ((a + b + 2 * v) / 4 - v);
+    }
+  }
+  return { w, h, c, d: o };
+}
+// שכבה (rgb ישר 0..255 + אלפא) → גודל יעד. מחזיר { a: Float32Array, rgb: Float32Array (ישר, sRGB) }
+function resampleLayer(L, tw, th, isText) {
+  const T = TUNE(), n = L.lw * L.lh, sc = Math.sqrt(n / (tw * th)), down = sc > 1.0001, same = tw === L.lw && th === L.lh;
+  const aPl = { w: L.lw, h: L.lh, c: 1, d: L.a };
+  if (isText) {
+    // אלפא: Lanczos מוגבל, ואז חידוד קצה (כמו וקטור): בהקטנה – שיפוע + unsharp; בהגדלה – סף רך מעל מסכת האלפא
+    let a;
+    if (same) a = { w: tw, h: th, c: 1, d: Float32Array.from(L.a) };
+    else a = resizeLim(aPl, tw, th);
+    if (down) {
+      const l2 = Math.log2(sc), g = 1 + T.gainDn * Math.min(l2, 3), cc = T.gainCenter;
+      for (let i = 0; i < a.d.length; i++) a.d[i] = clp((a.d[i] - cc) * g + cc, 0, 1);
+      a = usmLim(a, T.usmText * Math.min(1.8, 0.7 + 0.6 * l2), [0], 0);
+    } else if (sc < 0.999) {
+      const g = clp(0.9 / sc, 1, 5);
+      for (let i = 0; i < a.d.length; i++) a.d[i] = clp((a.d[i] - 0.5) * g + 0.5, 0, 1);
+    }
+    // צבע: אם הטקסט חד-צבעי (המקרה הרגיל) – קבוע; אחרת ממוצע משוקלל-אלפא בשכנות 3×3 (משקלים חיוביים → תמיד בתוך טווח הצבעים)
+    if (!L._uni) {
+      let m0 = 0, m1 = 0, m2 = 0, ms = 0;
+      for (let i = 0; i < n; i++) { const al = L.a[i]; m0 += L.rgb[i * 3] * al; m1 += L.rgb[i * 3 + 1] * al; m2 += L.rgb[i * 3 + 2] * al; ms += al; }
+      if (ms < 1e-6) ms = 1; m0 /= ms; m1 /= ms; m2 /= ms;
+      let dev = 0; for (let i = 0; i < n; i++) if (L.a[i] > 0.5) dev = Math.max(dev, Math.abs(L.rgb[i * 3] - m0), Math.abs(L.rgb[i * 3 + 1] - m1), Math.abs(L.rgb[i * 3 + 2] - m2));
+      L._uni = { m: [m0, m1, m2], uniform: dev < 10 };
+    }
+    const rgb = new Float32Array(tw * th * 3), mc = L._uni.m;
+    if (L._uni.uniform) { for (let i = 0; i < tw * th; i++) { rgb[i * 3] = mc[0]; rgb[i * 3 + 1] = mc[1]; rgb[i * 3 + 2] = mc[2]; } return { a: a.d, rgb }; }
+    const pm = { w: L.lw, h: L.lh, c: 3, d: new Float32Array(n * 3) };
+    for (let i = 0; i < n; i++) { const al = L.a[i]; pm.d[i * 3] = L.rgb[i * 3] * al; pm.d[i * 3 + 1] = L.rgb[i * 3 + 1] * al; pm.d[i * 3 + 2] = L.rgb[i * 3 + 2] * al; }
+    const cp = same ? pm : resize(pm, tw, th, down ? 'area' : 'linear'), ap = same ? aPl : resize(aPl, tw, th, down ? 'area' : 'linear');
+    for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) {
+      if (a.d[y * tw + x] < 0.002) continue;
+      let s0 = 0, s1 = 0, s2 = 0, sa = 0;
+      for (let dy = -1; dy <= 1; dy++) { const yy = y + dy; if (yy < 0 || yy >= th) continue; for (let dx = -1; dx <= 1; dx++) { const xx = x + dx; if (xx < 0 || xx >= tw) continue; const j = yy * tw + xx; s0 += cp.d[j * 3]; s1 += cp.d[j * 3 + 1]; s2 += cp.d[j * 3 + 2]; sa += ap.d[j]; } }
+      const o = (y * tw + x) * 3;
+      if (sa > 0.02) { rgb[o] = clp(s0 / sa, 0, 255); rgb[o + 1] = clp(s1 / sa, 0, 255); rgb[o + 2] = clp(s2 / sa, 0, 255); } else { rgb[o] = mc[0]; rgb[o + 1] = mc[1]; rgb[o + 2] = mc[2]; }
+    }
+    return { a: a.d, rgb };
+  }
+  // גרפיקה/תמונה: premult באור לינארי (gamma-correct), חידוד ב-sRGB עם הגבלת הילות
+  const pm = { w: L.lw, h: L.lh, c: 4, d: new Float32Array(n * 4) };
+  const lin = down;
+  for (let i = 0; i < n; i++) { const al = L.a[i]; for (let k = 0; k < 3; k++) pm.d[i * 4 + k] = (lin ? toLin(L.rgb[i * 3 + k]) : L.rgb[i * 3 + k]) * al; pm.d[i * 4 + 3] = al; }
+  const r = same ? pm : resizeLim(pm, tw, th), N = tw * th;
+  let sp = { w: tw, h: th, c: 4, d: new Float32Array(N * 4) };
+  for (let i = 0; i < N; i++) {
+    const al = clp(r.d[i * 4 + 3], 0, 1); sp.d[i * 4 + 3] = al;
+    const inv = al > 1e-4 ? 1 / al : 0;
+    for (let k = 0; k < 3; k++) sp.d[i * 4 + k] = (lin ? fromLin(r.d[i * 4 + k] * inv) : clp(r.d[i * 4 + k] * inv, 0, 255)) * al;
+  }
+  if (!same) sp = down ? usmLum(sp, T.usmPhoto * Math.min(1.4, 0.45 + 0.5 * Math.log2(sc)), 0)
+    : usmLum(sc < 0.8 && T.esMix ? edgeSmooth(sp, clp(0.8 / sc, 1, 3), T.esMix, T.esThr) : sp, T.usmPhoto * T.upAmt, T.upAdapt);
+  const a = new Float32Array(N), rgb = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const al = sp.d[i * 4 + 3]; a[i] = al;
+    const inv = al > 1e-4 ? 1 / al : 0;
+    for (let k = 0; k < 3; k++) rgb[i * 3 + k] = clp(sp.d[i * 4 + k] * inv, 0, 255);
+  }
+  return { a, rgb };
+}
+
+// רקע/תמונה בלי אלפא (RGB): הקטנה באור לינארי + Lanczos מוגבל + חידוד; הגדלה: Lanczos מוגבל + חידוד אדפטיבי
+function resizePlate(img, dw, dh, win) {
+  const T = TUNE(), { w: sw, h: sh } = img;
+  const sc = Math.sqrt(sw * sh / (dw * dh)), down = sc > 1.0001;
+  let w2 = win;
+  if (win) { const m = 1, x0 = Math.max(0, win.x0 - m), y0 = Math.max(0, win.y0 - m), x1 = Math.min(dw, win.x0 + win.w + m), y1 = Math.min(dh, win.y0 + win.h + m); w2 = { x0, y0, w: x1 - x0, h: y1 - y0 }; }
+  let r = (sw === dw && sh === dh && !win) ? { w: sw, h: sh, c: 3, d: Float32Array.from(img.d) } : resize(img, dw, dh, down ? 'area' : 'cubic', w2);
+  if (sw !== dw || sh !== dh) r = down ? usmLum(r, T.usmPhoto * Math.min(1.4, 0.45 + 0.5 * Math.log2(sc)), 0) : usmLum(sc < 0.8 && T.esMix ? edgeSmooth(r, clp(0.8 / sc, 1, 3), T.esMix, T.esThr) : r, T.usmPhoto * T.upAmt, T.upAdapt);
+  if (win && (w2.x0 !== win.x0 || w2.y0 !== win.y0 || w2.w !== win.w || w2.h !== win.h)) { // חותכים את שולי החלון
+    const o = { w: win.w, h: win.h, c: 3, d: new Float32Array(win.w * win.h * 3) };
+    for (let y = 0; y < win.h; y++) o.d.set(r.d.subarray(((y + win.y0 - w2.y0) * w2.w + win.x0 - w2.x0) * 3, ((y + win.y0 - w2.y0) * w2.w + win.x0 - w2.x0 + win.w) * 3), y * win.w * 3);
+    r = o;
+  }
+  const m = r.w * r.h * 3, d = r.d; for (let i = 0; i < m; i++) d[i] = d[i] < 0 ? 0 : d[i] > 255 ? 255 : d[i];
+  return r;
 }
 
 // ---------------------------------------------------------------- blur
@@ -1375,7 +1572,7 @@ function render(sc, W, H, K, plan) {
   const xs = G.SizyBg ? G.SizyBg.map(sc.W, sc.H, Wk, Hk) : null;
   let bg, ox, oy;
   if (xs) {
-    const tall = resize(sc.plate, sc.W, Hk, Hk < sc.H ? 'area' : 'cubic'); bg = { w: Wk, h: Hk, c: 3, d: new Float32Array(Wk * Hk * 3) }; ox = 0; oy = 0; nw = Wk; nh = Hk;
+    const tall = resizePlate(sc.plate, sc.W, Hk); bg = { w: Wk, h: Hk, c: 3, d: new Float32Array(Wk * Hk * 3) }; ox = 0; oy = 0; nw = Wk; nh = Hk;
     for (let u = 0; u < Wk; u++) {
       const a = xs[u], b = Math.max(xs[u + 1], a + 0.001), i0 = Math.floor(a), i1 = Math.min(sc.W, Math.ceil(b));
       for (let y = 0; y < Hk; y++) {
@@ -1385,34 +1582,36 @@ function render(sc, W, H, K, plan) {
       }
     }
   } else {
-    bg = resize(sc.plate, nw, nh, s < 1 ? 'area' : 'cubic'); ox = Math.floor((nw - Wk) / 2); oy = Math.floor((nh - Hk) / 2);
+    ox = Math.floor((nw - Wk) / 2); oy = Math.floor((nh - Hk) / 2);
     if (G.SizyBg && nh > Hk + 2) { // חיתוך אנכי: שומרים את החלק העשיר בפרטים
       if (!sc.energy) sc.energy = G.SizyBg.rowEnergy(sc.plate.d, 3, sc.W, sc.H);
       oy = Math.max(0, Math.min(nh - Hk, Math.round(G.SizyBg.pickTop(sc.energy, sc.H, Hk / s, sc.holeRows) * s)));
     }
+    bg = resizePlate(sc.plate, nw, nh, { x0: ox, y0: oy, w: Wk, h: Hk }); nw = Wk; ox = 0; oy = 0;
   }
   const out = new Float32Array(Wk * Hk * 3);
   for (let y = 0; y < Hk; y++) out.set(bg.d.subarray(((y + oy) * nw + ox) * 3, ((y + oy) * nw + ox + Wk) * 3), y * Wk * 3);
   for (const [leaf, x, y, w, h] of autoplace(sc, W, H, plan)) {
     if (w < 1 || h < 1) continue;
-    const L = leaf.layer, n = L.lw * L.lh;
-    const pm = { w: L.lw, h: L.lh, c: 4, d: new Float32Array(n * 4) };
-    for (let i = 0; i < n; i++) { const a = L.up === 1 ? L.a[i] : L.a[i]; pm.d[i * 4] = L.rgb[i * 3] * a; pm.d[i * 4 + 1] = L.rgb[i * 3 + 1] * a; pm.d[i * 4 + 2] = L.rgb[i * 3 + 2] * a; pm.d[i * 4 + 3] = a; }
-    const tw = Math.max(1, Math.round(w * K)), th = Math.max(1, Math.round(h * K));
-    const r = resize(pm, tw, th, tw < pm.w ? 'area' : 'lanczos');
-    if (leaf.text && tw > 3 && th > 3) { // חידוד קל לטקסט אחרי הקטנה: קצוות האותיות נשארים חדים וקריאים גם בגדלים קטנים
-      const src = Float32Array.from(r.d), A = 0.55;
-      for (let yy = 1; yy < th - 1; yy++) for (let xx = 1; xx < tw - 1; xx++) for (let c = 0; c < 4; c++) {
-        const i = (yy * tw + xx) * 4 + c, nb = (src[i - 4] + src[i + 4] + src[i - tw * 4] + src[i + tw * 4]) / 4;
-        r.d[i] = src[i] + A * (src[i] - nb);
-      }
-      for (let i = 0; i < tw * th; i++) { const al = clp(r.d[i * 4 + 3], 0, 1); r.d[i * 4 + 3] = al; for (let c = 0; c < 3; c++) r.d[i * 4 + c] = clp(r.d[i * 4 + c], 0, 255 * al); }
-    }
+    const L = leaf.layer, tw = Math.max(1, Math.round(w * K)), th = Math.max(1, Math.round(h * K));
+    const r = resampleLayer(L, tw, th, !!(leaf.text && tw > 3 && th > 3));
     const x0 = Math.round(x * K), y0 = Math.round(y * K);
     const xa = Math.max(0, x0), ya = Math.max(0, y0), xb = Math.min(Wk, x0 + tw), yb = Math.min(Hk, y0 + th);
+    // מצב מיזוג: טקסט בהיר על רקע כהה – מיזוג באור לינארי (קווים דקים לא נעשים אפורים); כהה על בהיר – sRGB רגיל
+    let gam = 1;
+    if (leaf.text) {
+      let lt = 0, nt = 0, lb = 0, nb = 0;
+      for (let yy = ya; yy < yb; yy += 2) for (let xx = xa; xx < xb; xx += 2) {
+        const si = (yy - y0) * tw + (xx - x0), di = (yy * Wk + xx) * 3;
+        if (r.a[si] > 0.6) { lt += 0.299 * r.rgb[si * 3] + 0.587 * r.rgb[si * 3 + 1] + 0.114 * r.rgb[si * 3 + 2]; nt++; } else if (r.a[si] < 0.05) { lb += 0.299 * out[di] + 0.587 * out[di + 1] + 0.114 * out[di + 2]; nb++; }
+      }
+      if (nt && nb) gam = lt / nt > lb / nb ? TUNE().gamLight : TUNE().gamDark;
+    }
     for (let yy = ya; yy < yb; yy++) for (let xx = xa; xx < xb; xx++) {
-      const si = ((yy - y0) * tw + (xx - x0)) * 4, di = (yy * Wk + xx) * 3, al = clp(r.d[si + 3], 0, 1);
-      out[di] = out[di] * (1 - al) + r.d[si]; out[di + 1] = out[di + 1] * (1 - al) + r.d[si + 1]; out[di + 2] = out[di + 2] * (1 - al) + r.d[si + 2];
+      const si = (yy - y0) * tw + (xx - x0), di = (yy * Wk + xx) * 3, al = r.a[si];
+      if (al < 0.002) continue;
+      if (al > 0.998 || gam === 1) { for (let k = 0; k < 3; k++) out[di + k] = out[di + k] * (1 - al) + r.rgb[si * 3 + k] * al; }
+      else { const ig = 1 / gam; for (let k = 0; k < 3; k++) out[di + k] = 255 * Math.pow(Math.pow(Math.max(out[di + k], 0) / 255, gam) * (1 - al) + Math.pow(r.rgb[si * 3 + k] / 255, gam) * al, ig); }
     }
   }
   const rgba = new Uint8ClampedArray(Wk * Hk * 4);
