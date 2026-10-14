@@ -557,6 +557,8 @@ function textLayer(img, box, nlines, upMax, outline, bullets, holes, others, ext
   let { bg, err } = ringBg(crop);
   const inner = new Uint8Array(CN);
   for (let yy = Math.max(0, y - y0); yy < Math.min(ch, y + h - y0); yy++) for (let xx = Math.max(0, x - x0); xx < Math.min(cw, x + w - x0); xx++) inner[yy * cw + xx] = 1;
+  const solidOth = (others || []).filter(o => o.solid).map(o => { const g = Math.max(3, Math.round(0.1 * Math.min(o[2], o[3]))); return [o[0] - g, o[1] - g, o[2] + 2 * g, o[3] + 2 * g]; }); // התיבה של ה-AI צמודה: מרחיבים מעט כדי שקצה התג לא ייחשב אות
+  for (const o of solidOth) for (let yy = Math.max(0, o[1] - y0); yy < Math.min(ch, o[1] + o[3] - y0); yy++) for (let xx = Math.max(0, o[0] - x0); xx < Math.min(cw, o[0] + o[2] - x0); xx++) inner[yy * cw + xx] = 0;
   let innerAny = false; for (let i = 0; i < CN; i++) if (inner[i]) { innerAny = true; break; }
   const bigBg = () => medianBg(crop, odd(clp(lineh * 1.8, 15, 141)));
   if (err > 14) bg = bigBg();
@@ -592,6 +594,8 @@ function textLayer(img, box, nlines, upMax, outline, bullets, holes, others, ext
     const wx1 = Math.max(0, x - exw - x0), wy1 = Math.max(0, y - ex - y0), wx2 = Math.min(cw, x + w + exw - x0), wy2 = Math.min(ch, y + h + ex - y0);
     for (let yy = wy1; yy < wy2; yy++) for (let xx = wx1; xx < wx2; xx++) win[yy * cw + xx] = 1;
   }
+  for (const o of solidOth) for (let yy = Math.max(0, o[1] - y0); yy < Math.min(ch, o[1] + o[3] - y0); yy++) for (let xx = Math.max(0, o[0] - x0); xx < Math.min(cw, o[0] + o[2] - x0); xx++) win[yy * cw + xx] = 0;
+  for (const o of (others || [])) if (o.clip) for (let yy = Math.max(0, o[1] - y0); yy < Math.min(ch, o[1] + o[3] - y0); yy++) for (let xx = Math.max(0, o[0] - x0); xx < Math.min(cw, o[0] + o[2] - x0); xx++) { const gx = x0 + xx, gy = y0 + yy; if (!(gx >= x && gx < x + w && gy >= y && gy < y + h)) win[yy * cw + xx] = 0; }
   // כיתוב קצר שה-AI חתך באמצע (חסרה שורה אחרונה): מרחיבים מעט כלפי מטה, אבל לא לתוך אלמנט אחר
   const ev = extBelow && !innerMode ? Math.floor(1.1 * Math.max(6, h / Math.max(1, nlines))) : 0;
   const blocked = (xx, yy) => (others || []).some(o => xx >= o[0] && xx < o[0] + o[2] && yy >= o[1] && yy < o[1] + o[3]);
@@ -979,16 +983,26 @@ function reflowUnit(u, W, H, box) {
     for (const k of stack.kids) { const r = stack.rel.get(k); rel.set(k, [r[0] + padX, r[1] + padY]); }
     return { ...u, kids: [np, ...stack.kids], w: uw, h: uh, rel, pin: null, reflowed: true };
   }
-  if (!u.kids.every(k => k.text && ['headline', 'subheadline', 'body'].includes(k.role))) return u;
+  const FLOW = ['headline', 'subheadline', 'body'];
+  const extras = u.kids.filter(k => !(k.text && FLOW.includes(k.role)) && ['badge', 'button', 'logo', 'caption'].includes(k.role));
+  if (extras.length + u.kids.filter(k => k.text && FLOW.includes(k.role)).length !== u.kids.length) return u; // סוג אלמנט לא מוכר: משאירים כמו שהוא
   const heads = u.kids.filter(k => (k.role === 'headline' || ((k.role === 'subheadline' || k.role === 'body') && W / H < 1.15)) && wordsOf(k)); if (!heads.length) return u;
   const m = Math.min(W, H) * 0.07, wide = box ? box[2] / box[3] >= 1.6 : W / H >= 1.6;
-  const bw = box ? box[2] : wide ? W * 0.46 : W - 2 * m, bh = box ? box[3] * (u.kids.length > 1 ? 0.85 : 1) : (wide ? (H - 2 * m) * 0.8 : H * (W / H < 0.5 ? 0.4 : 0.42)) * (u.kids.length > 1 ? 0.85 : 1);
+  const bw = box ? box[2] : wide ? W * 0.46 : W - 2 * m, bh0 = box ? box[3] * (u.kids.length > 1 ? 0.85 : 1) : (wide ? (H - 2 * m) * 0.8 : H * (W / H < 0.5 ? 0.4 : 0.42)) * (u.kids.length > 1 ? 0.85 : 1);
+  if (extras.length && !u.kids.some(k => k.role === 'headline')) return u; // רק יחידות עם כותרת (גוף טקסט עם כיתוב קטן נשאר כמו שהיה)
+  if (extras.length && wide) return u; // יחידה עם תג/כפתור בבאנר רחב: הסידור המקורי (שתי שורות כותרת) טוב יותר משורה אחת ארוכה
   const orig = u.kids.slice().sort((p, q) => p.y - q.y);
-  const kids = orig.map(k => {
-    if (!heads.includes(k)) return k;
-    const L2 = reflowLeaf(k, bw, k.role === 'headline' ? bh : k.role === 'body' ? H * 0.3 : H * 0.16, wide ? 0.09 : W / H < 0.5 ? 0.07 : 0); if (!L2) return k;
-    return { ...k, layer: L2, w: L2.lw / L2.up, h: L2.lh / L2.up, reflowed: true };
-  });
+  const exH = extras.reduce((a, k) => a + k.h, 0);
+  let kids = orig, sHead = 0;
+  for (let pass = 0; pass < (extras.length ? 2 : 1); pass++) { // תג/כפתור/לוגו נשארים במחסנית: מורידים את גובהם (בקנה המידה של הכותרת) מתקציב הכותרת
+    const bh = Math.max(bh0 * 0.35, bh0 - exH * sHead);
+    kids = orig.map(k => {
+      if (!heads.includes(k)) return k;
+      const L2 = reflowLeaf(k, bw, k.role === 'headline' ? bh : k.role === 'body' ? H * 0.3 : H * 0.16, wide ? 0.09 : W / H < 0.5 ? 0.07 : 0); if (!L2) return k;
+      if (k.role === 'headline') sHead = L2.s;
+      return { ...k, layer: L2, w: L2.lw / L2.up, h: L2.lh / L2.up, reflowed: true };
+    });
+  }
   if (kids.every((k, i) => k === orig[i])) return u;
   const uw = Math.max(...kids.map(k => k.w)), rel = new Map(); let y = 0;
   kids.forEach((k, i) => { if (i > 0) { const mh = Math.min(k.h, kids[i - 1].h), og = Math.max(0, orig[i].y - (orig[i - 1].y + orig[i - 1].h)); y += Math.max(0.2 * mh, Math.min(og, 0.35 * mh)); } rel.set(k, [(uw - k.w) / 2, y]); y += k.h; });
@@ -1114,7 +1128,13 @@ function buildScene(img, elements, onProgress) {
   tell('חותך את הטקסטים…');
   for (const e of els) {
     if (!e.text) continue;
-    const others = els.filter(o => o !== e).map(o => o.px);
+    const others = els.filter(o => o !== e).map(o => {
+      if (o.text && e.role === 'headline' && o.role === 'headline') return Object.assign(o.px.slice(), { clip: true }); // כותרת שנחתכה לשתי תיבות: החלון של כל אחת לא נכנס לשכנה
+      if (o.text || !['badge', 'logo', 'photo', 'button'].includes(o.role)) return o.px;
+      const [ox, oy, ow, oh] = o.px, [ex0, ey0, ew, eh] = e.px; // תג/לוגו שיושב בתוך תיבת הטקסט: לא לקחת את הפיקסלים שלו כאותיות
+      const ix = Math.min(ox + ow, ex0 + ew) - Math.max(ox, ex0), iy = Math.min(oy + oh, ey0 + eh) - Math.max(oy, ey0);
+      return ix > 0 && iy > 0 && ix * iy > 0.6 * ow * oh && ow * oh < 0.5 * ew * eh ? Object.assign(o.px.slice(), { solid: true }) : o.px;
+    });
     const L = textLayer(img, e.px, e.role === 'button' ? 2 : Math.max(1, e.lines.length), 4, e.role === 'button', !!e.bullet, holes, others, { side: ['caption', 'body', 'subheadline'].includes(e.role), below: ['caption', 'body', 'subheadline'].includes(e.role) && e.lines.length > 1 });
     if (!L) continue;
     if (['caption', 'body', 'label'].includes(e.role)) { // פס רקע שנחתך במקום אותיות: שורה שכמעט כולה אטומה
@@ -1322,7 +1342,7 @@ function layout(W, H, units, sw, sh, forceWide) {
   const gh = g => g.reduce((s, i) => s + tx[i].h, 0) + g.slice(0, -1).reduce((s, i) => s + gp[i], 0);
   const rtl = units.some(u => HEB.test(u.lines.join('')));
   let gm = 1;
-  const put = (g, s, x0, slot, y) => { for (const i of g) { const it = tx[i], bc = !wideMode && (it.role === 'button' || it.kids.some(k => k.role === 'button')) ? Math.min(1, 0.6 * W / (it.w * s), Math.max(0.1 * H, 28) / (it.h * s)) : 1, b = (it.boost || 1) * bc, w = it.w * s * b, h = it.h * s * b; out.push([it, x0 + (slot - w) / 2, y, w, h]); y += h + gp[i] * s * gm; } };
+  const put = (g, s, x0, slot, y) => { for (const i of g) { const it = tx[i], bc = !wideMode && (it.role === 'button' || (it.kids.some(k => k.role === 'button') && !it.kids.some(k => k.role === 'headline'))) ? Math.min(1, 0.6 * W / (it.w * s), Math.max(0.1 * H, 28) / (it.h * s)) : 1, b = (it.boost || 1) * bc, w = it.w * s * b, h = it.h * s * b; out.push([it, x0 + (slot - w) / 2, y, w, h]); y += h + gp[i] * s * gm; } };
   if (wideMode) {
     const m = Math.max(5, H * 0.05);
     let ax0 = m * 1.5, ax1 = W - m * 1.5;
@@ -1435,7 +1455,7 @@ function layoutTall(W, H, units, sw, sh) {
   const ah = yb - m;
   let list = units.filter(u => u.role !== 'hero' && !fine.includes(u) && !(foot && foot.includes(u))).sort((p, q) => rank(p) - rank(q) || p.y - q.y).slice(0, 14);
   list = list.map(u => {
-    if (!u.cards) return { u, cap: (u.role === 'button' || u.kids.some(k => k.role === 'button')) ? Math.min(2.6, 0.85 * W / u.w, Math.max(0.1 * H, 28) / u.h) : rank(u) === 0 ? 3.2 : 2.2 };
+    if (!u.cards) return { u, cap: (u.role === 'button' || (u.kids.some(k => k.role === 'button') && !u.kids.some(k => k.role === 'headline'))) ? Math.min(2.6, 0.85 * W / u.w, Math.max(0.1 * H, 28) / u.h) : rank(u) === 0 ? 3.2 : 2.2 };
     let pick = null; const total = u.cards.length;
     for (const cols of [...new Set([total, Math.ceil(total / 2), 2, 1])].filter(c => c >= 1 && c <= total)) {
       const a = arrange(u, cols, rtl), f = Math.min(aw / a.w, 2.6, (0.4 * H) / a.h);
@@ -1561,13 +1581,13 @@ const BANS = { overlap: true, clip: true, tiny: true };
 function setBans(b) { APGEN++; if (b && typeof b === 'object') for (const k of Object.keys(BANS)) if (k in b) BANS[k] = !!b[k]; }
 function enforceBans(sc, W, H, pl) {
   if (!BANS.overlap && !BANS.clip) return pl;
-  const uOf = new Map(); sc.units.forEach((u, i) => u.kids.forEach(k => uOf.set(k, i)));
+  const uOf = new Map(), uOfId = new Map(); sc.units.forEach((u, i) => u.kids.forEach(k => { uOf.set(k, i); uOfId.set(k.id, i); })); // גם עותקים שנוצרו בשבירת שורות שייכים ליחידה שלהם
   const ov = (a, b) => Math.min(a.x2, b.x2) - Math.max(a.x1, b.x1) > 0.5 && Math.min(a.y2, b.y2) - Math.max(a.y1, b.y1) > 0.5;
   const build = () => {
     const m = new Map();
     for (const e of pl) {
       const lf = e[0]; if (lf.isPlate || lf.role === 'hero' || lf.role === 'decor') continue;
-      const id = uOf.has(lf) ? uOf.get(lf) : 'l' + lf.id; let u = m.get(id);
+      const id = uOf.has(lf) ? uOf.get(lf) : uOfId.has(lf.id) ? uOfId.get(lf.id) : 'l' + lf.id; let u = m.get(id);
       if (!u) { u = { id, es: [], x1: 1e9, y1: 1e9, x2: -1e9, y2: -1e9 }; m.set(id, u); }
       u.es.push(e); u.x1 = Math.min(u.x1, e[1]); u.y1 = Math.min(u.y1, e[2]); u.x2 = Math.max(u.x2, e[1] + e[3]); u.y2 = Math.max(u.y2, e[2] + e[4]);
     }
