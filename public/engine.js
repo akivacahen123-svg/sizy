@@ -770,11 +770,11 @@ function reflowUnit(u, W, H, box) {
   if (!u.kids.every(k => k.text && ['headline', 'subheadline', 'body'].includes(k.role))) return u;
   const heads = u.kids.filter(k => (k.role === 'headline' || ((k.role === 'subheadline' || k.role === 'body') && W / H < 1.15)) && wordsOf(k)); if (!heads.length) return u;
   const m = Math.min(W, H) * 0.07, wide = box ? box[2] / box[3] >= 1.6 : W / H >= 1.6;
-  const bw = box ? box[2] : wide ? W * 0.46 : W - 2 * m, bh = box ? box[3] * (u.kids.length > 1 ? 0.85 : 1) : (wide ? (H - 2 * m) * 0.8 : H * (W / H < 0.5 ? 0.55 : 0.42)) * (u.kids.length > 1 ? 0.85 : 1);
+  const bw = box ? box[2] : wide ? W * 0.46 : W - 2 * m, bh = box ? box[3] * (u.kids.length > 1 ? 0.85 : 1) : (wide ? (H - 2 * m) * 0.8 : H * (W / H < 0.5 ? 0.4 : 0.42)) * (u.kids.length > 1 ? 0.85 : 1);
   const orig = u.kids.slice().sort((p, q) => p.y - q.y);
   const kids = orig.map(k => {
     if (!heads.includes(k)) return k;
-    const L2 = reflowLeaf(k, bw, k.role === 'headline' ? bh : k.role === 'body' ? H * 0.3 : H * 0.16, wide ? 0.09 : 0); if (!L2) return k;
+    const L2 = reflowLeaf(k, bw, k.role === 'headline' ? bh : k.role === 'body' ? H * 0.3 : H * 0.16, wide ? 0.09 : W / H < 0.5 ? 0.07 : 0); if (!L2) return k;
     return { ...k, layer: L2, w: L2.lw / L2.up, h: L2.lh / L2.up, reflowed: true };
   });
   if (kids.every((k, i) => k === orig[i])) return u;
@@ -894,8 +894,8 @@ function buildScene(img, elements, onProgress) {
     }
   }
   for (const lb of leaves) { // כיתוב שיושב בתוך כפתור: תמיד מצמידים אותו אליו, גם אם ה-AI לא קבץ אותם
-    if (lb.role !== 'label') continue;
-    const bt = leaves.find(b => b.role === 'button' && !b.text && lb.x + lb.w / 2 > b.x && lb.x + lb.w / 2 < b.x + b.w && lb.y + lb.h / 2 > b.y && lb.y + lb.h / 2 < b.y + b.h);
+    if (!(lb.role === 'label' || (['caption', 'body', 'subheadline'].includes(lb.role) && lb.text))) continue;
+    const bt = leaves.find(b => (b.role === 'button' || b.role === 'badge') && !b.text && lb.x + lb.w / 2 > b.x && lb.x + lb.w / 2 < b.x + b.w && lb.y + lb.h / 2 > b.y && lb.y + lb.h / 2 < b.y + b.h);
     if (bt) { const g = bt.group || lb.group || 'btn_' + bt.id; bt.group = g; lb.group = g; }
   }
   const groups = new Map();
@@ -1005,7 +1005,7 @@ function layout(W, H, units, sw, sh, forceWide) {
   const gh = g => g.reduce((s, i) => s + tx[i].h, 0) + g.slice(0, -1).reduce((s, i) => s + gp[i], 0);
   const rtl = units.some(u => HEB.test(u.lines.join('')));
   let gm = 1;
-  const put = (g, s, x0, slot, y) => { for (const i of g) { const it = tx[i], b = it.boost || 1, w = it.w * s * b, h = it.h * s * b; out.push([it, x0 + (slot - w) / 2, y, w, h]); y += h + gp[i] * s * gm; } };
+  const put = (g, s, x0, slot, y) => { for (const i of g) { const it = tx[i], bc = !wideMode && (it.role === 'button' || it.kids.some(k => k.role === 'button')) ? Math.min(1, 0.6 * W / (it.w * s), Math.max(0.1 * H, 28) / (it.h * s)) : 1, b = (it.boost || 1) * bc, w = it.w * s * b, h = it.h * s * b; out.push([it, x0 + (slot - w) / 2, y, w, h]); y += h + gp[i] * s * gm; } };
   if (wideMode) {
     const m = Math.max(5, H * 0.05);
     let ax0 = m * 1.5, ax1 = W - m * 1.5;
@@ -1117,7 +1117,7 @@ function layoutTall(W, H, units, sw, sh) {
   const ah = yb - m;
   let list = units.filter(u => u.role !== 'hero' && !fine.includes(u) && !(foot && foot.includes(u))).sort((p, q) => rank(p) - rank(q) || p.y - q.y).slice(0, 14);
   list = list.map(u => {
-    if (!u.cards) return { u, cap: u.role === 'button' ? Math.min(2.2, 0.6 * W / u.w, Math.max(0.1 * H, 28) / u.h) : rank(u) === 0 ? 3.2 : 2.2 };
+    if (!u.cards) return { u, cap: (u.role === 'button' || u.kids.some(k => k.role === 'button')) ? Math.min(2.6, 0.85 * W / u.w, Math.max(0.1 * H, 28) / u.h) : rank(u) === 0 ? 3.2 : 2.2 };
     let pick = null; const total = u.cards.length;
     for (const cols of [...new Set([total, Math.ceil(total / 2), 2, 1])].filter(c => c >= 1 && c <= total)) {
       const a = arrange(u, cols, rtl), f = Math.min(aw / a.w, 1.8, (0.34 * H) / a.h);
