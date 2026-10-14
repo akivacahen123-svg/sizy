@@ -900,8 +900,8 @@ function buildScene(img, elements, onProgress) {
     }
   }
   for (const lb of leaves) { // כיתוב שיושב בתוך כפתור: תמיד מצמידים אותו אליו, גם אם ה-AI לא קבץ אותם
-    if (!(lb.role === 'label' || (['caption', 'body', 'subheadline'].includes(lb.role) && lb.text))) continue;
-    const bt = leaves.find(b => (b.role === 'button' || b.role === 'badge') && !b.text && lb.x + lb.w / 2 > b.x && lb.x + lb.w / 2 < b.x + b.w && lb.y + lb.h / 2 > b.y && lb.y + lb.h / 2 < b.y + b.h);
+    if (!(lb.role === 'label' || (['caption', 'body', 'subheadline', 'headline'].includes(lb.role) && lb.text))) continue;
+    const bt = leaves.find(b => (b.role === 'button' || b.role === 'badge' || (b.role === 'decor' && b.w * b.h < 0.4 * W * H && (lb.role === 'headline' || lb.role === 'subheadline'))) && !b.text && lb.x + lb.w / 2 > b.x && lb.x + lb.w / 2 < b.x + b.w && lb.y + lb.h / 2 > b.y && lb.y + lb.h / 2 < b.y + b.h);
     if (bt) { const g = bt.group || lb.group || 'btn_' + bt.id; bt.group = g; lb.group = g; }
   }
   const groups = new Map();
