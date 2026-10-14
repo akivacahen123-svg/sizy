@@ -1028,8 +1028,21 @@ function buildScene(img, elements, onProgress) {
     const big = ov ? (a.lines.join('').length >= b.lines.join('').length ? a.lines : b.lines) : (up ? a.lines.concat(b.lines) : b.lines.concat(a.lines));
     a.lines = big; a.phrases = null; els.splice(j, 1);
   }
+  { // תיבת כיתוב שנכנסת לתוך לוגו/תמונה/תג (למשל כתובת שה-AI תפס יחד עם שולי הלוגו): חותכים את החלק החופף כדי שלא ייגרר חלק מהלוגו
+    const solid = els.filter(p => !p.text && ['logo', 'photo', 'badge'].includes(p.role));
+    for (const c of els) {
+      if (!c.text || !['caption', 'body', 'label', 'subheadline'].includes(c.role)) continue;
+      for (const p of solid) {
+        const [cx, cy, cw, ch] = c.px, [px, py, pw, ph] = p.px;
+        const ix = Math.min(cx + cw, px + pw) - Math.max(cx, px), iy = Math.min(cy + ch, py + ph) - Math.max(cy, py);
+        if (ix <= 0 || iy <= 0 || ix * iy < 0.12 * cw * ch || ix < 0.5 * Math.min(cw, pw)) continue;
+        if (py <= cy + 0.25 * ch && py + ph < cy + ch && ch - (py + ph - cy) >= 0.3 * ch) { c.px = [cx, py + ph, cw, cy + ch - (py + ph)]; } // החפיפה בחלק העליון
+        else if (py + ph >= cy + ch - 0.25 * ch && py > cy && py - cy >= 0.3 * ch) { c.px = [cx, cy, cw, py - cy]; } // בחלק התחתון
+      }
+    }
+  }
   { // כיתוב מתחת לתמונה שה-AI תפס רק בחלקו: מרחיבים את התיבה לכל רוחב העמודה של התמונה ומטה, כדי שלא יחתכו מילים וישארו שאריות
-    const photos = els.filter(p => !p.text && (p.role === 'photo' || p.shape === 'circle'));
+    const photos = els.filter(p => !p.text && (p.role === 'photo' || (p.shape === 'circle' && p.role !== 'logo' && p.role !== 'badge')));
     for (const c of els) {
       if (c.role !== 'caption' || !c.text || !photos.length || c.group === 'none') continue;
       const cx = c.px[0] + c.px[2] / 2; let best = null, bd = 1e9;
@@ -1074,7 +1087,7 @@ function buildScene(img, elements, onProgress) {
       const crop = cropImg(img, X1, Y1, X2, Y2), cw = crop.w, ch = crop.h, bgm = medianBg(crop, 15), df = new Float32Array(cw * ch);
       for (let i = 0; i < cw * ch; i++) df[i] = Math.max(Math.abs(crop.d[i * 3] - bgm.d[i * 3]), Math.abs(crop.d[i * 3 + 1] - bgm.d[i * 3 + 1]), Math.abs(crop.d[i * 3 + 2] - bgm.d[i * 3 + 2]));
       for (const o of els) { // אלמנטים אחרים (כפתור, לוגו…) לא שייכים לכיתובים
-        if (o.role === 'caption' || o.role === 'photo' || (!o.text && o.shape === 'circle')) continue;
+        if (o.role === 'caption' || o.role === 'photo' || (!o.text && o.shape === 'circle' && o.role !== 'logo' && o.role !== 'badge')) continue;
         for (let yy = Math.max(0, o.px[1] - Y1 - 1); yy < Math.min(ch, o.px[1] + o.px[3] - Y1 + 1); yy++) for (let xx = Math.max(0, o.px[0] - X1 - 1); xx < Math.min(cw, o.px[0] + o.px[2] - X1 + 1); xx++) df[yy * cw + xx] = 0;
       }
       const p98 = percentile(Array.from(df), 98), thr = Math.max(30, 0.3 * p98), colInk = new Int32Array(cw), rowInk = new Int32Array(ch);

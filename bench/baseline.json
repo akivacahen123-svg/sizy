@@ -1,5 +1,5 @@
 {
- "avg": 93.14,
+ "avg": 93.69,
  "cases": {
   "hora@1200x200": {
    "score": 83.3,
@@ -188,207 +188,181 @@
    }
   },
   "tzfat@1200x200": {
-   "score": 81.2,
+   "score": 89.5,
    "flags": [
-    "lowcontrast",
-    "overlap"
+    "lowcontrast"
    ],
    "sub": {
-    "legibility": 84.9,
+    "legibility": 84.2,
     "sharpness": 74.8,
-    "layout": 66,
+    "layout": 100,
     "dropped": 100,
-    "fill": 81.4
+    "fill": 81.6
    }
   },
   "tzfat@1200x60": {
-   "score": 66.3,
+   "score": 75.8,
    "flags": [
-    "hierarchy",
-    "overlap",
     "smeared"
    ],
    "sub": {
-    "legibility": 75.3,
-    "sharpness": 75.7,
-    "layout": 56.6,
-    "dropped": 57.1,
+    "legibility": 75.4,
+    "sharpness": 71.7,
+    "layout": 100,
+    "dropped": 53.6,
     "fill": 70
    }
   },
   "tzfat@120x500": {
-   "score": 88.9,
-   "flags": [
-    "overlap"
-   ],
+   "score": 95.1,
+   "flags": [],
    "sub": {
-    "legibility": 87.1,
+    "legibility": 86.2,
     "sharpness": 100,
-    "layout": 71.4,
-    "dropped": 96.4,
+    "layout": 100,
+    "dropped": 92.9,
     "fill": 100
    }
   },
   "tzfat@300x600": {
-   "score": 92.3,
-   "flags": [
-    "overlap"
-   ],
+   "score": 99.2,
+   "flags": [],
    "sub": {
-    "legibility": 98.2,
-    "sharpness": 99.1,
-    "layout": 71.7,
+    "legibility": 97.6,
+    "sharpness": 98.9,
+    "layout": 100,
     "dropped": 100,
     "fill": 100
    }
   },
   "tzfat@160x600": {
-   "score": 90.8,
-   "flags": [
-    "overlap"
-   ],
+   "score": 97.3,
+   "flags": [],
    "sub": {
-    "legibility": 91.3,
+    "legibility": 89,
     "sharpness": 100,
-    "layout": 71.8,
+    "layout": 100,
     "dropped": 100,
     "fill": 100
    }
   },
   "tzfat@728x90": {
-   "score": 80.5,
+   "score": 88.6,
    "flags": [
-    "hierarchy",
-    "overlap"
+    "lowcontrast"
    ],
    "sub": {
-    "legibility": 85.5,
+    "legibility": 81.2,
     "sharpness": 74.4,
-    "layout": 63.4,
+    "layout": 100,
     "dropped": 85.7,
     "fill": 100
    }
   },
   "tzfat@300x250": {
-   "score": 87.3,
-   "flags": [
-    "overlap"
-   ],
+   "score": 93.6,
+   "flags": [],
    "sub": {
-    "legibility": 78.8,
+    "legibility": 77.4,
     "sharpness": 100,
-    "layout": 70.4,
-    "dropped": 100,
+    "layout": 100,
+    "dropped": 96.4,
     "fill": 100
    }
   },
   "tzfat@320x70": {
-   "score": 69.7,
+   "score": 76.4,
    "flags": [
     "blurry",
-    "lowcontrast",
-    "overlap"
+    "lowcontrast"
    ],
    "sub": {
-    "legibility": 73.9,
-    "sharpness": 53.9,
-    "layout": 66.8,
-    "dropped": 57.1,
+    "legibility": 74.9,
+    "sharpness": 46.2,
+    "layout": 100,
+    "dropped": 53.6,
     "fill": 100
    }
   },
   "tzfat@800x600": {
-   "score": 92.6,
-   "flags": [
-    "overlap"
-   ],
+   "score": 99.4,
+   "flags": [],
    "sub": {
-    "legibility": 98.7,
+    "legibility": 97.6,
     "sharpness": 100,
-    "layout": 71.6,
+    "layout": 100,
     "dropped": 100,
     "fill": 100
    }
   },
   "tzfat@290x350": {
-   "score": 86.8,
-   "flags": [
-    "overlap"
-   ],
+   "score": 93.1,
+   "flags": [],
    "sub": {
-    "legibility": 89.2,
+    "legibility": 88.3,
     "sharpness": 100,
-    "layout": 66.5,
-    "dropped": 89.3,
+    "layout": 95.6,
+    "dropped": 85.7,
     "fill": 100
    }
   },
   "tzfat@600x1100": {
-   "score": 92.6,
-   "flags": [
-    "overlap"
-   ],
+   "score": 99.8,
+   "flags": [],
    "sub": {
     "legibility": 99.1,
     "sharpness": 100,
-    "layout": 71.3,
+    "layout": 100,
     "dropped": 100,
     "fill": 100
    }
   },
   "tzfat@895x80": {
-   "score": 71.4,
+   "score": 83.4,
    "flags": [
-    "hierarchy",
-    "overlap",
     "smeared"
    ],
    "sub": {
-    "legibility": 72,
-    "sharpness": 75.5,
-    "layout": 49.2,
+    "legibility": 69.2,
+    "sharpness": 75.6,
+    "layout": 100,
     "dropped": 96.4,
     "fill": 70
    }
   },
   "tzfat@301x601": {
-   "score": 92.3,
-   "flags": [
-    "overlap"
-   ],
+   "score": 99.3,
+   "flags": [],
    "sub": {
-    "legibility": 98.2,
-    "sharpness": 99.3,
-    "layout": 71.6,
+    "legibility": 97.6,
+    "sharpness": 99.1,
+    "layout": 100,
     "dropped": 100,
     "fill": 100
    }
   },
   "tzfat@321x71": {
-   "score": 70,
+   "score": 76.7,
    "flags": [
     "blurry",
-    "lowcontrast",
-    "overlap"
+    "lowcontrast"
    ],
    "sub": {
-    "legibility": 74.1,
-    "sharpness": 55.6,
-    "layout": 67,
-    "dropped": 57.1,
+    "legibility": 75.1,
+    "sharpness": 48.2,
+    "layout": 100,
+    "dropped": 53.6,
     "fill": 100
    }
   },
   "tzfat@361x251": {
-   "score": 87.4,
-   "flags": [
-    "overlap"
-   ],
+   "score": 93.7,
+   "flags": [],
    "sub": {
-    "legibility": 78.2,
+    "legibility": 77.5,
     "sharpness": 100,
-    "layout": 71.6,
-    "dropped": 100,
+    "layout": 100,
+    "dropped": 96.4,
     "fill": 100
    }
   },
