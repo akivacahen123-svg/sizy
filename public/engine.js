@@ -2103,6 +2103,92 @@ function dropTiny(pl) {
   if (!BANS.tiny) return pl;
   return pl.filter(e => !(e[0].text && ['caption', 'body', 'subheadline'].includes(e[0].role) && e[4] / Math.max(1, (e[0].lines || [1]).length) < 7.5));
 }
+// ---- שורת פריטים קטנים (תגים, תמונה, כיתוב) וכיתוב קטן: כשהם יוצאים קטנים מדי לקריאה בבאנר צר/גבוה
+// מסדרים את השורה ל-2 שורות, מגדילים את היחידה על חשבון הכותרת (לא יותר מ-12%), ואם עדיין לא קריא מוותרים על הכיתוב הקטן (הכי פחות חשוב).
+const TAG_GLYPH = 9, FINE_GLYPH = 7.5, HEAD_KEEP = 0.88;
+const nLinesOf = k => Math.max(1, (k.layer && k.layer.k) || (k.lines || []).length || (k.role === 'badge' ? 2 : 1)); // תג בלי שורות מוכרות: מניחים 2 שורות
+// גובה אות משוער של פריט: בתג (תיבה עם ריפוד) כחצי מגובה השורה, בכיתוב חופשי כ-70% מגובה השורה
+const glyphOf = (k, s) => k.h / nLinesOf(k) * s * (k.text ? 0.7 : 0.5);
+const unitScale = e => e[3] / e[0].w * (e[0].kf || 1);
+const isRowGroup = u => {
+  if (u.cards || u.role === 'hero') return false;
+  const ks = u.kids.filter(k => !k.isPlate);
+  if (ks.length < 3 || ks.length !== u.kids.length || !ks.every(k => ['badge', 'photo', 'caption', 'label', 'decor', 'body'].includes(k.role))) return false;
+  const s = ks.slice().sort((a, b) => a.x - b.x);
+  for (let i = 1; i < s.length; i++) if (s[i - 1].x + s[i - 1].w - s[i].x > 0.3 * Math.min(s[i - 1].w, s[i].w)) return false; // לא שורה: פריטים חופפים
+  return u.w > 1.6 * u.h;
+};
+// כל פריטי היחידה בשתי שורות (חלוקה רציפה לפי סדר x). rtl נשמר כי הסדר בתוך השורה הוא הסדר המקורי.
+function restackUnit(u, cut) {
+  const ks = u.kids.slice().sort((a, b) => a.x - b.x), rows = [ks.slice(0, cut), ks.slice(cut)];
+  const gx = Math.max(2, 0.12 * Math.max(...ks.map(k => k.h))), gy = 0.16 * Math.max(...ks.map(k => k.h));
+  const rw = rows.map(r => r.reduce((a, k) => a + k.w, 0) + (r.length - 1) * gx), rh = rows.map(r => Math.max(...r.map(k => k.h)));
+  const w = Math.max(...rw), h = rh[0] + rh[1] + gy, rel = new Map();
+  let y = 0;
+  rows.forEach((r, i) => { let x = (w - rw[i]) / 2; for (const k of r) { rel.set(k, [x, y + (rh[i] - k.h) / 2]); x += k.w + gx; } y += rh[i] + gy; });
+  return { ...u, w, h, rel, kf: 1, restacked: true };
+}
+function readableRows(units, W, H, sc, ctx) {
+  if (W / H >= 1.6 || units.length < 3) return units;
+  const noHero = !units.some(u => u.role === 'hero'), m = Math.min(W, H) * 0.05, aw = W - 2 * m;
+  const run = us => (noHero && W / H < 0.9 ? layoutTall(W, H, us, sc.W, sc.H) : layout(W, H, us, sc.W, sc.H, false, ctx));
+  const at = (res, u) => res.find(e => e[0].kids[0] === u.kids[0]);
+  const base = run(units), h0 = headLineH(base);
+  if (!h0) return units;
+  const ok = res => headLineH(res) >= HEAD_KEEP * h0;
+  const minGlyph = (res, u) => { const e = at(res, u); if (!e) return 0; const s = unitScale(e); return Math.min(...u.kids.filter(k => k.text || k.role === 'badge').map(k => glyphOf(k, s)).concat(1e9)); };
+  const scaled = (u, f) => (f === 1 ? u : shrinkUnit(u, f));
+  let cur = units.slice();
+  const swap = (a, b) => { cur = b ? cur.map(x => (x === a ? b : x)) : cur.filter(x => x !== a); };
+  // מגדילים את היחידה עד שהאותיות קריאות, או עד שהכותרת מפסידה יותר מדי, או עד רוחב הבאנר. מחזיר את הגרסה הטובה ביותר והגודל שהושג.
+  const boost = (u, target, fmax) => {
+    let r = run(cur), g = minGlyph(r, u);
+    for (let f = 1.1; f <= fmax && g < target; f += 0.1) {
+      const v = shrinkUnit(u, f / (u.kf || 1)); swap(u, v); r = run(cur); const e = at(r, v);
+      if (!ok(r) || !e || e[3] > aw + 0.5) { swap(v, u); break; }
+      u = v; g = minGlyph(r, u);
+    }
+    return { u, g };
+  };
+  // 1) שורות של פריטים קטנים: מנסים את השורה כמו שהיא ואת כל חלוקה ל-2 שורות, ובוחרים את מה שנותן את האותיות הגדולות ביותר
+  for (const u0 of units.filter(isRowGroup)) {
+    const res = run(cur); if (!at(res, u0) || minGlyph(res, u0) >= TAG_GLYPH) continue;
+    const cands = [u0, ...Array.from({ length: u0.kids.length - 1 }, (_, i) => restackUnit(u0, i + 1))];
+    let best = null;
+    for (const c of cands) {
+      swap(cur.find(x => x.kids[0] === u0.kids[0]), c);
+      const b = boost(c, TAG_GLYPH * 1.1, 2.4);
+      if (!best || b.g > best.g * 1.08 || (b.g >= TAG_GLYPH * 1.1 && best.g < TAG_GLYPH * 1.1)) best = { ...b, c };
+      swap(cur.find(x => x.kids[0] === u0.kids[0]), u0);
+    }
+    swap(cur.find(x => x.kids[0] === u0.kids[0]), best.u);
+  }
+  // 2) כיתוב קטן (הערות שוליים): שבירת שורות צרה (reflowUnit) מקטינה את האותיות, אז מנסים קודם את היחידה המקורית (שורות ארוכות),
+  // מגדילים עד קריאות; אם אי אפשר, מוותרים (הכי פחות חשוב)
+  const isFine = u => u.kids.every(k => k.text && ['caption', 'body', 'label'].includes(k.role)) && u.h < 0.2 * sc.H && u.y + u.h / 2 > 0.85 * sc.H;
+  for (const u0 of units.filter(isFine)) {
+    const ids = new Set(u0.kids.map(k => k.id)), orig = sc.units.find(q => q.kids.some(k => ids.has(k.id)));
+    let done = false;
+    for (const start of orig && orig !== u0 ? [orig, u0] : [u0]) {
+      let u = start; swap(cur.includes(u0) ? u0 : cur.find(x => x.kids.some(k => ids.has(k.id))), u);
+      const res = run(cur), e = at(res, u); if (!e) { done = true; break; }
+      if (minGlyph(res, u) >= FINE_GLYPH) { done = true; break; }
+      for (let f = 1.1; f <= 2.51; f += 0.1) {
+        const v = shrinkUnit(u, f / (u.kf || 1)); swap(u, v); const r = run(cur), ev = at(r, v);
+        if (!ok(r) || !ev || ev[3] > aw + 0.5) { swap(v, u); break; }
+        u = v; if (minGlyph(r, u) >= FINE_GLYPH) { done = true; break; }
+      }
+      if (done) break;
+    }
+    if (!done) cur = cur.filter(x => !x.kids.some(k => ids.has(k.id)));
+    else { // מרווח קטן מעל הכיתוב כדי שלא ייגע ביחידה שמעליו
+      const fu = cur.find(x => x.kids.some(k => ids.has(k.id))), pad = 0.35 * fu.h / Math.max(1, ...fu.kids.map(nLinesOf)), rel = new Map();
+      for (const k of fu.kids) { const [dx, dy] = fu.rel ? fu.rel.get(k) : [k.x - fu.x, k.y - fu.y]; rel.set(k, [dx, dy + pad]); }
+      swap(fu, { ...fu, h: fu.h + pad, rel });
+    }
+  }
+  return cur;
+}
 function autoplaceRules(sc, W, H) {
   return dropTiny(autoplaceRules0(sc, W, H));
 }
@@ -2110,8 +2196,9 @@ function autoplaceRules0(sc, W, H) {
   const pl = [];
   const add = (u, x, y, w, h) => { const s = w / u.w, kf = u.kf || 1; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * s, y + dy * s, k.w * s * kf, k.h * s * kf]); } };
   const units0 = sc.units.map(u => reflowUnit(u, W, H));
-  const marks = units0.length > 1 ? units0.filter(u => isMark(u, sc.W, sc.H)) : [], units = marks.length ? units0.filter(u => !marks.includes(u)) : units0;
+  const marks = units0.length > 1 ? units0.filter(u => isMark(u, sc.W, sc.H)) : [];
   const ctx = { byId: new Map(sc.leaves.map(l => [l.id, l])) };
+  const units = readableRows(marks.length ? units0.filter(u => !marks.includes(u)) : units0, W, H, sc, ctx);
   const addMarks = () => { for (const u of marks) { const [x, y, w, h] = markBox(u, W, H, sc.W, sc.H); add(u, x, y, w, h); } };
   const noHero = !units.some(u => u.role === 'hero'), asp = W / H;
   let useTall = noHero && asp < 0.9, mid = null;
