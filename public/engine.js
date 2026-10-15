@@ -2335,6 +2335,19 @@ function rfPhoto(plate) {
   }
   return { tex: nb ? tex / nb : 0, flat: nb ? flat / nb : 1 };
 }
+// צילומיות הרקע נמדדת על פיקסלי המקור מחוץ לחורים (לא על הרקע המולא): תיבות רחבות מדי מגדילות את החורים והמילוי חלק, וזה לא אומר שהמקור לא צילומי
+function rfPhotoSrc(sc) {
+  const img = sc._img, hole = sc._holesT; if (!img || !hole) return rfPhoto(sc.plate);
+  const { w, h } = img, L = rfLum(img); let tex = 0, flat = 0, nb = 0;
+  for (let by = 0; by + 8 <= h; by += 8) for (let bx = 0; bx + 8 <= w; bx += 8) {
+    let hh = 0, s = 0, s2 = 0;
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const i = (by + y) * w + bx + x; hh += hole[i]; const v = L[i]; s += v; s2 += v * v; }
+    if (hh) continue;
+    const sd = Math.sqrt(Math.max(0, s2 / 64 - (s / 64) * (s / 64))); nb++; if (sd > 2.5) tex++; if (sd < 0.8) flat++;
+  }
+  if (nb < 0.06 * (w >> 3) * (h >> 3)) return rfPhoto(sc.plate); // כמעט הכל חור: אין ממה למדוד
+  return { tex: tex / nb, flat: flat / nb };
+}
 function rfPrep(sc) {
   if (sc._rf !== undefined) return sc._rf;
   sc._rf = false;
@@ -2343,14 +2356,14 @@ function rfPrep(sc) {
   if (!hs.length) return false;
   const hero = hs.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
   if (hero.w * hero.h < 0.03 * sc.W * sc.H) return false;
-  const ph = rfPhoto(sc.plate);
+  const ph = rfPhotoSrc(sc);
   if (ph.tex < RF.minTex || ph.flat > RF.maxFlat) return false;
   return (sc._rf = { hero, ph });
 }
 // פאנל כהה מאחורי כותרת (למשל לוח שחור עם מסגרת זהב): רכיבי הקשירות הכהים שחופפים לתיבת הטקסט, ומלבן התוחם שלהם. null אם אין לוח כהה סביר
 function rfPanelRect(img, lum, box) {
   const W = img.w, H = img.h, bw0 = box[2] - box[0], bh0 = box[3] - box[1];
-  const x0 = clp(Math.round(box[0] + 0.15 * bw0), 0, W - 1), y0 = clp(Math.round(box[1] + 0.15 * bh0), 0, H - 1), x1 = clp(Math.round(box[2] - 0.15 * bw0), x0 + 1, W), y1 = clp(Math.round(box[3] - 0.15 * bh0), y0 + 1, H); // ליבת התיבה (תיבות הטקסט מדויקות רק בערך)
+  const x0 = clp(Math.round(box[0] + 0.25 * bw0), 0, W - 1), y0 = clp(Math.round(box[1] + 0.25 * bh0), 0, H - 1), x1 = clp(Math.round(box[2] - 0.25 * bw0), x0 + 1, W), y1 = clp(Math.round(box[3] - 0.25 * bh0), y0 + 1, H) // מרכז התיבה בלבד: תיבות רחבות של Gemini כוללות רקע צילומי בשוליים; // ליבת התיבה (תיבות הטקסט מדויקות רק בערך)
   const vals = []; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) vals.push(lum[y * W + x]);
   const p25 = percentile(vals, 25); if (p25 > 70) return null;
   const T = Math.min(70, p25 + 25), ex = Math.round(1.2 * (x1 - x0)), ey = Math.round(1.2 * (y1 - y0));
@@ -2671,7 +2684,7 @@ function reframeWhy(sc) {
   if (!hs.length) return 'ה-hero לא נחתך כמלבן (matted=' + heroes.map(l => !!(l.layer && l.layer.matted)).join(',') + ', rectHero=' + heroes.map(l => !!(l.layer && l.layer.rectHero)).join(',') + ')';
   const hero = hs.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), frac = hero.w * hero.h / (sc.W * sc.H);
   if (frac < 0.03) return 'ה-hero קטן מדי: ' + (frac * 100).toFixed(1) + '% מהבאנר';
-  const ph = rfPhoto(sc.plate); if (ph.tex < RF.minTex || ph.flat > RF.maxFlat) return 'הרקע לא צילומי מספיק (tex ' + ph.tex.toFixed(2) + ', flat ' + ph.flat.toFixed(2) + ')';
+  const ph = rfPhotoSrc(sc); if (ph.tex < RF.minTex || ph.flat > RF.maxFlat) return 'הרקע לא צילומי מספיק (tex ' + ph.tex.toFixed(2) + ', flat ' + ph.flat.toFixed(2) + ')';
   return 'REFRAME פעיל (hero ' + (frac * 100).toFixed(0) + '%, tex ' + ph.tex.toFixed(2) + ', flat ' + ph.flat.toFixed(2) + ')';
 }
 function reframeFor(sc, W, H, plan) {
