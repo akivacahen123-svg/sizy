@@ -170,7 +170,7 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
     <div id="out"></div>
   </section>
 </div>
-<p class="foot"><a href="/logout" style="color:inherit">יציאה</a> · סייזי · Sizes</p>
+<p class="foot"><a href="/logout" style="color:inherit">יציאה</a> · סייזי · Sizes · <span id="bld"></span></p><div id="diag" style="display:none;max-width:900px;margin:12px auto;direction:ltr"><b style="direction:rtl;display:block;text-align:right">אבחון (למנהל): העתיקו ושלחו</b><textarea id="diagtx" readonly style="width:100%;height:140px;font:12px monospace" onclick="this.select()"></textarea></div>
 
 <script src="/bgmap.js"></script>
 <script src="/qa.js"></script>
@@ -269,7 +269,7 @@ function prepScene(elements,cv){
     if(!busy)$('#st').textContent='בונה את הבאנר המקורי ברקע…';
     const res=await buildScene({type:'build',w:cv.width,h:cv.height,elements},[],t=>$('#st').textContent=t);
     if(cv!==srcCanvas)return;
-    lastEls=elements;setScene(res.scene);built=true;units=res.units;srcDim=[res.srcW,res.srcH];plansBy={};showBoxes(res.boxes);
+    lastEls=elements;window.__diag={build:BUILD,size:[cv.width,cv.height],why:res.why,mattes:res.mattes,elements:elements.map(e=>({id:e.id,role:e.role,box:e.box,lines:e.lines,shape:e.shape,group:e.group}))};showDiag();setScene(res.scene);built=true;units=res.units;srcDim=[res.srcW,res.srcH];plansBy={};showBoxes(res.boxes);
   })();
   sceneP={cv,p};p.catch(()=>{if(sceneP&&sceneP.p===p)sceneP=null});return p;
 }
@@ -632,6 +632,8 @@ document.querySelectorAll('#bans [data-ban]').forEach(c=>{const b=getBans();if(c
 const banSend=document.getElementById('bansend');
 if(banSend)banSend.onclick=async()=>{const t=document.getElementById('bantxt').value.trim(),st=document.getElementById('banst');if(!t)return;st.textContent='שומר…';try{const r=await fetch('/api/feedback',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({note:'איסור קבוע (לעולם לא לעשות): '+t})});st.textContent=r.ok?'נשמר. סייזי יכבד את האיסור הזה בבאנרים הבאים.':'לא הצלחתי לשמור כרגע, נסו שוב.';if(r.ok)document.getElementById('bantxt').value=''}catch(e){st.textContent='לא הצלחתי לשמור כרגע, נסו שוב.'}};
 </script>
+<script>var BUILD='15.10-ג';(function(){var e=document.getElementById('bld');if(e)e.textContent='גרסה '+BUILD})();
+function showDiag(){try{if(!/[?&]admin\b/.test(location.search))return;var d=document.getElementById('diag'),t=document.getElementById('diagtx');d.style.display='block';t.value=JSON.stringify(window.__diag)}catch(e){}}</script>
 <script>try{if(!/[?&]admin\b/.test(location.search)){['settings','bans'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none'})}}catch(e){}</script>
 </body>
 </html>

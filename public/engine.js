@@ -2661,6 +2661,19 @@ function rfBuild(sc, W, H) {
   }
   return best;
 }
+// אבחון: למה REFRAME פועל או לא פועל בבאנר הזה (מוצג למנהל בלבד)
+function reframeWhy(sc) {
+  if (G.__SIZY_NO_REFRAME) return 'REFRAME כבוי';
+  if (!sc._img) return 'אין תמונת מקור בסצנה';
+  const roles = [...new Set(sc.leaves.map(l => l.role))].join(','), heroes = sc.leaves.filter(l => l.role === 'hero');
+  if (!heroes.length) return 'אין אלמנט hero. תפקידים שזוהו: ' + roles;
+  const hs = heroes.filter(l => !l.text && l.layer && l.layer.rectHero);
+  if (!hs.length) return 'ה-hero לא נחתך כמלבן (matted=' + heroes.map(l => !!(l.layer && l.layer.matted)).join(',') + ', rectHero=' + heroes.map(l => !!(l.layer && l.layer.rectHero)).join(',') + ')';
+  const hero = hs.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a)), frac = hero.w * hero.h / (sc.W * sc.H);
+  if (frac < 0.03) return 'ה-hero קטן מדי: ' + (frac * 100).toFixed(1) + '% מהבאנר';
+  const ph = rfPhoto(sc.plate); if (ph.tex < RF.minTex || ph.flat > RF.maxFlat) return 'הרקע לא צילומי מספיק (tex ' + ph.tex.toFixed(2) + ', flat ' + ph.flat.toFixed(2) + ')';
+  return 'REFRAME פעיל (hero ' + (frac * 100).toFixed(0) + '%, tex ' + ph.tex.toFixed(2) + ', flat ' + ph.flat.toFixed(2) + ')';
+}
 function reframeFor(sc, W, H, plan) {
   if (plan || !sc._img) return null;
   const P = rfPrep(sc); if (!P) return null;
@@ -2801,5 +2814,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
