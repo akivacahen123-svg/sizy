@@ -211,7 +211,10 @@ function resampleLayer(L, tw, th, isText) {
       for (let i = 0; i < a.d.length; i++) a.d[i] = clp((a.d[i] - cc) * g + cc, 0, 1);
       a = usmLim(a, T.usmText * Math.min(1.8, 0.7 + 0.6 * l2), [0], 0);
     } else if (sc < 0.999) {
-      const g = clp(0.9 / sc, 1, 5);
+      // הגדלה: מחליקים את הקווים (בלי מדרגות פיקסלים) ואז מחדדים את הקצה בחזרה, כמו שקווי מתאר וקטוריים נראים
+      const up = 1 / sc, sg = clp(0.38 * up, 0.45, 1.5);
+      if (up > 1.15) a = blur(a, sg);
+      const g = clp(up > 1.15 ? 2.0 * sg + 0.9 : 0.9 / sc, 1, 5);
       for (let i = 0; i < a.d.length; i++) a.d[i] = clp((a.d[i] - 0.5) * g + 0.5, 0, 1);
     }
     // צבע: אם הטקסט חד-צבעי (המקרה הרגיל) – קבוע; אחרת ממוצע משוקלל-אלפא בשכנות 3×3 (משקלים חיוביים → תמיד בתוך טווח הצבעים)
@@ -1289,6 +1292,14 @@ function makeCards(u) {
     } else if (t.role !== 'photo') return null;
   }
   for (const c of cards) { const p = c.kids[0], pc = p.x + p.w / 2; for (const t of c.kids) if (t.text) { const d = pc - (t.x + t.w / 2); if (Math.abs(d) < 0.7 * p.w) t.x += d; const g = t.y - (p.y + p.h), tg = p.h * 0.14; if (g > tg) t.y -= g - tg; } }
+  { // כל התמונות בגלריה באותו גודל (הזיהוי נותן לכל עיגול תיבה קצת שונה): מביאים כל כרטיס (תמונה + כיתוב) לקוטר החציוני
+    const pw = cards.map(c => c.kids[0].w).sort((a, b) => a - b), tgt = pw[pw.length >> 1];
+    for (const c of cards) {
+      const p = c.kids[0], f = tgt / p.w; if (Math.abs(f - 1) < 0.01 || f < 0.7 || f > 1.45) continue;
+      const ox = p.x + p.w / 2, oy = p.y;
+      for (const k of c.kids) { k.x = ox + (k.x - ox) * f; k.y = oy + (k.y - oy) * f; k.w *= f; k.h *= f; }
+    }
+  }
   for (const c of cards) {
     c.x = Math.min(...c.kids.map(k => k.x)); c.y = Math.min(...c.kids.map(k => k.y));
     c.w = Math.max(...c.kids.map(k => k.x + k.w)) - c.x; c.h = Math.max(...c.kids.map(k => k.y + k.h)) - c.y;
