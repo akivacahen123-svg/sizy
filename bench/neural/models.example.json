@@ -1,0 +1,5 @@
+[{"id":"cunet","path":"/tmp/claude-0/s/x1/waifu2x/cunet/scale2.0x_model.onnx","scale":2},
+{"id":"upconv7photo","path":"/tmp/claude-0/s/x1/waifu2x/upconv_7_photo/scale2.0x_model.onnx","scale":2},
+{"id":"swinart","path":"/tmp/claude-0/s/x2/waifu2x/swin_unet_art/scale2x.onnx","scale":2},
+{"id":"resrx4v3","path":"/tmp/claude-0/s/realesr-general-x4v3.onnx","scale":4},
+{"id":"swinphoto4x","path":"/tmp/claude-0/s/x2/waifu2x/swin_unet_photo_v2/scale4x.onnx","scale":4}]
