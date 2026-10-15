@@ -1402,6 +1402,7 @@ function buildScene(img, elements, onProgress) {
     const pad = r + 1, mw = L.w + 2 * pad, mh = L.h + 2 * pad, m = new Uint8Array(mw * mh);
     for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) if (L.a[j * L.w + i] * 255 > 10) m[(j + pad) * mw + i + pad] = 1;
     const dm = dilateDisk(m, mw, mh, r);
+    e._hm = { x0: L.x - pad, y0: L.y - pad, mw, mh, dm }; // REFRAME: מסכת החור של היחידה (כדי לבנות רקע בלי חור לגיבור)
     for (let j = 0; j < mh; j++) for (let i = 0; i < mw; i++) {
       if (!dm[j * mw + i]) continue;
       const gx = L.x - pad + i, gy = L.y - pad + j;
@@ -1471,7 +1472,7 @@ function buildScene(img, elements, onProgress) {
   }
   const holeRows = new Float32Array(H);
   for (let y = 0; y < H; y++) { let c = 0; for (let x = 0; x < W; x++) c += holes2[y * W + x]; holeRows[y] = c / W; }
-  return { W, H, plate, units, leaves, holeRows, holes2, boxes: leaves.map(e => ({ id: e.id, role: e.role, x: e.x / W, y: e.y / H, w: e.w / W, h: e.h / H })) };
+  return { W, H, plate, units, leaves, holeRows, holes2, _img: img, _holesT: holes, boxes: leaves.map(e => ({ id: e.id, role: e.role, x: e.x / W, y: e.y / H, w: e.w / W, h: e.h / H })) };
 }
 
 // ---------------------------------------------------------------- גלריה
@@ -2001,10 +2002,267 @@ function autoplace(sc, W, H, plan) {
   return res;
 }
 function autoplace0(sc, W, H, plan) {
+  const rf = reframeFor(sc, W, H, plan); if (rf) return rf.place.map(e => e.slice()); // REFRAME: רקע צילומי עם גיבור – חלון חיתוך מהמקור ויחידות מעליו
   const base = autoplaceRules(sc, W, H);
   let res = base;
   if (plan && planValid(plan, sc, W, H)) { const pp = planned(sc, W, H, plan); if (planOk(pp, base, W, H)) res = pp; }
   return enforceBans(sc, W, H, res);
+}
+
+// ---------------------------------------------------------------- REFRAME
+// רקע צילומי עם גיבור (אדם) שהוא חלק מהתמונה: במקום "רקע + אלמנטים שאפשר להסיר" בוחרים חלון חיתוך (cover) מפיקסלי המקור
+// שמשאיר את הגיבור שלם כפיקסלים רגילים (לא מסירים אותו), ומסדרים מחדש את שאר היחידות (פאנל כותרת, כפתור, תגים, אותיות קטנות) מעליו ומחוץ למלבן הגיבור.
+// כלל ההכרעה (מדיד, ראה rfPrep): רקע צילומי = חלק הבלוקים 8×8 עם סטיית תקן >2.5 ≥ 0.40 וחלק הבלוקים השטוחים (<0.8) ≤ 0.10, יש גיבור-מלבן (תמונה שנחתכה מהמקור),
+// ויש חלון/סידור שבו הריפוד המלאכותי (שמיים/רצפה מתוחים) ≤ 42% מהחלון, הפנים לא נחתכות, והכותרת לא מתכווצת. אחרת נשארים עם שיטת הרקע הקיימת.
+const RF = { minTex: 0.40, maxFlat: 0.10, maxPad: 0.42 };
+function rfLum(img) { const n = img.w * img.h, L = new Float32Array(n), d = img.d; for (let i = 0; i < n; i++) L[i] = 0.299 * d[i * 3] + 0.587 * d[i * 3 + 1] + 0.114 * d[i * 3 + 2]; return L; }
+// מדד "צילומיות" של הרקע: חלק הבלוקים 8×8 עם טקסטורה וחלק השטוחים
+function rfPhoto(plate) {
+  const { w, h } = plate, L = rfLum(plate); let tex = 0, flat = 0, nb = 0;
+  for (let by = 0; by + 8 <= h; by += 8) for (let bx = 0; bx + 8 <= w; bx += 8) {
+    let s = 0, s2 = 0; for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const v = L[(by + y) * w + bx + x]; s += v; s2 += v * v; }
+    const sd = Math.sqrt(Math.max(0, s2 / 64 - (s / 64) * (s / 64))); nb++; if (sd > 2.5) tex++; if (sd < 0.8) flat++;
+  }
+  return { tex: nb ? tex / nb : 0, flat: nb ? flat / nb : 1 };
+}
+function rfPrep(sc) {
+  if (sc._rf !== undefined) return sc._rf;
+  sc._rf = false;
+  if (G.__SIZY_NO_REFRAME || !sc._img) return false;
+  const hs = sc.leaves.filter(l => l.role === 'hero' && !l.text && l.layer && l.layer.rectHero);
+  if (!hs.length) return false;
+  const hero = hs.reduce((a, b) => (b.w * b.h > a.w * a.h ? b : a));
+  if (hero.w * hero.h < 0.03 * sc.W * sc.H) return false;
+  const ph = rfPhoto(sc.plate);
+  if (ph.tex < RF.minTex || ph.flat > RF.maxFlat) return false;
+  return (sc._rf = { hero, ph });
+}
+// פאנל כהה מאחורי כותרת (למשל לוח שחור עם מסגרת זהב): רכיבי הקשירות הכהים שחופפים לתיבת הטקסט, ומלבן התוחם שלהם. null אם אין לוח כהה סביר
+function rfPanelRect(img, lum, box) {
+  const W = img.w, H = img.h, bw0 = box[2] - box[0], bh0 = box[3] - box[1];
+  const x0 = clp(Math.round(box[0] + 0.15 * bw0), 0, W - 1), y0 = clp(Math.round(box[1] + 0.15 * bh0), 0, H - 1), x1 = clp(Math.round(box[2] - 0.15 * bw0), x0 + 1, W), y1 = clp(Math.round(box[3] - 0.15 * bh0), y0 + 1, H); // ליבת התיבה (תיבות הטקסט מדויקות רק בערך)
+  const vals = []; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) vals.push(lum[y * W + x]);
+  const p25 = percentile(vals, 25); if (p25 > 70) return null;
+  const T = Math.min(70, p25 + 25), ex = Math.round(1.2 * (x1 - x0)), ey = Math.round(1.2 * (y1 - y0));
+  const wx0 = Math.max(0, x0 - ex), wy0 = Math.max(0, y0 - ey), wx1 = Math.min(W, x1 + ex), wy1 = Math.min(H, y1 + ey), cw = wx1 - wx0, ch = wy1 - wy0;
+  const m = new Uint8Array(cw * ch); for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) if (lum[(wy0 + y) * W + wx0 + x] < T) m[y * cw + x] = 1;
+  const { lab, n } = labelCC(m, cw, ch), inside = new Int32Array(n + 1);
+  for (let y = y0 - wy0; y < y1 - wy0; y++) for (let x = x0 - wx0; x < x1 - wx0; x++) { const l = lab[y * cw + x]; if (l) inside[l]++; }
+  const need = Math.max(40, 0.004 * (x1 - x0) * (y1 - y0)), keep = new Uint8Array(n + 1); let any = false;
+  for (let l = 1; l <= n; l++) if (inside[l] >= need) { keep[l] = 1; any = true; }
+  if (!any) return null;
+  let bx0 = cw, by0 = ch, bx1 = -1, by1 = -1, cnt = 0;
+  for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) if (keep[lab[y * cw + x]]) { cnt++; if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+  const bw = bx1 - bx0 + 1, bh = by1 - by0 + 1;
+  if (bx0 + wx0 > x0 || by0 + wy0 > y0 || bx1 + wx0 + 1 < x1 || by1 + wy0 + 1 < y1) return null; // חייב להכיל את ליבת הטקסט
+  if (bw * bh > 3.5 * bw0 * bh0 || cnt < 0.35 * bw * bh) return null; // דלף לאזורים כהים אחרים / לא מלבני
+  const g = Math.round(0.03 * Math.min(bw, bh)) + 3, rx0 = clp(wx0 + bx0 - g, 0, W), ry0 = clp(wy0 + by0 - g, 0, H), rx1 = clp(wx0 + bx1 + 1 + g, 0, W), ry1 = clp(wy0 + by1 + 1 + g, 0, H);
+  return { x: rx0, y: ry0, w: rx1 - rx0, h: ry1 - ry0 };
+}
+function rfRound(w, h, r, soft) { // אלפא של מלבן עם פינות מעוגלות (קצה רך של פיקסל אחד)
+  const a = new Float32Array(w * h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const cx = clp(x + 0.5, r, w - r), cy = clp(y + 0.5, r, h - r), d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
+    a[y * w + x] = clp(r - d + 0.5 + soft, 0, 1);
+  }
+  return a;
+}
+// כל מה שה-REFRAME צריך לחשב פעם אחת: יחידות (פאנלים כגרפיקה אחת), רקע בלי חורים ליחידות שזזות (הגיבור נשאר), אנרגיית פרטים וטווחי ריפוד
+function rfAssets(sc, P) {
+  if (P.A) return P.A;
+  const img = sc._img, W = sc.W, H = sc.H, lum = rfLum(img), hero = P.hero, units = [], hole = Uint8Array.from(sc._holesT || new Uint8Array(W * H));
+  const heroU = sc.units.find(u => u.kids.includes(hero));
+  const cand = sc.units.filter(u => u !== heroU && u.kids.every(k => k.text) && u.kids.some(k => k.role === 'headline'));
+  const panels = [];
+  for (const u of cand) {
+    const r = rfPanelRect(img, lum, [u.x, u.y, u.x + u.w, u.y + u.h]); if (!r) continue;
+    const o = panels.find(p => Math.min(p.x + p.w, r.x + r.w) - Math.max(p.x, r.x) > 0.5 * Math.min(p.w, r.w) && Math.min(p.y + p.h, r.y + r.h) - Math.max(p.y, r.y) > 0.5 * Math.min(p.h, r.h));
+    if (o) { const x1 = Math.max(o.x + o.w, r.x + r.w), y1 = Math.max(o.y + o.h, r.y + r.h); o.x = Math.min(o.x, r.x); o.y = Math.min(o.y, r.y); o.w = x1 - o.x; o.h = y1 - o.y; } else panels.push({ ...r });
+  }
+  const absorbed = new Set();
+  panels.forEach((p, i) => {
+    const kids = sc.units.filter(u => u !== heroU && u.kids.every(k => k.text) && u.x + u.w / 2 > p.x && u.x + u.w / 2 < p.x + p.w && u.y + u.h / 2 > p.y && u.y + u.h / 2 < p.y + p.h);
+    kids.forEach(u => absorbed.add(u));
+    const lw = p.w, lh = p.h, rgb = new Float32Array(lw * lh * 3), a = rfRound(lw, lh, 0.07 * Math.min(lw, lh), 0);
+    for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) { const si = ((p.y + y) * W + p.x + x) * 3, di = (y * lw + x) * 3; rgb[di] = img.d[si]; rgb[di + 1] = img.d[si + 1]; rgb[di + 2] = img.d[si + 2]; }
+    const hm = rfRound(lw + 8, lh + 8, 0.07 * Math.min(lw, lh) + 4, 0);
+    for (let y = 0; y < lh + 8; y++) for (let x = 0; x < lw + 8; x++) if (hm[y * (lw + 8) + x] > 0.02) { const gx = p.x - 4 + x, gy = p.y - 4 + y; if (gx >= 0 && gy >= 0 && gx < W && gy < H) hole[gy * W + gx] = 1; }
+    const z = Math.min(...kids.flatMap(u => u.kids.map(k => k.z)), 1e9);
+    const leaf = { id: 'panel' + i, role: 'headline', lines: kids.flatMap(u => u.lines || []), text: false, shape: 'rect', group: null, z, layer: { rgb, a, lw, lh, up: 1, x: p.x, y: p.y, w: lw, h: lh }, x: p.x, y: p.y, w: lw, h: lh, panelCrop: true };
+    units.push({ role: 'headline', kids: [leaf], x: p.x, y: p.y, w: lw, h: lh, lines: leaf.lines, pin: null });
+  });
+  for (const u of sc.units) if (u !== heroU && !absorbed.has(u)) units.push(u);
+  for (const e of sc.leaves) { // חורים ליחידות שזזות (לא לגיבור): המסכה המורחבת של היחידה + מלבן התיבה שלה (שאריות הילה/עיטורים מחוץ לאלפא)
+    if (e === hero || e.text || !e._hm) continue;
+    const { x0, y0, mw, mh, dm } = e._hm;
+    for (let j = 0; j < mh; j++) for (let i = 0; i < mw; i++) { const gx = x0 + i, gy = y0 + j; if (dm[j * mw + i] && gx >= 0 && gy >= 0 && gx < W && gy < H) hole[gy * W + gx] = 1; }
+    if (e.role === 'badge' || e.role === 'logo' || e.role === 'photo') for (let gy = Math.max(0, e.y - 2); gy < Math.min(H, e.y + e.h + 2); gy++) for (let gx = Math.max(0, e.x - 2); gx < Math.min(W, e.x + e.w + 2); gx++) hole[gy * W + gx] = 1;
+  }
+  let plate = msFill(img, hole, { tex: { budget: 500000, ms: 20000, lo: 0.8, hi: 2.5 } }); // חורים גדולים (פאנל, כפתור): גם הם מסונתזים מטקסטורת התמונה עצמה ולא רק מילוי חלק
+  plate = softenDenseHoles(plate, hole, plate.tex);
+  for (let i = 0; i < plate.d.length; i++) plate.d[i] = clp(plate.d[i], 0, 255);
+  // אנרגיית קצוות (אינטגרל) לבחירת חלון
+  const pl = rfLum(plate), I = new Float64Array((W + 1) * (H + 1)), rowE = new Float32Array(H);
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+    const e = (i < W - 1 ? Math.abs(pl[j * W + i + 1] - pl[j * W + i]) : 0) + (j < H - 1 ? Math.abs(pl[(j + 1) * W + i] - pl[j * W + i]) : 0);
+    I[(j + 1) * (W + 1) + i + 1] = e + I[j * (W + 1) + i + 1] + I[(j + 1) * (W + 1) + i] - I[j * (W + 1) + i]; rowE[j] += e / W;
+  }
+  // כמה שורות בקצה העליון/התחתון שקטות (שמיים/רצפה חלקים) כדי למתוח אותן לריפוד
+  const band = (from, dir) => {
+    const lim = Math.round(0.2 * H), at = k => from + dir * k, m = (a, b) => { let s = 0; for (let k = a; k < b; k++) s += rowE[at(k)]; return s / (b - a); };
+    const e0 = m(0, 8), thr = Math.max(1.5 * e0, e0 + 2.5); let K = 24;
+    for (let k = 16; k <= lim; k += 2) if (m(k - 8, k) <= thr) K = k; else break;
+    return K;
+  };
+  const hb = { x0: W, x1: 0 }; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (hole[y * W + x]) { if (x < hb.x0) hb.x0 = x; if (x > hb.x1) hb.x1 = x; }
+  return (P.A = { plate, units, I, hole, hb, orig: img, KT: band(0, 1), KB: band(H - 1, -1), ext: new Map(), panels });
+}
+// הרחבת הרקע למעלה/למטה (ריפוד): מותחים את פס הקצה השקט (שמיים/רצפה) ומטשטשים אופקית כדי שלא יישארו פסים אנכיים
+function rfExtend(A, W, H, padT, padB, orig) {
+  const key = padT + '|' + padB + (orig ? 'o' : ''); if (A.ext.has(key)) return A.ext.get(key);
+  const h2 = H + padT + padB, out = { w: W, h: h2, c: 3, d: new Float32Array(W * h2 * 3) }, src = orig ? A.orig.d : A.plate.d, KT = A.KT, KB = A.KB, stretch = [];
+  for (let ye = 0; ye < h2; ye++) {
+    let ys, st = 1;
+    if (ye < padT + KT && padT > 0) { ys = ye * KT / (padT + KT); st = (padT + KT) / KT; }
+    else if (ye >= padT + H - KB && padB > 0) { ys = H - KB + (ye - (padT + H - KB)) * KB / (KB + padB); st = (KB + padB) / KB; }
+    else ys = ye - padT;
+    ys = clp(ys, 0, H - 1); const y0 = Math.floor(ys), y1 = Math.min(H - 1, y0 + 1), t = ys - y0;
+    for (let x = 0; x < W * 3; x++) out.d[ye * W * 3 + x] = src[y0 * W * 3 + x] * (1 - t) + src[y1 * W * 3 + x] * t;
+    stretch.push(st);
+  }
+  for (let ye = 0; ye < h2; ye++) { // טשטוש אופקי פרופורציונלי למתיחה, חלש ליד התפר
+    const st = stretch[ye]; if (st <= 1.2) continue;
+    const seam = ye < padT + KT ? (padT + KT - ye) / (padT + KT) : (ye - (padT + H - KB)) / (padB + KB), r = Math.round(Math.min(10, 0.8 * st) * clp(seam * 1.6, 0, 1)); if (r < 1) continue;
+    const row = Float32Array.from(out.d.subarray(ye * W * 3, (ye + 1) * W * 3));
+    for (let x = 0; x < W; x++) for (let c = 0; c < 3; c++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const xx = clp(x + k, 0, W - 1); s += row[xx * 3 + c]; n++; } out.d[(ye * W + x) * 3 + c] = s / n; }
+  }
+  if (A.ext.size > 8) A.ext.delete(A.ext.keys().next().value);
+  A.ext.set(key, out); return out;
+}
+function reframeBg(sc, rf, Wk, Hk, K) {
+  const A = rf.A, ext = rfExtend(A, sc.W, sc.H, rf.padT, rf.padB, rf.native);
+  const wx0 = clp(Math.round(rf.x0), 0, ext.w - 4), wy0 = clp(Math.round(rf.y0 + rf.padT), 0, ext.h - 4), ww = clp(Math.round(rf.ww), 4, ext.w - wx0), wh = clp(Math.round(rf.wh), 4, ext.h - wy0);
+  return resizePlate(cropImg(ext, wx0, wy0, wx0 + ww, wy0 + wh), Wk, Hk);
+}
+const rfArea = r => Math.max(0, r.w) * Math.max(0, r.h);
+const rfInter = (a, b) => { const x0 = Math.max(a.x, b.x), y0 = Math.max(a.y, b.y), x1 = Math.min(a.x + a.w, b.x + b.w), y1 = Math.min(a.y + a.h, b.y + b.h); return { x: x0, y: y0, w: Math.max(0, x1 - x0), h: Math.max(0, y1 - y0) }; };
+// מסדר קבוצת יחידות בתוך אזור ומחזיר מיקומים בקואורדינטות הבאנר (או null אם אין מקום)
+function rfZone(sc, units, zx, zy, zw, zh) {
+  if (!units.length) return [];
+  if (zw < 24 || zh < 24) return null;
+  const sc2 = { W: sc.W, H: sc.H, units, leaves: sc.leaves };
+  return autoplaceRules(sc2, zw, zh).map(e => [e[0], e[1] + zx, e[2] + zy, e[3], e[4]]);
+}
+// חלק הבאנר שבו נראה חור ממולא (מריחה) ואף יחידה לא מכסה אותו
+function rfSmear(A, SW, SH, f, x0, y0, W, H, place) {
+  const step = Math.max(2, Math.round(Math.min(W, H) / 70)), hole = A.hole; let bad = 0, n = 0;
+  for (let y = step / 2; y < H; y += step) for (let x = step / 2; x < W; x += step) {
+    n++; const sx = Math.round(x0 + x / f), sy = Math.round(y0 + y / f);
+    if (sx < 8 || sy < 8 || sx >= SW - 8 || sy >= SH - 8) continue;
+    let c = 0; for (let dy = -8; dy <= 8; dy += 4) for (let dx = -8; dx <= 8; dx += 4) c += hole[(sy + dy) * SW + sx + dx];
+    if (c < 23) continue; // רק פנים של חור (ליד הקצה המילוי מתמזג עם הסביבה)
+    let cov = false; for (const e of place) if (x >= e[1] - 1 && x <= e[1] + e[3] + 1 && y >= e[2] - 1 && y <= e[2] + e[4] + 1) { cov = true; break; }
+    if (!cov) bad++;
+  }
+  return bad / Math.max(1, n);
+}
+function rfScore(place, W, H, Rv, hv, nUnits, pad) {
+  let head = 0, other = 0, btn = 0, kept = new Set();
+  for (const e of place) { const a = e[3] * e[4]; if (e[0].role === 'headline') head += a; else if (e[0].role === 'button') btn += a; else other += a; kept.add(e[0].id); }
+  return 1.0 * Math.sqrt(btn / (W * H)) + 3.2 * Math.sqrt(head / (W * H)) + 0.5 * Math.sqrt(rfArea(Rv) / (W * H)) + 0.5 * Math.sqrt(other / (W * H)) - 1.0 * pad - 1.5 * (1 - hv);
+}
+function rfBuild(sc, W, H) {
+  const P = rfPrep(sc); if (!P) return null;
+  const A = rfAssets(sc, P), SW = sc.W, SH = sc.H, hero = P.hero, km = Math.max(4, 0.03 * hero.w);
+  const keep = { x: Math.max(0, hero.x - km), y: Math.max(0, hero.y - km), w: 0, h: 0 }; keep.w = Math.min(SW, hero.x + hero.w + km) - keep.x; keep.h = Math.min(SH, hero.y + hero.h + km) - keep.y;
+  const face = { x: keep.x, y: keep.y, w: keep.w, h: 0.2 * keep.h }, heroC = hero.y + hero.h / 2, left = hero.x + hero.w / 2 < SW / 2;
+  const fcov = Math.max(W / SW, H / SH), fmin = Math.max(W / SW, H / (SH * (1 + RF.maxPad))), fs = [];
+  for (const z of [1.7, 1.45, 1.25, 1.12]) fs.push(fcov * z); // הגדלה: חלון קטן יותר שמוציא מהפריים את אזור היחידות שהוסרו (שם הרקע ממולא)
+  for (let i = 0; i < 9; i++) fs.push(fcov * Math.pow(Math.min(1, fmin / fcov), i / 8));
+  const gap = 0.012 * Math.min(W, H), mg = 0.03 * Math.min(W, H), rfp = u => u.y + u.h / 2 < heroC;
+  const topU = A.units.filter(rfp), botU = A.units.filter(u => !rfp(u));
+  let best = null;
+  const consider = (f, x0, y0, strategy, groups) => {
+    const ww = W / f, wh = H / f; if (ww > SW + 0.5 || x0 < -0.5 || x0 + ww > SW + 0.5) return;
+    const padT = Math.ceil(Math.max(0, -y0 - 0.01)), padB = Math.ceil(Math.max(0, y0 + wh - SH - 0.01)), pad = (padT + padB) / wh; if (pad > RF.maxPad) return;
+    const R = { x: (keep.x - x0) * f, y: (keep.y - y0) * f, w: keep.w * f, h: keep.h * f }, Rv = rfInter(R, { x: 0, y: 0, w: W, h: H }), hv = rfArea(Rv) / rfArea(R);
+    const fcy = (face.y - y0) * f, fch = face.h * f, fcx = (face.x - x0) * f; if (fcy < -1 || fcy + fch > H + 1 || fcx < -1 || fcx + face.w * f > W + 1) return; // הפנים חייבות להיות שלמות
+    if (strategy === 'stack' && hv < 0.98) return; if (hv < (W / H > 4 ? 0.2 : 0.45)) return;
+    let place = [];
+    for (const g of groups) {
+      const zr = g.zone(R, Rv); if (!zr) { if (g.units.length) return; continue; }
+      const z = rfZone(sc, g.units, zr[0], zr[1], zr[2], zr[3]); if (!z) return; place = place.concat(z);
+    }
+    if (!place.length) return;
+    const ids = new Set(place.map(e => e[0].id));
+    for (const u of A.units) if (u.kids.some(k => k.role === 'button' || k.role === 'headline') && !u.kids.every(k => ids.has(k.id))) return; // כותרת וכפתור חייבים להישאר
+    const sm = rfSmear(A, SW, SH, f, x0, y0, W, H, place), J = rfScore(place, W, H, Rv, hv, A.units.length, pad) - 6 * sm;
+    if (G.__SIZY_RFLOG) G.__SIZY_RFLOG.push({ J, f, strategy, pad, hv, sm, head: place.filter(e => e[0].role === 'headline').reduce((a, e) => a + e[3], 0) });
+    if (!best || J > best.J) best = { J, f, x0, y0, ww, wh, padT, padB, place, strategy, R, Rv, A };
+  };
+  const xRange = (f, ww) => [Math.max(0, keep.x + keep.w - ww), Math.min(SW - ww, keep.x)];
+  const bestX = (x0lo, x0hi, ww, y0, wh) => { // החלון האופקי עם הכי הרבה פרטים
+    if (x0hi < x0lo) return null; let bx = x0lo, bv = -1;
+    const ya = clp(Math.round(y0), 0, SH), yb = clp(Math.round(y0 + wh), 0, SH), n = 24;
+    for (let i = 0; i <= n; i++) {
+      const x = Math.round(x0lo + (x0hi - x0lo) * i / n), xb = Math.min(SW, Math.round(x + ww)), I = A.I, w1 = SW + 1;
+      const v = I[yb * w1 + xb] - I[ya * w1 + xb] - I[yb * w1 + x] + I[ya * w1 + x];
+      if (v > bv) { bv = v; bx = x; }
+    }
+    return bx;
+  };
+  for (const f of fs) {
+    const ww = W / f, wh = H / f; if (ww > SW + 0.5) continue;
+    const [lo, hi] = xRange(f, ww);
+    // מחסנית: הגיבור באמצע, יחידות מעליו ומתחתיו
+    for (const ry of [0.14, 0.2, 0.26, 0.32, 0.38, 0.44, 0.5, 0.58]) {
+      const R_h = keep.h * f, R_y = ry * H; if (R_y + R_h > H + 0.5) continue;
+      const y0 = keep.y - R_y / f, x0 = bestX(lo, hi, ww, y0, wh); if (x0 === null) continue;
+      for (const split of [[topU, botU], [A.units, []], [[], A.units]]) {
+        if (split[0] === A.units && !(split[0].length)) continue;
+        const gs = [
+          { units: split[0], zone: (R, Rv) => { const h = Rv.y - gap; return split[0].length ? (h >= 0.1 * H ? [0, 0, W, h] : null) : [0, 0, W, 0]; } },
+          { units: split[1], zone: (R, Rv) => { const y = Rv.y + Rv.h + gap; return split[1].length ? (H - y >= 0.1 * H ? [0, y, W, H - y] : null) : [0, y, W, 0]; } }];
+        consider(f, x0, y0, 'stack', gs);
+      }
+    }
+    // לצד: הגיבור בקצה (בצד המקורי) והיחידות בעמודה לידו
+    for (const al of ['bottom', 'center', 'top']) {
+      const R_h = keep.h * f, R_y = al === 'bottom' ? H - mg - R_h : al === 'top' ? mg : (H - R_h) / 2, y0 = keep.y - R_y / f;
+      const [lo2, hi2] = xRange(f, ww); let x0 = left ? keep.x - mg / f : keep.x + keep.w + mg / f - ww; x0 = clp(x0, lo2, hi2); if (hi2 < lo2) continue;
+      for (const aligned of [false, true]) {
+        const gs = [{ units: A.units, zone: (R, Rv) => {
+          let x1 = left ? Rv.x + Rv.w + gap : 0, x2 = left ? W : Rv.x - gap;
+          if (aligned) { // העמודה מתחילה במקום שבו היו היחידות במקור (שם הרקע ממילא ממולא), ולא על נוף שלם
+            const hx0 = (A.hb.x0 - x0) * f, hx1 = (A.hb.x1 - x0) * f; if (left) x1 = Math.max(x1, hx0 - gap); else x2 = Math.min(x2, hx1 + gap);
+          }
+          return x2 - x1 >= 0.25 * W ? [x1, 0, x2 - x1, H] : null;
+        } }];
+        consider(f, x0, y0, 'side', gs);
+      }
+    }
+  }
+  // native: כל היחידות והגיבור נשארים בפיקסלים של המקור (בלי חורים ובלי סידור מחדש); חלון אחד שמכיל את כולם, בריפוד אם צריך. מתאים ליחס קרוב למקור
+  { const us = sc.units.filter(u => !u.kids.includes(hero)), bx0 = Math.min(keep.x, ...us.map(u => u.x)), bx1 = Math.max(keep.x + keep.w, ...us.map(u => u.x + u.w)), by0 = Math.min(keep.y, ...us.map(u => u.y)), by1 = Math.max(keep.y + keep.h, ...us.map(u => u.y + u.h));
+    for (const f of fs) {
+      const ww = W / f, wh = H / f; if (ww > SW + 0.5 || ww < bx1 - bx0 || wh < by1 - by0) continue;
+      const x0 = clp((bx0 + bx1) / 2 - ww / 2, 0, SW - ww), y0 = (by0 + by1) / 2 - wh / 2, padT = Math.ceil(Math.max(0, -y0 - 0.01)), padB = Math.ceil(Math.max(0, y0 + wh - SH - 0.01)), pad = (padT + padB) / wh; if (pad > RF.maxPad) continue;
+      const place = []; for (const u of us) for (const k of u.kids) place.push([k, (k.x - x0) * f, (k.y - y0) * f, k.w * f, k.h * f]);
+      const R = { x: (keep.x - x0) * f, y: (keep.y - y0) * f, w: keep.w * f, h: keep.h * f };
+      let tiny = 0; for (const e of place) if (e[0].text && e[4] / Math.max(1, (e[0].lines || [1]).length) < 6.5) tiny++;
+      const J = rfScore(place, W, H, R, 1, A.units.length, pad) - 0.35 * Math.min(1, tiny / 2);
+      if (G.__SIZY_RFLOG) G.__SIZY_RFLOG.push({ J, f, strategy: 'native', pad, hv: 1, sm: 0, head: 0 });
+      if (!best || J > best.J) best = { J, f, x0, y0, ww, wh, padT, padB, place, strategy: 'native', native: true, R, Rv: R, A };
+    }
+  }
+  return best;
+}
+function reframeFor(sc, W, H, plan) {
+  if (plan || !sc._img) return null;
+  const P = rfPrep(sc); if (!P) return null;
+  const c = sc._rfc || (sc._rfc = new Map()), key = W + 'x' + H; if (c.has(key)) return c.get(key);
+  let r = null; try { r = rfBuild(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; r = null; }
+  c.set(key, r); return r;
 }
 
 // ---------------------------------------------------------------- רינדור
@@ -2023,7 +2281,9 @@ function render(sc, W, H, K, plan) {
   let nw = Math.max(Wk, Math.round(sc.W * s)), nh = Math.max(Hk, Math.round(sc.H * s));
   const xs = G.SizyBg ? G.SizyBg.map(sc.W, sc.H, Wk, Hk) : null;
   let bg, ox, oy, panelBg = false;
-  if (xs) {
+  const rf = reframeFor(sc, W, H, plan);
+  if (rf) { bg = reframeBg(sc, rf, Wk, Hk, K); ox = 0; oy = 0; nw = Wk; nh = Hk; }
+  else if (xs) {
     const tall = resizePlate(sc.plate, sc.W, Hk); bg = { w: Wk, h: Hk, c: 3, d: new Float32Array(Wk * Hk * 3) }; ox = 0; oy = 0; nw = Wk; nh = Hk;
     for (let u = 0; u < Wk; u++) {
       const a = xs[u], b = Math.max(xs[u + 1], a + 0.001), i0 = Math.floor(a), i1 = Math.min(sc.W, Math.ceil(b));
@@ -2052,7 +2312,7 @@ function render(sc, W, H, K, plan) {
   }
   const out = new Float32Array(Wk * Hk * 3);
   for (let y = 0; y < Hk; y++) out.set(bg.d.subarray(((y + oy) * nw + ox) * 3, ((y + oy) * nw + ox + Wk) * 3), y * Wk * 3);
-  for (const [leaf, x, y, w, h] of autoplace(sc, W, H, plan)) {
+  for (const [leaf, x, y, w, h] of (rf && rf.native ? [] : autoplace(sc, W, H, plan))) { // REFRAME native: היחידות כבר בפיקסלי הרקע
     if (w < 1 || h < 1) continue;
     const L = leaf.layer, tw = Math.max(1, Math.round(w * K)), th = Math.max(1, Math.round(h * K));
     const x0 = Math.round(x * K), y0 = Math.round(y * K);
@@ -2137,5 +2397,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { reframeFor, reframeBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
