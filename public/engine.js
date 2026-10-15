@@ -994,8 +994,8 @@ function graphicLayer(clean, e, grad) {
   const crop = cropImg(clean, x, y, x + w, y + h), a = new Float32Array(w * h);
   if (shape === 'circle') {
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) a[j * w + i] = clp(Math.min(w, h) / 2 - Math.hypot(i + .5 - w / 2, j + .5 - h / 2) + .5, 0, 1);
-  } else if (shape === 'pill' || shape === 'rounded') {
-    const rad = shape === 'pill' ? Math.min(w, h) / 2 : Math.min(w, h) * 0.22;
+  } else if (shape === 'pill' || shape === 'rounded' || shape === 'panel') {
+    const rad = shape === 'pill' ? Math.min(w, h) / 2 : shape === 'panel' ? e.radius || 0 : Math.min(w, h) * 0.22;
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
       const qx = Math.abs(i + .5 - w / 2) - (w / 2 - rad), qy = Math.abs(j + .5 - h / 2) - (h / 2 - rad);
       a[j * w + i] = clp(.5 - (Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - rad), 0, 1);
@@ -1243,6 +1243,157 @@ function reflowUnit(u, W, H, box) {
 }
 
 // ---------------------------------------------------------------- סצנה
+// ---------------------------------------------------------------- לוח מאחורי טקסט (כרטיס)
+// טקסט שיושב על לוח מובחן (אזור חלק/מבריק בצבע דומיננטי אחד, עם שפה או מסגרת, גדול מתיבת הטקסט) נחשב יחד עם הלוח ליחידה גרפית אחת:
+// מוסיפים אלמנט shape:'panel' שנחתך מהרקע הנקי (אחרי הוצאת הטקסט) ומקבצים אליו את הטקסטים - הכרטיס כולו מסודר ומוגדל כאחד.
+// בכל ספק (טקסט על תמונה, רקע אחיד לכל הקנבס, אין שפה ברורה בכל ארבע הצלעות) לא מחזיר כלום.
+function detectPanels(img, els) {
+  const W = img.w, H = img.h, D = img.d, out = [];
+  const tx = els.filter(e => e.text && e.role !== 'button' && ['headline', 'subheadline', 'body', 'caption', 'label'].includes(e.role));
+  const solids = els.filter(e => !e.text && ['button', 'badge', 'logo', 'photo', 'decor'].includes(e.role));
+  const inside = (e, o) => { const cx = e.px[0] + e.px[2] / 2, cy = e.px[1] + e.px[3] / 2; return cx > o.px[0] && cx < o.px[0] + o.px[2] && cy > o.px[1] && cy < o.px[1] + o.px[3]; };
+  const cand = tx.filter(e => !solids.some(o => inside(e, o) && o.px[2] * o.px[3] >= 0.8 * e.px[2] * e.px[3]));
+  const par = cand.map((_, i) => i), find = i => par[i] === i ? i : (par[i] = find(par[i]));
+  for (let i = 0; i < cand.length; i++) for (let j = i + 1; j < cand.length; j++) { // תיבות צמודות = אותה כותרת
+    const a = cand[i].px, b = cand[j].px;
+    const ix = Math.min(a[0] + a[2], b[0] + b[2]) - Math.max(a[0], b[0]), gy = Math.max(a[1], b[1]) - Math.min(a[1] + a[3], b[1] + b[3]);
+    if (ix > 0.3 * Math.min(a[2], b[2]) && gy < 0.8 * Math.min(a[3], b[3])) par[find(i)] = find(j);
+  }
+  const clusters = new Map(); cand.forEach((e, i) => { const r = find(i); if (!clusters.has(r)) clusters.set(r, []); clusters.get(r).push(e); });
+  const taken = new Set(), dist = (o, c) => Math.max(Math.abs(D[o] - c[0]), Math.abs(D[o + 1] - c[1]), Math.abs(D[o + 2] - c[2]));
+  const qk = o => (D[o] >> 5) * 64 + (D[o + 1] >> 5) * 8 + (D[o + 2] >> 5);
+  for (const ms of [...clusters.values()].sort((a, b) => b.length - a.length)) {
+    if (ms.every(m => taken.has(m))) continue;
+    const big = ms.slice().sort((a, b) => b.px[2] * b.px[3] - a.px[2] * a.px[3])[0];
+    const ub = [Math.min(...ms.map(m => m.px[0])), Math.min(...ms.map(m => m.px[1])), Math.max(...ms.map(m => m.px[0] + m.px[2])), Math.max(...ms.map(m => m.px[1] + m.px[3]))];
+    const uw = ub[2] - ub[0], uh = ub[3] - ub[1];
+    if (uw < 24 || uh < 12) continue;
+    const [bx, by, bw, bh] = big.px, hist = new Map();
+    const ring = []; // היקף התיבה (2 פיקסלים משני צדי הקו): הלוח, ולא האותיות שבפנים
+    for (let x = bx; x < bx + bw; x++) for (const y of [by - 2, by - 1, by, by + 1, by + bh - 2, by + bh - 1, by + bh, by + bh + 1]) ring.push([x, y]);
+    for (let y = by; y < by + bh; y++) for (const x of [bx - 2, bx - 1, bx, bx + 1, bx + bw - 2, bx + bw - 1, bx + bw, bx + bw + 1]) ring.push([x, y]);
+    const rg = ring.filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
+    for (const [x, y] of rg) { const k = qk((y * W + x) * 3); hist.set(k, (hist.get(k) || 0) + 1); }
+    let bk = -1, bn = 0, tot = 0; for (const [k, n] of hist) { tot += n; if (n > bn) { bn = n; bk = k; } }
+    if (bn < 0.45 * tot) continue; // אין צבע דומיננטי: טקסט על תמונה
+    const P = [0, 0, 0]; let np = 0; const T = 46;
+    for (const [x, y] of rg) { const o = (y * W + x) * 3; if (qk(o) === bk) { P[0] += D[o]; P[1] += D[o + 1]; P[2] += D[o + 2]; np++; } }
+    for (let c = 0; c < 3; c++) P[c] /= np;
+    const neutral = new Uint8Array(W * H); // בתוך תיבות הטקסט: לא נספר (אותיות, וגם סרט שבולט מהלוח)
+    for (const m of ms) { // תיבות ה-AI לא מדויקות לפיקסל: מרחיבים קצת
+      const dm = Math.max(3, Math.round(0.04 * Math.max(m.px[2], m.px[3]))), nx1 = Math.max(0, m.px[0] - dm), nx2 = Math.min(W, m.px[0] + m.px[2] + dm);
+      for (let y = Math.max(0, m.px[1] - dm); y < Math.min(H, m.px[1] + m.px[3] + dm); y++) neutral.fill(1, y * W + nx1, y * W + nx2);
+    }
+    const r = [bx, by, bx + bw, by + bh], cap = Math.max(60, Math.round(0.5 * Math.max(uw, uh))), stop = [0, 0, 0, 0];
+    // פס באורך הצלע במרחק k החוצה: n פיקסלים נספרים, g מהם בצבע הלוח, mean = ממוצע הצבע של כולם
+    const stripe = (s, k) => {
+      const horiz = s === 0 || s === 2, a0 = horiz ? r[0] : r[1], a1 = horiz ? r[2] : r[3];
+      const fixed = s === 0 ? r[1] - 1 - k : s === 1 ? r[0] - 1 - k : s === 2 ? r[3] + k : r[2] + k;
+      if (fixed < 0 || fixed >= (horiz ? H : W)) return null;
+      let n = 0, g = 0; const m = [0, 0, 0];
+      for (let t = Math.max(0, a0); t < Math.min(horiz ? W : H, a1); t++) {
+        const x = horiz ? t : fixed, y = horiz ? fixed : t; if (neutral[y * W + x]) continue;
+        const p = (y * W + x) * 3; n++; if (dist(p, P) < T) g++; m[0] += D[p]; m[1] += D[p + 1]; m[2] += D[p + 2];
+      }
+      return { n, g, mean: n ? m.map(v => v / n) : P };
+    };
+    const good = st => !st || st.n < 6 || st.g >= 0.6 * st.n, step = (s, d) => { if (s === 0) r[1] -= d; else if (s === 1) r[0] -= d; else if (s === 2) r[3] += d; else r[2] += d; };
+    const grown = [0, 0, 0, 0]; // 1=נמצאה שפה, 2=קצה קנבס, 3=לא נמצאה שפה בטווח
+    for (let pass = 0; pass < 3; pass++) {
+      for (let s = 0; s < 4; s++) {
+        let cnt = 0; stop[s] = 0;
+        for (;;) {
+          if (cnt > cap) { stop[s] = 3; break; }
+          const s0 = stripe(s, 0); if (!s0) { stop[s] = 2; break; }
+          if (!good(s0)) { const s1 = stripe(s, 1); if (!s1) { stop[s] = 2; break; } if (!good(s1)) { stop[s] = 1; break; } step(s, 1); cnt++; grown[s]++; }
+          step(s, 1); cnt++; grown[s]++;
+        }
+      }
+      if (stop.every(v => v === 1)) break;
+    }
+    if (!stop.every(v => v === 1)) continue;
+    if (grown.filter(v => v >= 3).length < 2) continue;
+    // שפה/מסגרת: פסים דקים אחידים בצבע אחר, ואחריהם צבע שונה. אם "השפה" לא נגמרת מהר היא בעצם הרקע
+    const bmax = Math.max(4, Math.round(0.035 * Math.min(r[2] - r[0], r[3] - r[1]))), thick = [0, 0, 0, 0], bcol = [];
+    for (let s = 0; s < 4; s++) {
+      const a = stripe(s, 0), b = stripe(s, 1); if (!a || !b) continue;
+      const B = [0, 1, 2].map(c => (a.mean[c] + b.mean[c]) / 2); let k = 0;
+      for (; k < bmax + 2; k++) {
+        const st = stripe(s, k); if (!st) break;
+        const h2 = (() => { // אחוז הפסים הקרוב לצבע השפה (לא נספר נייטרלי)
+          const horiz = s === 0 || s === 2, a0 = horiz ? r[0] : r[1], a1 = horiz ? r[2] : r[3], fixed = s === 0 ? r[1] - 1 - k : s === 1 ? r[0] - 1 - k : s === 2 ? r[3] + k : r[2] + k;
+          let n = 0, g = 0; for (let t = Math.max(0, a0); t < Math.min(horiz ? W : H, a1); t++) { const x = horiz ? t : fixed, y = horiz ? fixed : t; if (neutral[y * W + x]) continue; n++; if (dist((y * W + x) * 3, B) < 60) g++; }
+          return n ? g / n : 0;
+        })();
+        if (h2 < 0.55) break;
+      }
+      thick[s] = k <= bmax ? k : 0; if (thick[s] > 0) bcol.push(B);
+    }
+    const R = [r[0] - thick[1], r[1] - thick[0], r[2] + thick[3], r[3] + thick[2]];
+    if (R[0] < 0 || R[1] < 0 || R[2] > W || R[3] > H) continue;
+    const rw = R[2] - R[0], rh = R[3] - R[1];
+    if (rw * rh < 1.08 * uw * uh || rw * rh > 0.65 * W * H || rw > 0.97 * W && rh > 0.5 * H) continue;
+    // הלוח חלק: רוב הפיקסלים (בלי תיבות הטקסט) בצבע הלוח
+    let n = 0, g = 0; for (let y = r[1]; y < r[3]; y += 2) for (let x = r[0]; x < r[2]; x += 2) { if (neutral[y * W + x]) continue; n++; if (dist((y * W + x) * 3, P) < T) g++; }
+    if (!n || g < 0.6 * n) continue;
+    // ניגוד לרקע שמחוץ ללוח: הצבע שמעבר לשפה שונה מצבע הלוח לפחות בשלוש צלעות
+    let far = 0; for (let s = 0; s < 4; s++) { const sv = [...r]; for (let q = 0; q < 4; q++) sv[q] = R[q]; const keep = r.slice(); for (let q = 0; q < 4; q++) r[q] = R[q]; const st = stripe(s, 2); for (let q = 0; q < 4; q++) r[q] = keep[q]; if (st && Math.max(Math.abs(st.mean[0] - P[0]), Math.abs(st.mean[1] - P[1]), Math.abs(st.mean[2] - P[2])) > 30) far++; }
+    if (far < 3) continue;
+    // רדיוס פינות: סריקה באלכסון מכל פינה עד הפיקסל הראשון שהוא לוח/שפה; offset ≈ 0.293·r
+    const inP = (x, y) => { const o = (y * W + x) * 3; return dist(o, P) < T + 10 || bcol.some(B => dist(o, B) < 60); };
+    const offs = [[R[0], R[1], 1, 1], [R[2] - 1, R[1], -1, 1], [R[0], R[3] - 1, 1, -1], [R[2] - 1, R[3] - 1, -1, -1]].map(([cx, cy, dx, dy]) => { let k = 0; while (k < 0.35 * Math.min(rw, rh) && !inP(cx + dx * k, cy + dy * k)) k++; return k; }).sort((a, b) => a - b);
+    const radius = clp(Math.round(((offs[1] + offs[2]) / 2) / 0.293), 0, Math.floor(0.3 * Math.min(rw, rh)));
+    const members = cand.filter(e => !taken.has(e) && inside(e, { px: [R[0], R[1], rw, rh] }));
+    if (!members.length) continue;
+    members.forEach(m => taken.add(m));
+    out.push({ rect: [R[0], R[1], rw, rh], inner: r.slice(), radius, members, P });
+  }
+  return out;
+}
+// מוסיף אלמנט לוח לכל לוח שזוהה ומקבץ אליו את הטקסטים (לפני חיתוך הטקסט)
+function addPanels(img, els) {
+  let ps = []; try { ps = detectPanels(img, els); } catch (err) { ps = []; }
+  ps.forEach((p, i) => {
+    const gid = 'panel_' + i, z = Math.min(...p.members.map(m => m.z)) - 0.5;
+    els.push({ id: gid, role: 'decor', lines: [], text: false, shape: 'panel', radius: p.radius, group: gid, px: p.rect, z, bullet: null, phrases: null, panel: true });
+    p.members.forEach(m => { // חותכים את תיבת הטקסט לתוך הלוח (בלי השפה), כדי שהחיתוך לא ייקח חתיכות מסגרת כאילו הן אותיות. תיבה שחוצה את הקצה (סרט שבולט) לא נחתכת בצד הזה
+      m.group = gid; const [x, y, w, h] = m.px, [ix1, iy1, ix2, iy2] = p.inner.map((v, k) => v + (k < 2 ? 2 : -2));
+      const nx1 = x >= p.inner[0] ? Math.max(x, ix1) : x, ny1 = y >= p.inner[1] ? Math.max(y, iy1) : y, nx2 = x + w <= p.inner[2] ? Math.min(x + w, ix2) : x + w, ny2 = y + h <= p.inner[3] ? Math.min(y + h, iy2) : y + h;
+      if (nx2 - nx1 >= 4 && ny2 - ny1 >= 4) m.px = [nx1, ny1, nx2 - nx1, ny2 - ny1];
+      const g = Math.round(0.12 * Math.max(w, h) + 6); m.panelAllow = [[Math.max(ix1, x - g), Math.max(iy1, y - g), Math.min(ix2, x + w + g), Math.min(iy2, y + h + g)], [x - 3, y - 3, x + w + 3, y + h + 3]]; // מותר: פנים הלוח + התיבה המקורית (סרט שבולט)
+    });
+  });
+  return ps.length;
+}
+
+// מאפס אלפא של שכבה מחוץ לאזורים המותרים וחותך אותה לתיבה הצמודה. מחזיר null אם לא נשאר כלום
+function clipLayerTo(L, allow) {
+  const { lw, lh, up } = L, a = L.a; let i0 = lw, i1 = -1, j0 = lh, j1 = -1;
+  for (let j = 0; j < lh; j++) {
+    const Y = L.y + (j + 0.5) / up;
+    for (let i = 0; i < lw; i++) {
+      const X = L.x + (i + 0.5) / up, k = j * lw + i; if (a[k] <= 0) continue;
+      if (!allow.some(r => X >= r[0] && X < r[2] && Y >= r[1] && Y < r[3])) { a[k] = 0; continue; }
+      if (a[k] > 0.02) { if (i < i0) i0 = i; if (i > i1) i1 = i; if (j < j0) j0 = j; if (j > j1) j1 = j; }
+    }
+  }
+  if (i1 < 0) return null;
+  i0 = Math.floor(i0 / up) * up; j0 = Math.floor(j0 / up) * up; i1 = Math.min(lw, Math.ceil((i1 + 1) / up) * up); j1 = Math.min(lh, Math.ceil((j1 + 1) / up) * up);
+  const nw = i1 - i0, nh = j1 - j0, rgb = new Float32Array(nw * nh * 3), na = new Float32Array(nw * nh);
+  for (let j = 0; j < nh; j++) for (let i = 0; i < nw; i++) { const s = (j + j0) * lw + i + i0, d = j * nw + i; na[d] = a[s]; rgb[d * 3] = L.rgb[s * 3]; rgb[d * 3 + 1] = L.rgb[s * 3 + 1]; rgb[d * 3 + 2] = L.rgb[s * 3 + 2]; }
+  return { ...L, rgb, a: na, lw: nw, lh: nh, x: L.x + i0 / up, y: L.y + j0 / up, w: nw / up, h: nh / up };
+}
+// רקע נקי לשכבת הלוח: ממלאים את חורי הטקסט רק מתוך פנים הלוח (לא מהתמונה שמחוצה לו), כדי שהסרט שחוצה את השפה לא ישאיר שם צבעי רקע
+function panelClean(clean, img, holes, e, inner) {
+  const [x0, y0, x1, y1] = e.px[0] === undefined ? inner : [e.px[0], e.px[1], e.px[0] + e.px[2], e.px[1] + e.px[3]];
+  const W = img.w, cw = x1 - x0, ch = y1 - y0, crop = cropImg(img, x0, y0, x1, y1), hc = new Uint8Array(cw * ch);
+  for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) if (holes[(y + y0) * W + x + x0]) hc[y * cw + x] = 1;
+  const f = msFill(crop, hc), out = { w: clean.w, h: clean.h, c: 3, d: clean.d.slice() };
+  for (let y = 0; y < ch; y++) out.d.set(f.d.subarray(y * cw * 3, (y + 1) * cw * 3), ((y + y0) * W + x0) * 3);
+  for (let i = 0; i < out.d.length; i++) out.d[i] = clp(out.d[i], 0, 255);
+  return out;
+}
+
 function buildScene(img, elements, onProgress) {
   const W = img.w, H = img.h, tell = m => onProgress && onProgress(m);
   const els = [];
@@ -1357,6 +1508,7 @@ function buildScene(img, elements, onProgress) {
       }
     }
   }
+  addPanels(img, els); // טקסט על לוח מובחן: הלוח + הטקסט = כרטיס אחד
   const leaves = [], holes = new Uint8Array(W * H);
   tell('חותך את הטקסטים…');
   for (const e of els) {
@@ -1368,8 +1520,9 @@ function buildScene(img, elements, onProgress) {
       const ix = Math.min(ox + ow, ex0 + ew) - Math.max(ox, ex0), iy = Math.min(oy + oh, ey0 + eh) - Math.max(oy, ey0);
       return ix > 0 && iy > 0 && ix * iy > 0.6 * ow * oh && ow * oh < 0.5 * ew * eh ? Object.assign(o.px.slice(), { solid: true }) : o.px;
     });
-    const L = textLayer(img, e.px, e.role === 'button' ? 2 : Math.max(1, e.lines.length), 4, e.role === 'button', !!e.bullet, holes, others, { side: ['caption', 'body', 'subheadline'].includes(e.role), below: ['caption', 'body', 'subheadline'].includes(e.role) && e.lines.length > 1 });
+    let L = textLayer(img, e.px, e.role === 'button' ? 2 : Math.max(1, e.lines.length), 4, e.role === 'button', !!e.bullet, holes, others, { side: ['caption', 'body', 'subheadline'].includes(e.role), below: ['caption', 'body', 'subheadline'].includes(e.role) && e.lines.length > 1 });
     if (!L) continue;
+    if (e.panelAllow) { L = clipLayerTo(L, e.panelAllow); if (!L) continue; }
     if (['caption', 'body', 'label'].includes(e.role)) { // פס רקע שנחתך במקום אותיות: שורה שכמעט כולה אטומה
       let rm = 0; for (let j = 0; j < L.lh; j++) { let r = 0; for (let i = 0; i < L.lw; i++) { if (L.a[j * L.lw + i] > 0.5) { r++; if (r > rm) rm = r; } else r = 0; } }
       if (rm > 0.4 * L.lw && L.lw > 6 * L.lh) continue;
@@ -1385,10 +1538,10 @@ function buildScene(img, elements, onProgress) {
   for (const e of els) {
     if (e.text) continue;
     if (e.shape === 'circle' && !grad) grad = gradients(clean);
-    const L = graphicLayer(clean, e, grad);
+    const L = graphicLayer(e.panel ? panelClean(clean, img, holes, e) : clean, e, grad);
     if (!L) continue;
     e.layer = L;
-    if (['decor', 'badge'].includes(e.role) && L.w * L.h > 900) { // לוח צבע אחיד מאחורי טקסט: אפשר למתוח אותו מחדש לפי הטקסט
+    if (['decor', 'badge'].includes(e.role) && !e.panel && L.w * L.h > 900) { // לוח צבע אחיד מאחורי טקסט: אפשר למתוח אותו מחדש לפי הטקסט
       let r0 = 0, g0 = 0, b0 = 0, n0 = 0, q = 0;
       const mx = Math.max(2, Math.floor(Math.min(L.w, L.h) * 0.08));
       for (let j = mx; j < L.h - mx; j += 2) for (let i = mx; i < L.w - mx; i += 2) if (L.a[j * L.w + i] > 0.95) { const o = (j * L.w + i) * 3; r0 += L.rgb[o]; g0 += L.rgb[o + 1]; b0 += L.rgb[o + 2]; n0++; }
@@ -1398,7 +1551,7 @@ function buildScene(img, elements, onProgress) {
         if (q / n0 / 3 < 9) e.solid = [Math.round(r0), Math.round(g0), Math.round(b0)];
       }
     }
-    let r = 5; if (['pill', 'rounded', 'rect'].includes(e.shape)) r = Math.floor(Math.min(L.w, L.h) * 0.3); else if (e.shape === 'hero') r = 8;
+    let r = 5; if (['pill', 'rounded', 'rect'].includes(e.shape)) r = Math.floor(Math.min(L.w, L.h) * 0.3); else if (e.shape === 'hero') r = 8; else if (e.panel) r = Math.max(8, Math.round(0.05 * Math.min(L.w, L.h))); // הילה/צל של הלוח מחוץ לשפה: חור הרקע גדול יותר
     const pad = r + 1, mw = L.w + 2 * pad, mh = L.h + 2 * pad, m = new Uint8Array(mw * mh);
     for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) if (L.a[j * L.w + i] * 255 > 10) m[(j + pad) * mw + i + pad] = 1;
     const dm = dilateDisk(m, mw, mh, r);
