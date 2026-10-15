@@ -82,7 +82,7 @@ function resize(src, dw, dh, kind, win) { // win = {x0,y0,w,h}: מחשב רק ח
 
 // ---------------------------------------------------------------- resample איכותי (Lanczos3 + הגבלת הילות + חידוד)
 // כוונון: כל הערכים ניתנים לדריסה דרך globalThis.__SIZY_TUNE (לבדיקות בלבד)
-const TUNE = () => Object.assign({ gamLight: 2.2, gamDark: 1.0, usmPhoto: 1, usmText: 1, upAdapt: 0.7, upAmt: 1.0, esMix: 0.85, esThr: 6, preK: 2.5, gainDn: 0.16, gainCenter: 0.45 }, G.__SIZY_TUNE || {});
+const TUNE = () => Object.assign({ gamLight: 2.2, gamDark: 1.0, usmPhoto: 1, usmText: 1, upAdapt: 0.7, upAmt: 1.0, esMix: 0.85, esThr: 6, preK: 2.5, gainDn: 0.16, gainCenter: 0.45, photoUp: 'easuibpcas', puLen: 2, puNar: 1, puThr: 400, puIter: 6, puLam: 1, puSharp: 0.5 }, G.__SIZY_TUNE || {});
 const S2L = new Float32Array(1024), L2S = new Float32Array(4097);
 for (let i = 0; i < 1024; i++) { const v = i / 1023; S2L[i] = v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }
 for (let i = 0; i <= 4096; i++) { const v = i / 4096; L2S[i] = 255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055); }
@@ -197,6 +197,116 @@ function edgeSmooth(img, dist, mix, thr) {
   }
   return { w, h, c, d: o };
 }
+// ---------------------------------------------------------------- הגדלת תמונות/עיגולים נאמנה (קלאסית, בלי המצאת פרטים)
+// שיטות: easu = דגימה מכוונת-קצה בסגנון AMD FSR1 EASU (גרעין מתוח לאורך הקצה וצר לרוחבו, מוגבל לטווח 2×2 השכנים),
+// rcas = חידוד מותאם-ניגודיות בסגנון FSR1 RCAS/CAS (אונה שלילית שמוגבלת כך שלא יחרוג מהטווח), ibp = back-projection איטרטיבי (עקבי עם המקור).
+// כולן מוגבלות לטווח השכנים, לכן אין הילות. img: c=4 (rgb מוכפל-אלפא + אלפא), ערוצים 0..2 מטופלים.
+function nbRange(src, tw, th, tol) { // טווח min/max של 2×2 (או 3×3) פיקסלי מקור סביב כל פיקסל פלט
+  const { w: sw, h: sh, c } = src, s = src.d, lo = new Float32Array(tw * th * 3), hi = new Float32Array(tw * th * 3);
+  const sx = sw / tw, sy = sh / th, r = tol ? 1 : 0;
+  for (let y = 0; y < th; y++) {
+    const py = (y + 0.5) * sy - 0.5, y0 = Math.floor(py);
+    for (let x = 0; x < tw; x++) {
+      const px = (x + 0.5) * sx - 0.5, x0 = Math.floor(px), o = (y * tw + x) * 3;
+      for (let ch = 0; ch < 3; ch++) {
+        let mn = 1e30, mx = -1e30;
+        for (let j = y0 - r; j <= y0 + 1 + r; j++) { const yy = j < 0 ? 0 : j >= sh ? sh - 1 : j; for (let i = x0 - r; i <= x0 + 1 + r; i++) { const xx = i < 0 ? 0 : i >= sw ? sw - 1 : i, v = s[(yy * sw + xx) * c + ch]; if (v < mn) mn = v; if (v > mx) mx = v; } }
+        lo[o + ch] = mn; hi[o + ch] = mx;
+      }
+    }
+  }
+  return { lo, hi };
+}
+function easuUp(src, tw, th, A) { // A: {len: אורך לאורך הקצה, nar: צמצום לרוחב הקצה, thr: סף חוזק קצה}
+  const { w: sw, h: sh, c } = src, s = src.d, out = new Float32Array(tw * th * c);
+  const Y = new Float32Array(sw * sh); for (let i = 0; i < sw * sh; i++) Y[i] = 0.299 * s[i * c] + 0.587 * s[i * c + 1] + 0.114 * s[i * c + 2];
+  const gx = new Float32Array(sw * sh), gy = new Float32Array(sw * sh);
+  for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+    const xm = x ? x - 1 : 0, xp = x < sw - 1 ? x + 1 : x, ym = y ? y - 1 : 0, yp = y < sh - 1 ? y + 1 : y, i = y * sw + x;
+    gx[i] = (Y[y * sw + xp] - Y[y * sw + xm]) / (xp - xm || 1); gy[i] = (Y[yp * sw + x] - Y[ym * sw + x]) / (yp - ym || 1);
+  }
+  const sx = sw / tw, sy = sh / th, W = new Float32Array(16), I0 = new Int32Array(16), rg = nbRange(src, tw, th, 0);
+  const thr2 = A.thr * A.thr;
+  for (let y = 0; y < th; y++) {
+    const py = (y + 0.5) * sy - 0.5, y0 = Math.floor(py), fy = py - y0;
+    for (let x = 0; x < tw; x++) {
+      const px = (x + 0.5) * sx - 0.5, x0 = Math.floor(px), fx = px - x0;
+      // טנזור מבנה מ-4 הפיקסלים הקרובים (משקל דו-לינארי)
+      let jxx = 0, jxy = 0, jyy = 0;
+      for (let dj = 0; dj < 2; dj++) for (let di = 0; di < 2; di++) {
+        const xx = clp(x0 + di, 0, sw - 1), yy = clp(y0 + dj, 0, sh - 1), i = yy * sw + xx, wb = (di ? fx : 1 - fx) * (dj ? fy : 1 - fy);
+        jxx += wb * gx[i] * gx[i]; jxy += wb * gx[i] * gy[i]; jyy += wb * gy[i] * gy[i];
+      }
+      const tr = jxx + jyy, df = Math.sqrt((jxx - jyy) * (jxx - jyy) + 4 * jxy * jxy), l1 = (tr + df) / 2;
+      const coh = df / (tr + 1e-6), str = l1 / (l1 + thr2), e = coh * str; // 0..1: כמה קצה חד-כיווני
+      // כיוון הגרדיאנט (ניצב לקצה): וקטור עצמי של l1
+      let ux = jxy, uy = l1 - jxx; const un = Math.sqrt(ux * ux + uy * uy);
+      if (un < 1e-9) { ux = 1; uy = 0; } else { ux /= un; uy /= un; }
+      const ka = 1 + A.len * e, kc = 1 / (1 + A.nar * e); // רוחב ליד הקצה: צר; לאורך הקצה: ארוך
+      let sum = 0, t = 0;
+      for (let j = -1; j <= 2; j++) for (let i = -1; i <= 2; i++) {
+        const dx = x0 + i - px, dy = y0 + j - py, across = dx * ux + dy * uy, along = -dx * uy + dy * ux;
+        const d = Math.sqrt((across / kc) * (across / kc) + (along / ka) * (along / ka));
+        let wv = 0; if (d < 2) { if (d < 1e-6) wv = 1; else { const q = Math.PI * d; wv = 2 * Math.sin(q) * Math.sin(q / 2) / (q * q); } }
+        W[t] = wv; I0[t] = clp(y0 + j, 0, sh - 1) * sw + clp(x0 + i, 0, sw - 1); sum += wv; t++;
+      }
+      if (Math.abs(sum) < 1e-6) sum = 1;
+      const o = (y * tw + x) * c;
+      for (let ch = 0; ch < c; ch++) {
+        let acc = 0; for (let q = 0; q < 16; q++) acc += W[q] * s[I0[q] * c + ch];
+        acc /= sum;
+        if (ch < 3) { const lo = rg.lo[(y * tw + x) * 3 + ch], hi = rg.hi[(y * tw + x) * 3 + ch]; acc = acc < lo ? lo : acc > hi ? hi : acc; }
+        out[o + ch] = acc;
+      }
+    }
+  }
+  return { w: tw, h: th, c, d: out };
+}
+// RCAS: חידוד מותאם-ניגודיות על צלב 4-שכנים. sharp = עוצמה (1 ≈ ברירת מחדל של FSR). מוגבל לטווח הצלב כך שאין אוברשוט.
+function rcasSharpen(img, sharp) {
+  const { w, h, c } = img, s = img.d, o = Float32Array.from(s);
+  if (w < 3 || h < 3) return img;
+  for (let y = 0; y < h; y++) {
+    const ym = y ? y - 1 : 0, yp = y < h - 1 ? y + 1 : y;
+    for (let x = 0; x < w; x++) {
+      const xm = x ? x - 1 : 0, xp = x < w - 1 ? x + 1 : x, q = (y * w + x) * c;
+      const pb = (ym * w + x) * c, pd = (y * w + xm) * c, pf = (y * w + xp) * c, ph = (yp * w + x) * c;
+      for (let ch = 0; ch < 3; ch++) {
+        const b = s[pb + ch] / 255, d = s[pd + ch] / 255, e = s[q + ch] / 255, f = s[pf + ch] / 255, hh = s[ph + ch] / 255;
+        const mn = Math.min(b, d, f, hh), mx = Math.max(b, d, f, hh);
+        const hitMin = mn / (4 * mx + 1e-6), hitMax = (1 - mx) / (4 * mn - 4 - 1e-6);
+        let lobe = Math.max(-hitMin, hitMax); lobe = Math.max(-0.1875, Math.min(lobe, 0)) * sharp;
+        let v = (lobe * (b + d + f + hh) + e) / (4 * lobe + 1);
+        const lo = Math.min(mn, e), hi = Math.max(mx, e); v = v < lo ? lo : v > hi ? hi : v;
+        o[q + ch] = v * 255;
+      }
+    }
+  }
+  return { w, h, c, d: o };
+}
+// back-projection איטרטיבי: מתקן את ההגדלה כך שהקטנה שלה תחזור למקור (עקבי עם הנתונים; לא ממציא פרטים), בהגבלת טווח
+function ibpUp(src, x, iters, lam, tol) {
+  const tw = x.w, th = x.h, c = x.c, rg = nbRange(src, tw, th, tol);
+  let cur = x;
+  for (let k = 0; k < iters; k++) {
+    const dn = resize(cur, src.w, src.h, 'area'), res = { w: src.w, h: src.h, c, d: new Float32Array(src.d.length) };
+    for (let i = 0; i < res.d.length; i++) res.d[i] = src.d[i] - dn.d[i];
+    const up = resize(res, tw, th, 'cubic'), nd = new Float32Array(cur.d.length);
+    for (let i = 0; i < nd.length; i++) nd[i] = cur.d[i] + lam * up.d[i];
+    for (let i = 0; i < tw * th; i++) for (let ch = 0; ch < 3; ch++) { const v = nd[i * c + ch], lo = rg.lo[i * 3 + ch], hi = rg.hi[i * 3 + ch]; nd[i * c + ch] = v < lo ? lo : v > hi ? hi : v; }
+    cur = { w: tw, h: th, c, d: nd };
+  }
+  return cur;
+}
+// נקודת כניסה: pm = מקור (c=4, מוכפל-אלפא, sRGB), r = תוצאת Lanczos מוגבל בגודל היעד. מחזיר תמונה חדשה או null (= להשאיר את הנתיב הקיים)
+function photoUpscale(pm, tw, th, r, T) {
+  const m = T.photoUp; if (!m || m === 'cur') return null;
+  let x = r;
+  if (m.indexOf('easu') >= 0) x = easuUp(pm, tw, th, { len: T.puLen, nar: T.puNar, thr: T.puThr });
+  if (m.indexOf('ibp') >= 0) x = ibpUp(pm, x, T.puIter, T.puLam, 1);
+  if (m.indexOf('cas') >= 0) x = rcasSharpen(x, T.puSharp);
+  return x;
+}
 // שכבה (rgb ישר 0..255 + אלפא) → גודל יעד. מחזיר { a: Float32Array, rgb: Float32Array (ישר, sRGB) }
 function resampleLayer(L, tw, th, isText) {
   const T = TUNE(), n = L.lw * L.lh, sc = Math.sqrt(n / (tw * th)), down = sc > 1.0001, same = tw === L.lw && th === L.lh;
@@ -243,14 +353,15 @@ function resampleLayer(L, tw, th, isText) {
   const pm = { w: L.lw, h: L.lh, c: 4, d: new Float32Array(n * 4) };
   const lin = down;
   for (let i = 0; i < n; i++) { const al = L.a[i]; for (let k = 0; k < 3; k++) pm.d[i * 4 + k] = (lin ? toLin(L.rgb[i * 3 + k]) : L.rgb[i * 3 + k]) * al; pm.d[i * 4 + 3] = al; }
-  const r = same ? pm : resizeLim(pm, tw, th), N = tw * th;
+  const r0 = same ? pm : resizeLim(pm, tw, th), N = tw * th;
+  const pu = (!same && !down) ? photoUpscale(pm, tw, th, r0, T) : null, r = pu || r0;
   let sp = { w: tw, h: th, c: 4, d: new Float32Array(N * 4) };
   for (let i = 0; i < N; i++) {
     const al = clp(r.d[i * 4 + 3], 0, 1); sp.d[i * 4 + 3] = al;
     const inv = al > 1e-4 ? 1 / al : 0;
     for (let k = 0; k < 3; k++) sp.d[i * 4 + k] = (lin ? fromLin(r.d[i * 4 + k] * inv) : clp(r.d[i * 4 + k] * inv, 0, 255)) * al;
   }
-  if (!same) sp = down ? usmLum(sp, T.usmPhoto * Math.min(1.4, 0.45 + 0.5 * Math.log2(sc)), 0)
+  if (!same && !pu) sp = down ? usmLum(sp, T.usmPhoto * Math.min(1.4, 0.45 + 0.5 * Math.log2(sc)), 0)
     : usmLum(sc < 0.8 && T.esMix ? edgeSmooth(sp, clp(0.8 / sc, 1, 3), T.esMix, T.esThr) : sp, T.usmPhoto * T.upAmt, T.upAdapt);
   const a = new Float32Array(N), rgb = new Float32Array(N * 3);
   for (let i = 0; i < N; i++) {
@@ -1941,5 +2052,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
