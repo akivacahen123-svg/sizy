@@ -2167,6 +2167,7 @@ function readableRows(units, W, H, sc, ctx) {
   // מגדילים עד קריאות; אם אי אפשר, מוותרים (הכי פחות חשוב)
   const isFine = u => u.kids.every(k => k.text && ['caption', 'body', 'label'].includes(k.role)) && u.h < 0.2 * sc.H && u.y + u.h / 2 > 0.85 * sc.H;
   for (const u0 of units.filter(isFine)) {
+    { const r0 = run(cur), e0 = at(r0, u0); if (e0 && minGlyph(r0, u0) >= 0.73 * FINE_GLYPH) continue; } // כבר קריא כמו שהוא: לא נוגעים
     const ids = new Set(u0.kids.map(k => k.id)), orig = sc.units.find(q => q.kids.some(k => ids.has(k.id)));
     let done = false;
     for (const start of orig && orig !== u0 ? [orig, u0] : [u0]) {
