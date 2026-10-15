@@ -341,8 +341,9 @@ function drawText(ctx,it,K){
 function compose(st,K,canvas){
   const Wk=Math.round(st.w*K),Hk=Math.round(st.h*K);canvas.width=Wk;canvas.height=Hk;
   const ctx=canvas.getContext('2d');ctx.imageSmoothingQuality='high';
-  const xs=cached(SC.pcache,'xs'+Wk+'x'+Hk,()=>window.SizyBg.map(SC.W,SC.H,Wk,Hk)||0);
-  if(xs){
+  const xs=st.bgc?0:cached(SC.pcache,'xs'+Wk+'x'+Hk,()=>window.SizyBg.map(SC.W,SC.H,Wk,Hk)||0);
+  if(st.bgc){ctx.drawImage(st.bgc,0,0,Wk,Hk)}
+  else if(xs){
     const tall=cached(SC.pcache,'t'+Hk,()=>scaled(SC.plate,SC.W,Hk));
     for(let u=0;u<Wk;u++){const a=xs[u],b=Math.max(xs[u+1],a+.5);ctx.drawImage(tall,a,0,b-a,Hk,u,0,1,Hk)}
   }else{
@@ -378,8 +379,8 @@ document.addEventListener('keydown',e=>{
   if(t&&(t.tagName==='TEXTAREA'||(t.tagName==='INPUT'&&t.type==='text')))return; // בתיבות טקסט פועל הביטול הרגיל של הדפדפן
   if(k==='z'&&!e.shiftKey){e.preventDefault();activeCard._undo()}else if(k==='y'||(k==='z'&&e.shiftKey)){e.preventDefault();activeCard._redo()}
 });
-function addCard(w,h,placed,slot,idx){
-  const st={w,h,items:placed.map(p=>{let leaf=SC.leaves.get(p.z);if(leaf&&p.layer){const c=mk(p.layer.lw,p.layer.lh);c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(p.layer.rgba),p.layer.lw,p.layer.lh),0,0);leaf={...leaf,canvas:c,lw:p.layer.lw,lh:p.layer.lh,cache:new Map(),frame:null}}return{z:p.z,leaf,x:p.x,y:p.y,w:p.w,h:p.h,o:{x:p.x,y:p.y,w:p.w,h:p.h},hidden:false,tm:null}})};
+function addCard(w,h,placed,slot,idx,bgx){
+  const st={w,h,bgc:(()=>{if(!bgx)return null;const c=mk(bgx.w,bgx.h);c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(bgx.rgba),bgx.w,bgx.h),0,0);return c})(),items:placed.map(p=>{let leaf=SC.leaves.get(p.z);if(leaf&&p.layer){const c=mk(p.layer.lw,p.layer.lh);c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(p.layer.rgba),p.layer.lw,p.layer.lh),0,0);leaf={...leaf,canvas:c,lw:p.layer.lw,lh:p.layer.lh,cache:new Map(),frame:null}}return{z:p.z,leaf,x:p.x,y:p.y,w:p.w,h:p.h,o:{x:p.x,y:p.y,w:p.w,h:p.h},hidden:false,tm:null}})};
   st.items=st.items.filter(i=>i.leaf);
   const d=document.createElement('div');d.className='card res wide';
   d.innerHTML=`<div class="rh"><div class="ttl"><label class="pick" title="בחירה להורדה"><input type="checkbox" checked></label><h3>${w} × ${h}</h3><span class="qa" hidden></span></div><div class="bt"><button class="ghost" data-a="reset">איפוס הכל</button><button class="ghost" data-a="dl">הורדת PNG</button></div></div>
@@ -525,7 +526,7 @@ async function produce(sizes,st,note,label){
   const total=sizes.length,slots=sizes.map(([w,h])=>{const d=skeleton(w,h);$('#out').appendChild(d);return d});
   let done=0,aiFail=false;setProg(0);
   const finish=async i=>{const[w,h]=sizes[i];setSlot(slots[i],'בונה את הבאנר…');
-    const r=await job({type:'place',w,h,plan:plansBy[w+'x'+h]});addCard(w,h,r.items,slots[i],i);done++;setProg(done/total);
+    const r=await job({type:'place',w,h,plan:plansBy[w+'x'+h]});addCard(w,h,r.items,slots[i],i,r.bg);done++;setProg(done/total);
     st.textContent=`מוכנים ${done} מתוך ${total}…`;await tick()};
   const need=[],have=[];sizes.forEach(([w,h],i)=>(units&&!plansBy[w+'x'+h]?need:have).push(i));
   const chunks=[];for(let i=0;i<need.length;i+=8)chunks.push(need.slice(i,i+8));

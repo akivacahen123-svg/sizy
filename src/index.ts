@@ -126,7 +126,8 @@ export default {
     if (pathname.startsWith('/api/')) return json({ error: 'לא נמצא.' }, 404);
     const response = await env.ASSETS.fetch(request);
     const headers = new Headers(response.headers);
-    headers.set('Cache-Control', 'no-store');
+    // קבצי המודל וה-wasm כבדים ולא משתנים: שומרים בדפדפן שבוע (private, כי האתר יכול להיות מאחורי סיסמה)
+    headers.set('Cache-Control', pathname.startsWith('/ort/') || pathname.startsWith('/models/') ? 'private, max-age=604800' : 'no-store');
     headers.set('X-Frame-Options', 'DENY');
     return new Response(response.body, { status: response.status, headers });
   },
