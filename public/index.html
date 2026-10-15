@@ -393,7 +393,8 @@ function addCard(w,h,placed,slot,idx){
   let sels=[],sel=null,raf=0,base=null;
   const dispKK=()=>{const cw=stage.clientWidth||w;return Math.max(.5,Math.min(3,cw/w*Math.max(1,window.devicePixelRatio||1)),Math.min(4e6/(w*h)>1?1:Math.sqrt(4e6/(w*h)),.5))};
   const qaEl=d.querySelector('.qa');
-  const qaNow=()=>window.SizyQA.qaCheck({leaves:SC.leaves},w,h,st.items.filter(i=>!i.hidden).map(i=>[i.leaf,i.x,i.y,i.w,i.h]));
+  const qaPix=()=>{try{const k=Math.min(1,480/Math.max(canvas.width,canvas.height)),c=document.createElement('canvas');c.width=Math.max(1,Math.round(canvas.width*k));c.height=Math.max(1,Math.round(canvas.height*k));const x=c.getContext('2d',{willReadFrequently:true});x.drawImage(canvas,0,0,c.width,c.height);const d=x.getImageData(0,0,c.width,c.height);return{rgba:d.data,w:c.width,h:c.height}}catch(e){return null}};
+  const qaNow=()=>window.SizyQA.qaCheck({leaves:SC.leaves},w,h,st.items.filter(i=>!i.hidden).map(i=>[i.leaf,i.x,i.y,i.w,i.h]),qaPix());
   const qaPaint=()=>{try{const q=qaNow();qaEl.hidden=false;qaEl.className='qa '+q.status;qaEl.textContent=(q.status==='green'?'✓ ':q.status==='orange'?'! ':'✗ ')+window.SizyQA.statusText(q);qaEl.title=q.issues.map(i=>i.textHe).join('\n')||'כל הבדיקות עברו'}catch(e){qaEl.hidden=true}};
   const draw=()=>{raf=0;compose(st,Math.min(dispKK(),Math.sqrt(5e6/(w*h))),canvas);canvas.style.width='100%';canvas.style.maxWidth=w+'px';qaPaint()};
   if(window.ResizeObserver){let lw0=0;new ResizeObserver(()=>{const cw=stage.clientWidth;if(cw&&Math.abs(cw-lw0)>1){lw0=cw;redraw()}}).observe(stage)}

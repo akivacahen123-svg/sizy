@@ -7,6 +7,9 @@ import fs from 'fs'; import path from 'path'; import { fileURLToPath } from 'url
 
 export const DEFAULT_SIZES = '1200x200,1200x60,120x500,300x600,160x600,728x90,300x250,320x70,800x600,290x350,600x1100,895x80'.split(',').map(s => s.split('x').map(Number));
 export const ROLE_WEIGHT = { headline: 10, logo: 8, button: 7, subheadline: 5, badge: 5, photo: 4, body: 3, label: 2, caption: 2, decor: 0.3, hero: 0 };
+// גלאי פיקסלים משותפים עם public/qa.js (ragged / sticker_edge / smear / empty_band): מוסיפים דגלים בלבד, בלי לשנות את הציון
+await import('../public/qa.js');
+function pixelFlags(rgba, W, H, pl, flags, only) { const r = globalThis.SizyQA.pixelCheck({ rgba, w: W, h: H }, W, H, pl); for (const k of Object.keys(r)) if (r[k] && (!only || only.includes(k))) flags.add(k); return r; } // only: במצב עיוור (בלי סצנה) רק ragged אמין; השאר דורשים רשימת אלמנטים אמיתית
 const TEXT_ROLES = new Set(['headline', 'subheadline', 'body', 'caption', 'label']);
 const W_SUB = { legibility: 0.25, sharpness: 0.15, layout: 0.25, dropped: 0.20, fill: 0.15 };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -287,6 +290,7 @@ export function scoreImage(rgba, W, H, orig) {
     dropped: null,
     fill: orig ? fillArtifacts(g, W, H, items.map(i => i.box), og, orig.w, orig.h, oitems.map(i => i.box), flags) : null,
   };
+  pixelFlags(rgba, W, H, items.map(i => [{ id: 'd', role: i.role, text: true, lines: Array(i.nLines).fill('x') }, i.box[0], i.box[1], i.box[2], i.box[3]]), flags, ['ragged']);
   return finish(sub, flags, 'blind');
 }
 function finish(sub, flags, mode) {
@@ -327,6 +331,7 @@ export function scoreScene(sc, pl, rgba, W, H, orig) {
     dropped: droppedScore(orphan, placedIds, flags),
     fill: fillArtifacts(g, W, H, items.filter(i => !i.isPlate && i.role !== 'hero').map(i => i.box), og, orig.w, orig.h, sc.leaves.filter(l => l.role !== 'hero').map(l => [l.x, l.y, l.w, l.h]), flags),
   };
+  pixelFlags(rgba, W, H, pl.filter(e => e[3] >= 1 && e[4] >= 1), flags);
   const r = finish(sub, flags, 'scene');
   r.legDetail = undefined; return r;
 }
