@@ -307,6 +307,90 @@ function photoUpscale(pm, tw, th, r, T) {
   if (m.indexOf('cas') >= 0) x = rcasSharpen(x, T.puSharp);
   return x;
 }
+// ---------------------------------------------------------------- גרפיקה שטוחה (לוגואים): הגדלה "וקטורית"
+// מזהה שכבה שהיא אמנות שטוחה (מעט צבעים דומיננטיים) ומחזיר פלטה, או null. הפלטה נלקחת מהפיקסלים המקוריים בלבד.
+function flatPalette(L) {
+  if (L._flat !== undefined) return L._flat;
+  const n = L.lw * L.lh, S = [], step = Math.max(1, Math.floor(n / 6000));
+  for (let i = 0; i < n; i += step) if (L.a[i] > 0.9) S.push(L.rgb[i * 3], L.rgb[i * 3 + 1], L.rgb[i * 3 + 2]);
+  const m = S.length / 3;
+  if (m < 40 || n < 100) return (L._flat = null);
+  const d2 = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2;
+  const px = i => [S[i * 3], S[i * 3 + 1], S[i * 3 + 2]];
+  let res = null;
+  for (let K = 1; K <= 8 && !res; K++) {
+    // farthest-point init + Lloyd
+    let cen = [px(0)]; { let mean = [0, 0, 0]; for (let i = 0; i < m; i++) { mean[0] += S[i * 3]; mean[1] += S[i * 3 + 1]; mean[2] += S[i * 3 + 2]; } mean = mean.map(v => v / m); let bi = 0, bd = 1e30; for (let i = 0; i < m; i++) { const d = d2(px(i), mean); if (d < bd) { bd = d; bi = i; } } cen = [px(bi)]; }
+    while (cen.length < K) { let bi = 0, bd = -1; for (let i = 0; i < m; i++) { let dm = 1e30; for (const c of cen) dm = Math.min(dm, d2(px(i), c)); if (dm > bd) { bd = dm; bi = i; } } cen.push(px(bi)); }
+    for (let it = 0; it < 6; it++) {
+      const acc = cen.map(() => [0, 0, 0, 0]);
+      for (let i = 0; i < m; i++) { let bk = 0, bd = 1e30; for (let k = 0; k < K; k++) { const d = d2(px(i), cen[k]); if (d < bd) { bd = d; bk = k; } } const q = acc[bk]; q[0] += S[i * 3]; q[1] += S[i * 3 + 1]; q[2] += S[i * 3 + 2]; q[3]++; }
+      cen = cen.map((c, k) => acc[k][3] ? [acc[k][0] / acc[k][3], acc[k][1] / acc[k][3], acc[k][2] / acc[k][3]] : c);
+    }
+    let fc = 0, fe = 0;
+    for (let i = 0; i < m; i++) {
+      const c = px(i); let dm = 1e30; for (const q of cen) dm = Math.min(dm, d2(c, q));
+      if (dm < 22 * 22) { fc++; fe++; continue; }
+      let ok = false;
+      for (let a = 0; a < K && !ok; a++) for (let b = a + 1; b < K && !ok; b++) { const r = segRes(c, cen[a], cen[b]); if (r[0] < 12) ok = true; }
+      if (ok) fe++;
+    }
+    if (fe / m >= 0.93 && fc / m >= 0.55) res = cen;
+  }
+  if (res) { // מאחדים צבעים קרובים מדי
+    const out = []; for (const c of res) if (!out.some(o => d2(o, c) < 14 * 14)) out.push(c); res = out;
+  }
+  return (L._flat = res ? { pal: res } : null);
+}
+// שארית (מרחק) ופרמטר t של צבע c מול הקטע a–b
+function segRes(c, a, b) {
+  const vx = b[0] - a[0], vy = b[1] - a[1], vz = b[2] - a[2], vv = vx * vx + vy * vy + vz * vz;
+  let t = vv > 1e-6 ? ((c[0] - a[0]) * vx + (c[1] - a[1]) * vy + (c[2] - a[2]) * vz) / vv : 0; t = t < 0 ? 0 : t > 1 ? 1 : t;
+  return [Math.hypot(c[0] - a[0] - t * vx, c[1] - a[1] - t * vy, c[2] - a[2] - t * vz), t];
+}
+// התאמת אלפא עם קצה חד כמו וקטור: החלקה (מבטלת מדרגות) ואז שיפוע
+function steepenPlane(a, sg, g, ctr) {
+  if (sg > 0.2) a = blur(a, sg);
+  for (let i = 0; i < a.d.length; i++) a.d[i] = clp((a.d[i] - ctr) * g + ctr, 0, 1);
+  return a;
+}
+// הגדלה של שכבת אמנות שטוחה: Lanczos מוגבל → שיוך כל פיקסל לפלטה (חלוקה לקטעי צבע) → החלקה + חידוד של שדות השיוך.
+// התוצאה: אזורים שטוחים נקיים וקצוות חדים בלי הילות (צבעי הפלטה הם צבעים מהמקור). opt: sg (מקדם החלקה), gm (חידוד), ag (חידוד אלפא)
+function flatArtUp(L, tw, th, opt) {
+  const o = Object.assign({ sg: 0.25, gm: 1.2, ag: 1.0, ctr: 0.5, usm: 0.5 }, opt || {}), pal = L._flat.pal, K = pal.length, n = L.lw * L.lh;
+  const pm = { w: L.lw, h: L.lh, c: 4, d: new Float32Array(n * 4) };
+  for (let i = 0; i < n; i++) { const al = L.a[i]; pm.d[i * 4] = L.rgb[i * 3] * al; pm.d[i * 4 + 1] = L.rgb[i * 3 + 1] * al; pm.d[i * 4 + 2] = L.rgb[i * 3 + 2] * al; pm.d[i * 4 + 3] = al; }
+  const r = resizeLim(pm, tw, th), N = tw * th, up = Math.sqrt(N / n);
+  const A = { w: tw, h: th, c: 1, d: new Float32Array(N) }, U = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) { const al = clp(r.d[i * 4 + 3], 0, 1); A.d[i] = al; const inv = al > 1e-4 ? 1 / al : 0; for (let k = 0; k < 3; k++) U[i * 3 + k] = clp(r.d[i * 4 + k] * inv, 0, 255); }
+  const sg = clp(o.sg * up, 0.4, 1.6), g = clp((2.0 * sg + 0.9) * o.gm, 1, 6);
+  // שיוך לפלטה
+  const M = { w: tw, h: th, c: K + 1, d: new Float32Array(N * (K + 1)) }, wt = new Float32Array(N), c3 = [0, 0, 0];
+  for (let i = 0; i < N; i++) {
+    c3[0] = U[i * 3]; c3[1] = U[i * 3 + 1]; c3[2] = U[i * 3 + 2];
+    let bi = 0, bj = 0, bt = 0, br = 1e30;
+    if (K === 1) { br = Math.hypot(c3[0] - pal[0][0], c3[1] - pal[0][1], c3[2] - pal[0][2]); }
+    else for (let a = 0; a < K; a++) for (let b = a + 1; b < K; b++) { const q = segRes(c3, pal[a], pal[b]); if (q[0] < br) { br = q[0]; bi = a; bj = b; bt = q[1]; } }
+    wt[i] = clp((22 - br) / 10, 0, 1); // נאמן לפלטה כשהשארית קטנה, אחרת משאירים את הצבע המוגדל
+    const al = A.d[i], q = i * (K + 1);
+    M.d[q + bi] = (1 - bt) * al; if (bj !== bi) M.d[q + bj] = bt * al; M.d[q + K] = al;
+  }
+  const Mb = blur(M, sg), Ab = Mb, rgb = new Float32Array(N * 3);
+  const gi = g;
+  for (let i = 0; i < N; i++) {
+    const q = i * (K + 1), den = Ab.d[q + K];
+    if (den < 1e-3 || wt[i] <= 0) { for (let k = 0; k < 3; k++) rgb[i * 3 + k] = U[i * 3 + k]; continue; }
+    let sum = 0; const mm = [];
+    for (let k = 0; k < K; k++) { const v = Math.pow(Math.max(Mb.d[q + k] / den, 0) + 1e-6, gi); mm.push(v); sum += v; }
+    let c0 = 0, c1 = 0, c2 = 0; for (let k = 0; k < K; k++) { const v = mm[k] / sum; c0 += v * pal[k][0]; c1 += v * pal[k][1]; c2 += v * pal[k][2]; }
+    const w = wt[i];
+    rgb[i * 3] = U[i * 3] + w * (c0 - U[i * 3]); rgb[i * 3 + 1] = U[i * 3 + 1] + w * (c1 - U[i * 3 + 1]); rgb[i * 3 + 2] = U[i * 3 + 2] + w * (c2 - U[i * 3 + 2]);
+  }
+  const a2 = o.ag ? steepenPlane(A, sg, clp(g * o.ag, 1, 6), o.ctr) : A;
+  let out = { a: a2.d, rgb };
+  if (o.usm) { const t = { w: tw, h: th, c: 3, d: rgb }; out = { a: a2.d, rgb: usmLum(t, o.usm, 0).d }; }
+  return out;
+}
 // שכבה (rgb ישר 0..255 + אלפא) → גודל יעד. מחזיר { a: Float32Array, rgb: Float32Array (ישר, sRGB) }
 function resampleLayer(L, tw, th, isText) {
   const T = TUNE(), n = L.lw * L.lh, sc = Math.sqrt(n / (tw * th)), down = sc > 1.0001, same = tw === L.lw && th === L.lh;
@@ -349,6 +433,7 @@ function resampleLayer(L, tw, th, isText) {
     }
     return { a: a.d, rgb };
   }
+  if (!T.faOff && !same && sc < 0.999 && flatPalette(L)) return flatArtUp(L, tw, th, T.fa); // אמנות שטוחה (לוגו): הגדלה וקטורית
   // גרפיקה/תמונה: premult באור לינארי (gamma-correct), חידוד ב-sRGB עם הגבלת הילות
   const pm = { w: L.lw, h: L.lh, c: 4, d: new Float32Array(n * 4) };
   const lin = down;
@@ -2052,5 +2137,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
