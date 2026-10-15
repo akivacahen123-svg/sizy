@@ -32,7 +32,16 @@ HIERARCHY LEARNED FROM 14 REAL HUMAN RESIZES (measured, follow it):
 - Reading order: context (logo or subheadline) -> headline -> proof (photos) -> call to action. The button always comes AFTER the headline, at the bottom (or at the end of the row), never above it.
 - Wide banners (about 2.5:1 to 4.2:1) use three zones: the headline block in the centre, a gallery at one edge, logo with the button UNDER it at the other edge. Very thin strips use one row, everything vertically centred.
 - If something would become too small (e.g. photo circles), re-arrange it (2x2) or drop it; do not shrink it.
-- Keep the same order of importance in every size; only the arrangement changes.`;
+- Keep the same order of importance in every size; only the arrangement changes.
+
+PHOTOGRAPHIC BANNERS WITH A PERSON, LEARNED FROM 19 HUMAN SIZES OF ONE CAMPAIGN (measured):
+- Fill the frame. Humans make the headline panel, the button and the prize strip about 1.25x larger (linear) than a cautious resize; empty photo areas are fine, tiny elements are not.
+- Tall and square (aspect under 1.2): the person stands at the left edge, cropped by the frame; the headline panel is big on the right, the main button right under it, the prize strip full width at the bottom, the small logo at the top corner. DROP fine print and any small circle badge here.
+- Wide (aspect 2.4 and up, height 200 or more): three zones. Right = headline panel (the largest). Centre = the person. Left = the button on top and the prize strip under it, the logo in the top-left corner, the small circle badge in the bottom-left corner. Keep the fine print only when the width is at least 750 and the height at least 200.
+- Thin strips (height 80 or less): the headline becomes ONE line with the small tag above its right end; the person at an edge; only the button (and at 1200x60 the prize strip) next to it. No fine print, no badge, no logo unless it is a tiny corner mark.
+- Very small cells (height 70 or less, or under 300x170): keep ONLY the headline and the person. The button shrinks to a round icon with the chevron, never to a tiny pill.
+- A size can be a different composition: when the headline cannot be read at that size, make the offer/prize strip the hero and drop the person and headline.
+- Extremely narrow tall (width 120): stack everything in one column: headline panel, button, person, prize. No logo.`;
 
 export function cleanPlans(raw: any, sizes: number[][], unitIds: Set<string>): Plan[] {
   const out: Plan[] = [];
