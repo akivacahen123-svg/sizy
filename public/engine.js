@@ -968,6 +968,7 @@ function ringDiff(clean, box, pad) {
 }
 function graphicLayer(clean, e, grad) {
   const W = clean.w, H = clean.h;
+  if (e.matte) { const LM = matteLayer(clean, e); if (LM) return LM; }
   let [x, y, w, h] = e.px;
   let shape = e.shape;
   if (shape === 'circle') {
@@ -1018,7 +1019,75 @@ function graphicLayer(clean, e, grad) {
     const f = shape === 'hero' ? Math.max(28, Math.min(w, h) * 0.1) : 3;
     for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) a[j * w + i] = clp(Math.min(i, j, w - 1 - i, h - 1 - j) / f, 0, 1);
   }
-  return { rgb: crop.d, a, lw: w, lh: h, up: 1, x, y, w, h, rectHero: shape === 'hero' };
+  const LL = { rgb: crop.d, a, lw: w, lh: h, up: 1, x, y, w, h, rectHero: shape === 'hero' };
+  if (shape === 'free' && e.role !== 'hero' && e.role !== 'logo') trimBorderBg(clean, LL);
+  return LL;
+}
+
+// ---- שוליים רכים / מט לתמונה צפה (לא נוגעת בקצה הקנבס)
+const softEdge = v => { v = clp(v, 0, 1); return v * v * (3 - 2 * v); };
+// צבע השוליים (אלפא חלקית) מוחלף בצבע הקרוב מבפנים כדי שלא תישאר הילה מהרקע המקורי
+function decontaminate(rgb, a, w, h, thr = 0.95, iters = 4) {
+  const known = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) known[i] = a[i] >= thr ? 1 : 0;
+  for (let it = 0; it < iters; it++) {
+    const nk = known.slice(), upd = [];
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const k = j * w + i; if (known[k]) continue;
+      let r = 0, g = 0, b = 0, n = 0;
+      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
+        const x = i + di, y = j + dj; if (x < 0 || y < 0 || x >= w || y >= h) continue;
+        const q = y * w + x; if (!known[q]) continue; r += rgb[q * 3]; g += rgb[q * 3 + 1]; b += rgb[q * 3 + 2]; n++;
+      }
+      if (n) upd.push(k, r / n, g / n, b / n);
+    }
+    for (let t = 0; t < upd.length; t += 4) { const k = upd[t]; rgb[k * 3] = upd[t + 1]; rgb[k * 3 + 1] = upd[t + 2]; rgb[k * 3 + 2] = upd[t + 3]; nk[k] = 1; }
+    known.set(nk);
+  }
+}
+// תג/סרט/פס פרסים בצורה חופשית: מוחקים מהשוליים כל מה שדומה (בצבע) לרקע שמסביב ומחובר לשפה, בעומק מוגבל,
+// כדי שלא יישארו פסי רקע מקוריים (פס סגול, שיחים) סביב התג. הצורה הפנימית לא נוגעים בה.
+function trimBorderBg(clean, L, tol = 16) {
+  const W = clean.w, H = clean.h, { lw: w, lh: h, x, y } = L, a = L.a, D = clean.d;
+  if (w < 24 || h < 16) return;
+  const m = 3, step = Math.max(1, Math.floor((w + h) / 40)), side = [[], [], [], []]; // l, r, t, b: דגימות הרקע שמחוץ לכל צלע בנפרד
+  const take = (k, px, py) => { if (px < 0 || py < 0 || px >= W || py >= H) return; const o = (py * W + px) * 3; side[k].push(D[o], D[o + 1], D[o + 2]); };
+  for (let i = 0; i < w; i += step) { take(2, x + i, y - m); take(3, x + i, y + h + m - 1); }
+  for (let j = 0; j < h; j += step) { take(0, x - m, y + j); take(1, x + w + m - 1, y + j); }
+  const inn = [], ix0 = Math.floor(w * 0.25), ix1 = Math.ceil(w * 0.75), iy0 = Math.floor(h * 0.25), iy1 = Math.ceil(h * 0.75);
+  for (let j = iy0; j < iy1; j += 2) for (let i = ix0; i < ix1; i += 2) { const o = (j * w + i) * 3; inn.push(L.rgb[o], L.rgb[o + 1], L.rgb[o + 2]); }
+  const dist = (o, arr) => { let bd = 1e9; for (let t = 0; t < arr.length; t += 3) { const d = Math.max(Math.abs(L.rgb[o] - arr[t]), Math.abs(L.rgb[o + 1] - arr[t + 1]), Math.abs(L.rgb[o + 2] - arr[t + 2])); if (d < bd) bd = d; } return bd; };
+  const like = new Uint8Array(w * h), cap = Math.max(3, Math.round(Math.min(w, h) * 0.22));
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const dl = i, dr = w - 1 - i, dt = j, db = h - 1 - j, dm = Math.min(dl, dr, dt, db); if (dm > cap) continue;
+    const k = dm === dl ? 0 : dm === dr ? 1 : dm === dt ? 2 : 3, sm = side[k]; if (sm.length < 12) continue;
+    const o = (j * w + i) * 3, db0 = dist(o, sm);
+    if (db0 < tol && db0 + 6 < dist(o, inn)) like[j * w + i] = 1; // דומה לרקע שבצד הזה, ורחוק יותר מתוכן התג עצמו
+  }
+  const out = new Uint8Array(w * h), st = [];
+  const push = (i, j) => { const k = j * w + i; if (like[k] && !out[k]) { out[k] = 1; st.push(k); } };
+  for (let i = 0; i < w; i++) { push(i, 0); push(i, h - 1); } for (let j = 0; j < h; j++) { push(0, j); push(w - 1, j); }
+  while (st.length) { const k = st.pop(), i = k % w, j = (k / w) | 0; if (i > 0) push(i - 1, j); if (i < w - 1) push(i + 1, j); if (j > 0) push(i, j - 1); if (j < h - 1) push(i, j + 1); }
+  let n = 0; for (let k = 0; k < w * h; k++) n += out[k];
+  if (n > 0.4 * w * h || n < 6) return;
+  const f = new Float32Array(w * h); for (let k = 0; k < w * h; k++) f[k] = out[k];
+  const sm = new Float32Array(w * h); // מרככים את המסכה (קצה אנטי-אליאס); בלי הרחבה כדי לא לאכול את התג
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) { let t = 0; for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const xx = clp(i + di, 0, w - 1), yy = clp(j + dj, 0, h - 1); t += f[yy * w + xx]; } sm[j * w + i] = t / 9; }
+  for (let k = 0; k < w * h; k++) a[k] *= 1 - sm[k];
+}
+// שכבה מתוך מט מוכן (e.matte, ראה public/matte.js): חיתוך הדוק לצורה, בלי מלבן הרקע
+function matteLayer(clean, e) {
+  const m = e.matte, W = clean.w, H = clean.h; if (!m || !m.a || m.a.length !== m.w * m.h) return null;
+  let x0 = m.w, y0 = m.h, x1 = -1, y1 = -1;
+  for (let j = 0; j < m.h; j++) for (let i = 0; i < m.w; i++) if (m.a[j * m.w + i] > 40) { if (i < x0) x0 = i; if (i > x1) x1 = i; if (j < y0) y0 = j; if (j > y1) y1 = j; }
+  if (x1 - x0 < 8 || y1 - y0 < 8) return null;
+  const X = clp(m.x0 + x0 - 1, 0, W - 4), Y = clp(m.y0 + y0 - 1, 0, H - 4), w = Math.min(x1 - x0 + 3, W - X), h = Math.min(y1 - y0 + 3, H - Y);
+  const crop = cropImg(clean, X, Y, X + w, Y + h), a = new Float32Array(w * h);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const mx = X + i - m.x0, my = Y + j - m.y0;
+    a[j * w + i] = mx >= 0 && my >= 0 && mx < m.w && my < m.h ? m.a[my * m.w + mx] / 255 : 0;
+  }
+  decontaminate(crop.d, a, w, h);
+  return { rgb: crop.d, a, lw: w, lh: h, up: 1, x: X, y: Y, w, h, rectHero: false, matted: true };
 }
 
 // ---- תמונה ראשית (hero): חיתוך "cover" לחלון עם הכי הרבה פרטים, והצמדה לקצה הקנבס בלי הילה רכה
@@ -1043,14 +1112,14 @@ function heroWindow(L, tw, th) {
 }
 // שכבת hero חדשה מחלון חיתוך. bleed = הצדדים שנוגעים בקצה הקנבס (אלפא מלא); בשאר הצדדים שוליים חדים (פיזור קטן)
 function heroVariant(hero, win, bleed) {
-  const kid = hero.kids[0], L = kid.layer, { x: wx, y: wy, w, h } = win, rgb = new Float32Array(w * h * 3), a = new Float32Array(w * h), f = Math.max(2, 0.02 * Math.min(w, h));
+  const kid = hero.kids[0], L = kid.layer, { x: wx, y: wy, w, h } = win, rgb = new Float32Array(w * h * 3), a = new Float32Array(w * h), f = Math.max(4, 0.08 * Math.min(w, h)); // צדדים שלא נוגעים בקצה: שוליים רכים ~8% מהצלע הקצרה (smoothstep), לא קו חד
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const si = (wy + j) * L.lw + wx + i, di = j * w + i;
     rgb[di * 3] = L.rgb[si * 3]; rgb[di * 3 + 1] = L.rgb[si * 3 + 1]; rgb[di * 3 + 2] = L.rgb[si * 3 + 2];
     let v = 1;
     if (!bleed.l) v = Math.min(v, (i + 0.5) / f); if (!bleed.r) v = Math.min(v, (w - i - 0.5) / f);
     if (!bleed.t) v = Math.min(v, (j + 0.5) / f); if (!bleed.b) v = Math.min(v, (h - j - 0.5) / f);
-    a[di] = clp(v, 0, 1);
+    a[di] = softEdge(v);
   }
   return { ...hero, kids: [{ ...kid, layer: { ...L, rgb, a, lw: w, lh: h, w, h, x: 0, y: 0, _en: null, _uni: null }, x: 0, y: 0, w, h }], x: 0, y: 0, w, h, rel: null };
 }
@@ -1406,7 +1475,7 @@ function buildScene(img, elements, onProgress) {
     let isText = TEXT_ROLES.has(role) || (lines.length > 0 && role !== 'button');
     const shape = e.shape || { photo: 'circle', button: 'pill', hero: 'hero', logo: 'free' }[role] || 'free';
     if (role === 'button' && e.style === 'outline') isText = true;
-    els.push({ id: e.id || 'e' + i, role, lines, text: isText, shape, group: role === 'hero' ? null : (e.group || null), px: [x1, y1, x2 - x1, y2 - y1], z: i, bullet: e.bullet || null, phrases: e.phrases || null });
+    els.push({ id: e.id || 'e' + i, role, lines, text: isText, shape, group: role === 'hero' ? null : (e.group || null), px: [x1, y1, x2 - x1, y2 - y1], z: i, bullet: e.bullet || null, phrases: e.phrases || null, matte: e.matte || null });
   });
   // תיבות טקסט שחופפות (הזיהוי חתך אותו כיתוב לשני חלקים): מאחדים לתיבה אחת
   for (let i = 0; i < els.length; i++) for (let j = els.length - 1; j > i; j--) {

@@ -65,3 +65,11 @@ Input 187x133 (~25k px): cunet 447ms, upconv_7 356ms, swin_unet_art 1051ms, Real
 
 ## Reproduce
 Files: `prep.py` (crops -> downscaled raw), `run.mjs` (onnxruntime-node runner, `models.example.json` lists models; paths point to the extracted archives), `eval.py` (metrics + zoom PNGs into `out/`), `convert_realesrgan.py`. `npm install --no-save --ignore-scripts onnxruntime-node` inside bench/neural (the postinstall CUDA download is blocked by the proxy and not needed for CPU). Model files and node_modules are not committed.
+
+---
+
+# Person/hero matte (added with d-edges)
+
+- Tested on the gold-jacket man from `bench/exemplars/dreams`: **u2netp.onnx** (U^2-Net small, Apache-2.0, 4.6MB, https://github.com/danielgatis/rembg/releases/download/v0.0.0/u2netp.onnx) gives a clean cut-out (~0.4s CPU at 320x320). u2net_human_seg (176MB) is no better. OpenCV GrabCut (classical) fails: gold jacket vs sunset city is lost, so no classical matte is shipped.
+- Engine side is ready: `public/matte.js` (`SizyMatte.attach(img, elements, runModel)`) sets `e.matte` on floating hero elements; `buildScene` passes it through and `graphicLayer` uses it (`matteLayer`). Node prototype runner: `bench/neural/matte_node.mjs` (needs `npm i --no-save --ignore-scripts onnxruntime-node` here).
+- Not wired into the live worker. To ship: onnxruntime-web (MIT, wasm ~10MB) + u2netp as static assets (both under 25MiB), lazy-loaded; in `worker.js` `await SizyMatte.attach(...)` before `buildScene` in the 'build' handler with a `runModel` that runs the ort-web session and returns the first output (320x320 floats). Without the model the engine falls back to soft-feathered rectangles.
