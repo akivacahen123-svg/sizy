@@ -44,7 +44,7 @@ function qaCheck(sc, W, H, placement, pix) {
   }
   if (worst) add('overlap');
 
-  const ids = new Set(content.map(e => e[0].id));
+  const ids = new Set(content.flatMap(e => [e[0].id, ...(e[0].absorbs || [])])); // לוח כותרת שנחתך יחד עם הטקסט שלו
   const orig = leaves.filter(l => l.role !== 'hero' && l.role !== 'decor');
   m.droppedRoles = orig.filter(l => !ids.has(l.id)).map(l => l.role);
   if (leaves.some(l => l.role === 'headline' && !ids.has(l.id))) add('headline_missing');

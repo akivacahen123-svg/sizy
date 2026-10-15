@@ -306,7 +306,7 @@ export function scoreScene(sc, pl, rgba, W, H, orig) {
   for (const [leaf, x, y, w, h] of pl) {
     if (w < 1 || h < 1) continue;
     const nl = Math.max(1, (leaf.lines || [1]).length), pitch = h / nl;
-    const it = { id: leaf.id, role: leaf.role, text: !!leaf.text, isPlate: !!leaf.isPlate, box: [x, y, w, h], nLines: nl, glyphH: 0.82 * pitch, reflowed: !!leaf.reflowed, orig: [leaf.x, leaf.y, leaf.w, leaf.h], layer: leaf.layer };
+    const it = { id: leaf.id, role: leaf.role, text: !!leaf.text, isPlate: !!leaf.isPlate, box: [x, y, w, h], nLines: nl, glyphH: 0.82 * pitch, reflowed: !!leaf.reflowed, absorbs: leaf.absorbs, orig: [leaf.x, leaf.y, leaf.w, leaf.h], layer: leaf.layer };
     if (it.text) { // ניגודיות: צבע הטקסט מול הרקע בפלט בפיקסלים שאינם אות
       const L = leaf.layer; let tr = 0, tg = 0, tb = 0, tc = 0;
       for (let i = 0; i < L.lw * L.lh; i++) if (L.a[i] > 0.8) { tr += L.rgb[i * 3]; tg += L.rgb[i * 3 + 1]; tb += L.rgb[i * 3 + 2]; tc++; }
@@ -322,6 +322,7 @@ export function scoreScene(sc, pl, rgba, W, H, orig) {
   }
   const content = items.filter(i => i.role !== 'hero' && !i.isPlate);
   const placedIds = new Set(content.map(i => i.id));
+  for (const i of content) for (const id of (i.absorbs || [])) placedIds.add(id); // לוח כותרת שנחתך יחד עם הטקסט שלו
   // תוויות על כפתור/תג מוחלפות לעיתים ב"יחידה": מזהים לפי מזהה העלה בלבד
   const orphan = sc.leaves.filter(l => l.role !== 'hero');
   const sub = {
