@@ -2493,6 +2493,14 @@ function rfExtend(A, W, H, padT, padB, orig) {
     const row = Float32Array.from(out.d.subarray(ye * W * 3, (ye + 1) * W * 3));
     for (let x = 0; x < W; x++) for (let c = 0; c < 3; c++) { let s = 0, n = 0; for (let k = -r; k <= r; k++) { const xx = clp(x + k, 0, W - 1); s += row[xx * 3 + c]; n++; } out.d[(ye * W + x) * 3 + c] = s / n; }
   }
+  // שורות הריפוד: ככל שמתרחקים מהתפר עוברים לחציון העמודות של הפס השקט, כדי שכיתוב זעיר בפס לא יתמרח לפסים מעוותים
+  if (padT > 0 || padB > 0) {
+    const med = (y0, y1) => { const r = new Float32Array(W * 3), n = y1 - y0, v = new Float32Array(n); for (let x = 0; x < W * 3; x++) { for (let k = 0; k < n; k++) v[k] = src[(y0 + k) * W * 3 + x]; v.sort(); r[x] = v[n >> 1]; } return r; };
+    const blur = (r0, rad) => { const o = new Float32Array(r0.length); for (let x = 0; x < W; x++) for (let c = 0; c < 3; c++) { let s = 0, n = 0; for (let k = -rad; k <= rad; k++) { const xx = clp(x + k, 0, W - 1); s += r0[xx * 3 + c]; n++; } o[x * 3 + c] = s / n; } return o; };
+    const mix = (ye, row, w) => { for (let x = 0; x < W * 3; x++) out.d[ye * W * 3 + x] = out.d[ye * W * 3 + x] * (1 - w) + row[x] * w; };
+    if (padT > 0 && KT >= 6) { const m = blur(med(0, Math.min(KT, H)), Math.max(2, Math.round(0.02 * W))); for (let ye = 0; ye < padT; ye++) mix(ye, m, clp(((padT - ye) / padT) * 1.4, 0, 1)); }
+    if (padB > 0 && KB >= 6) { const m = blur(med(H - Math.min(KB, H), H), Math.max(2, Math.round(0.02 * W))); const big = padB >= 0.05 * h2, y0 = big ? padT + H - KB : padT + H; for (let ye = y0; ye < h2; ye++) mix(ye, m, big ? clp((ye - y0) / (padB + KB) * 1.6, 0, 1) : clp(((ye - y0) / padB) * 1.4, 0, 1)); }
+  }
   if (A.ext.size > 8) A.ext.delete(A.ext.keys().next().value);
   A.ext.set(key, out); return out;
 }
@@ -2929,5 +2937,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.18-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.19-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
