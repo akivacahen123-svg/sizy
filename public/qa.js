@@ -39,6 +39,7 @@ function qaCheck(sc, W, H, placement, pix) {
   for (let i = 0; i < content.length; i++) for (let j = i + 1; j < content.length; j++) {
     const a = content[i], b = content[j], ra = a[0].role, rb = b[0].role;
     if ((ra === 'button' || ra === 'badge') && rb === 'label' || (rb === 'button' || rb === 'badge') && ra === 'label') continue;
+    if (a[0].group && a[0].group === b[0].group) continue; // אותה קבוצה (למשל תגית עם תמונה בתוכה): הפריסה הפנימית נשמרת מהמקור, לא חפיפה
     const o = ovArea(a, b);
     if (o > 0.1 * Math.min(a[3] * a[4], b[3] * b[4])) { m.overlapPx += Math.round(o); worst = worst || [a, b]; }
   }

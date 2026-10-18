@@ -2395,7 +2395,7 @@ function rfAssets(sc, P) {
   if (P.A) return P.A;
   const img = sc._img, W = sc.W, H = sc.H, lum = rfLum(img), hero = P.hero, units = [], hole = Uint8Array.from(sc._holesT || new Uint8Array(W * H));
   const heroU = sc.units.find(u => u.kids.includes(hero));
-  const textU = u => u.kids.every(k => k.text || k.panel), cand = sc.units.filter(u => u !== heroU && textU(u) && u.kids.some(k => k.role === 'headline')); // יחידת כותרת על לוח: הלוח והטקסט נחתכים יחד מהמקור (אלפא של טקסט זהב עם צללים כהים על לוח כהה מוחק חלקי אותיות)
+  const textU = u => u.kids.every(k => k.text || k.panel || (k.role === 'badge' && u.kids.some(q => q.role === 'headline'))), cand = sc.units.filter(u => u !== heroU && textU(u) && u.kids.some(k => k.role === 'headline')); // יחידת כותרת על לוח: הלוח והטקסט נחתכים יחד מהמקור (אלפא של טקסט זהב עם צללים כהים על לוח כהה מוחק חלקי אותיות)
   const panels = [];
   for (const u of cand) {
     const r = rfPanelRect(img, lum, [u.x, u.y, u.x + u.w, u.y + u.h]); if (!r) continue;
@@ -2828,5 +2828,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.12-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.13-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);

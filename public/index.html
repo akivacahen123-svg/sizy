@@ -172,9 +172,9 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
 </div>
 <p class="foot"><a href="/logout" style="color:inherit">יציאה</a> · סייזי · Sizes · <span id="bld"></span></p><div id="diag" style="display:none;max-width:900px;margin:12px auto;direction:ltr"><b style="direction:rtl;display:block;text-align:right">אבחון (למנהל): העתיקו ושלחו</b><textarea id="diagtx" readonly style="width:100%;height:140px;font:12px monospace" onclick="this.select()"></textarea></div>
 
-<script>var BUILD='15.12-א';</script>
-<script src="/bgmap.js?v=15.12"></script>
-<script src="/qa.js?v=15.12"></script>
+<script>var BUILD='15.13-א';</script>
+<script src="/bgmap.js?v=15.13"></script>
+<script src="/qa.js?v=15.13"></script>
 <script>
 const $=s=>document.querySelector(s);
 const ROLES={caption:'כיתוב',label:'טקסט כפתור',photo:'תמונה',button:'כפתור',badge:'תגית',decor:'עיטור',headline:'כותרת',subheadline:'תת־כותרת',bullets:'יתרונות',brand:'מותג',body:'טקסט',logo:'לוגו',hero:'ויזואל'};
@@ -184,7 +184,7 @@ const GROUPS=[['כל הגדלים',[...new Set(('1200x200 1200x60 120x500 300x60
 const sizesIn=()=>[...new Set([...$('#sz').value.matchAll(SZRE)].map(m=>(+m[1])+'x'+(+m[2])))];
 const setSizes=a=>{$('#sz').value=a.join(', ');paintChips()};
 function paintChips(){const cur=new Set(sizesIn());document.querySelectorAll('.chip[data-s]').forEach(b=>b.classList.toggle('on',cur.has(b.dataset.s)));$('#cnt').textContent=cur.size?cur.size+' גדלים נבחרו':''}
-let units=null,srcDim=null,plansBy={},lastEls=null,learnOn=false;let file=null,srcCanvas=null,built=false,made=[],busy=false,worker=null,nextId=1;const pending=new Map();
+let rfOn=false,units=null,srcDim=null,plansBy={},lastEls=null,learnOn=false;let file=null,srcCanvas=null,built=false,made=[],busy=false,worker=null,nextId=1;const pending=new Map();
 
 let serverAI=false;
 const LS={get(k){try{return localStorage.getItem(k)||''}catch(e){return ''}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
@@ -270,7 +270,7 @@ function prepScene(elements,cv){
     if(!busy)$('#st').textContent='בונה את הבאנר המקורי ברקע…';
     const res=await buildScene({type:'build',w:cv.width,h:cv.height,elements},[],t=>$('#st').textContent=t);
     if(cv!==srcCanvas)return;
-    lastEls=elements;window.__diag={build:BUILD,eng:res.eng,sizes:{},size:[cv.width,cv.height],why:res.why,mattes:res.mattes,elements:elements.map(e=>({id:e.id,role:e.role,box:e.box,lines:e.lines,shape:e.shape,group:e.group}))};showDiag();setScene(res.scene);built=true;units=res.units;srcDim=[res.srcW,res.srcH];plansBy={};showBoxes(res.boxes);
+    lastEls=elements;rfOn=!!res.rf;window.__diag={build:BUILD,eng:res.eng,rfOn:rfOn,sizes:{},size:[cv.width,cv.height],why:res.why,mattes:res.mattes,elements:elements.map(e=>({id:e.id,role:e.role,box:e.box,lines:e.lines,shape:e.shape,group:e.group}))};showDiag();setScene(res.scene);built=true;units=res.units;srcDim=[res.srcW,res.srcH];plansBy={};showBoxes(res.boxes);
   })();
   sceneP={cv,p};p.catch(()=>{if(sceneP&&sceneP.p===p)sceneP=null});return p;
 }
@@ -289,7 +289,7 @@ function load(f){
   im.onload=()=>{
     const sc=Math.min(1,MAXSIDE/Math.max(im.naturalWidth,im.naturalHeight)),w=Math.round(im.naturalWidth*sc),h=Math.round(im.naturalHeight*sc);
     const c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.imageSmoothingQuality='high';x.drawImage(im,0,0,w,h);
-    file=f;srcCanvas=c;built=false;units=null;plansBy={};lastEls=null;jpegFor=null;analyzeP=null;sceneP=null;
+    file=f;srcCanvas=c;built=false;rfOn=false;units=null;plansBy={};lastEls=null;jpegFor=null;analyzeP=null;sceneP=null;
     startAnalyze(true);try{preparePool()}catch(e){console.warn(e)}
     $('#pi').src=url;$('#pv').style.display='block';$('#pv').querySelectorAll('.bx').forEach(n=>n.remove());
     drop.textContent='הבאנר נטען: '+f.name+' (לחצו להחלפה)';$('#st').textContent='';
@@ -529,7 +529,7 @@ async function produce(sizes,st,note,label){
   const finish=async i=>{const[w,h]=sizes[i];setSlot(slots[i],'בונה את הבאנר…');
     const r=await job({type:'place',w,h,plan:plansBy[w+'x'+h]});if(window.__diag){window.__diag.sizes[w+'x'+h]=r.dbg;showDiag()}addCard(w,h,r.items,slots[i],i,r.bg);done++;setProg(done/total);
     st.textContent=`מוכנים ${done} מתוך ${total}…`;await tick()};
-  const need=[],have=[];sizes.forEach(([w,h],i)=>(units&&!plansBy[w+'x'+h]?need:have).push(i));
+  const need=[],have=[];sizes.forEach(([w,h],i)=>(units&&!plansBy[w+'x'+h]&&!(rfOn&&!note)?need:have).push(i));
   const chunks=[];for(let i=0;i<need.length;i+=8)chunks.push(need.slice(i,i+8));
   need.forEach(i=>setSlot(slots[i],'ממתין לתכנון ה-AI…'));
   const runChunk=async idxs=>{

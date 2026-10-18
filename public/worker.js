@@ -62,7 +62,7 @@ onmessage = async e => {
       (m.peers || []).forEach(p => p.postMessage({ type: 'scene', scene }));
       const ex = SizyEngine.exportScene(scene);
       const bufs = [ex.plate.buffer, ...ex.leaves.map(l => l.rgba.buffer)];
-      postMessage({ type: 'built', id: m.id, eng: SizyEngine.BUILD, why: (() => { try { return SizyEngine.reframeWhy(scene); } catch (e) { return 'שגיאת אבחון: ' + e.message; } })(), mattes: (m.elements || []).filter(e => e.matte).length, boxes: scene.boxes, units: SizyEngine.describeUnits(scene), srcW: scene.W, srcH: scene.H, scene: ex, bytes }, bufs);
+      postMessage({ type: 'built', id: m.id, eng: SizyEngine.BUILD, rf: (() => { try { return SizyEngine.willReframe(scene); } catch (e) { return false; } })(), why: (() => { try { return SizyEngine.reframeWhy(scene); } catch (e) { return 'שגיאת אבחון: ' + e.message; } })(), mattes: (m.elements || []).filter(e => e.matte).length, boxes: scene.boxes, units: SizyEngine.describeUnits(scene), srcW: scene.W, srcH: scene.H, scene: ex, bytes }, bufs);
     } else if (m.type === 'place') {
       if (!scene) throw new Error('no scene');
       const items = SizyEngine.placements(scene, m.w, m.h, m.plan);
