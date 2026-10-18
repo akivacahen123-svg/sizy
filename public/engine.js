@@ -2541,6 +2541,53 @@ function rfKeepUnits(units, W, H) {
   });
 }
 
+// היררכיה: כותרת ראשית גדולה למעלה, מסרים משניים באמצע (שורה אחת אם נכנסים זה לצד זה), כפתור בתחתית.
+// כשאין מקום: קודם מקטינים את המשניים, אחר כך מעט את הכותרת, ואז מורידים את המשני הכי פחות חשוב (במקום לדחוס או לחפוף). null אם אין דרך נקייה.
+function rfTierOf(u) {
+  const r = u.role !== 'unit' ? u.role : u.kids.some(k => k.role === 'button') ? 'button' : u.kids.some(k => k.role === 'headline') ? 'headline' : u.kids.every(k => k.role === 'badge' || k.role === 'photo') ? 'prize' : u.kids[0].role;
+  return r;
+}
+function rfTiers(sc, units, zx, zy, zw, zh) {
+  if (!units.length) return [];
+  if (zw < 24 || zh < 24) return null;
+  const mx = 0.04 * zw, mb = Math.max(3, 0.035 * zw), aw = zw - 2 * mx, gmin = Math.max(4, 0.022 * zh), gmax = 0.07 * zh, gx = Math.max(4, 0.03 * zw);
+  const heads = units.filter(u => rfTierOf(u) === 'headline'), btns = units.filter(u => rfTierOf(u) === 'button');
+  const pri = u => { const r = rfTierOf(u); return r === 'subheadline' ? 0 : r === 'prize' ? 1 : (r === 'caption' || r === 'label' || r === 'body' || r === 'legal') ? 3 : 2; };
+  const sec0 = units.filter(u => !heads.includes(u) && !btns.includes(u) && pri(u) < 3).sort((a, b) => pri(a) - pri(b) || b.w * b.h - a.w * a.h);
+  if (units.some(u => !u.kids.length)) return null;
+  const rigid = u => u.kids.every(k => !k.text);
+  const attempt = (secK, headK, btnK, dropN) => {
+    const sec = sec0.slice(0, Math.max(0, sec0.length - dropN)), rows = [];
+    const sz = (u, k, wMax, hMax, cap) => { const s = k * Math.min(wMax / u.w, hMax / u.h, cap); return { u, s, w: u.w * s, h: u.h * s }; };
+    for (const u of heads) rows.push([sz(u, headK, aw, 0.55 * zh, 3.2)]);
+    let cur = null;
+    for (const u of sec) {
+      const e = sz(u, secK, aw, 0.2 * zh, 2.4); if (e.h < Math.max(14, 0.085 * zh) && (pri(u) < 3)) return null; if (e.h < (pri(u) < 3 ? 8 : Math.max(12, 0.05 * zh))) return null;
+      if (cur && cur.w + gx + e.w <= aw) { cur.items.push(e); cur.w += gx + e.w; cur.h = Math.max(cur.h, e.h); } else { cur = { items: [e], w: e.w, h: e.h }; rows.push(cur); }
+    }
+    const fixed = rows.map(r => Array.isArray(r) ? { items: r, w: r[0].w, h: r[0].h } : r); // כותרות: שורה לכל אחת
+    for (const u of btns) fixed.push({ items: [sz(u, btnK, 0.92 * aw, 0.22 * zh, 2.6)], w: 0, h: 0 }); fixed.forEach(r => { r.w = r.items.reduce((a, e) => a + e.w, 0) + gx * (r.items.length - 1); r.h = Math.max(...r.items.map(e => e.h)); });
+    const tot = fixed.reduce((a, r) => a + r.h, 0) + gmin * (fixed.length - 1), room = zh - mb;
+    if (tot > room) return null;
+    const gap = fixed.length > 1 ? Math.min(gmax, (room - fixed.reduce((a, r) => a + r.h, 0)) / (fixed.length - 1)) : 0;
+    let y = zy + (room - fixed.reduce((a, r) => a + r.h, 0) - gap * (fixed.length - 1)); // המקום שנשאר מעל הכותרת: היא יורדת וחושפת עוד מהגיבור
+    const out = [];
+    for (const r of fixed) {
+      let x = zx + (zw - r.w) / 2;
+      const its = r.items.slice().sort((a, b) => a.u.x - b.u.x);
+      for (const e of its) {
+        const yy = y + (r.h - e.h) / 2, u = e.u;
+        if (rigid(u)) { for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; out.push([k, x + dx * e.s, yy + dy * e.s, k.w * e.s * (u.kf || 1), k.h * e.s * (u.kf || 1)]); } }
+        else { const z = rfZone(sc, [u], x, yy, e.w, e.h); if (!z) return null; out.push(...z); }
+        x += e.w + gx;
+      }
+      y += r.h + gap;
+    }
+    return out;
+  };
+  for (let dropN = 0; dropN <= sec0.length; dropN++) for (const [sk, hk, bk] of [[1, 1, 1], [0.92, 0.95, 1], [0.84, 0.9, 1], [0.76, 0.86, 0.95], [0.68, 0.82, 0.9], [0.6, 0.78, 0.85]]) { const r = attempt(sk, hk, bk, dropN); if (r) return r; }
+  return null;
+}
 // פס דק (למשל 728x90, 1200x60): הכותרת הופכת לשורה אחת. שורות הלוח נחתכות מהמקור (כולל הרקע שלהן) ומוצמדות זו לזו; כפתור/פרס/לוגו בשורה לידו
 function rfStrip(sc, W, H, P, A, AU) {
   const pu = AU.find(u => u.kids.some(k => k.panelCrop && k.role === 'headline')); if (!pu) return null;
@@ -2628,7 +2675,7 @@ function rfBuild(sc, W, H) {
   const AU = rfKeepUnits(A.units, W, H), topU = AU.filter(rfp), botU = AU.filter(u => !rfp(u));
   if (W / H >= 7 && H <= 100) { let st = null; try { st = rfStrip(sc, W, H, P, A, AU); } catch (e) { if (G.__SIZY_DEBUG) throw e; } if (st) return st; }
   let best = null;
-  const consider = (f, x0, y0, strategy, groups) => {
+  const consider = (f, x0, y0, strategy, groups, bonus = 0) => {
     const ww = W / f, wh = H / f; if (ww > SW + 0.5 || x0 < -0.5 || x0 + ww > SW + 0.5) return;
     const padT = Math.ceil(Math.max(0, -y0 - 0.01)), padB = Math.ceil(Math.max(0, y0 + wh - SH - 0.01)), pad = (padT + padB) / wh; if (pad > RF.maxPad) return;
     const R = { x: (keep.x - x0) * f, y: (keep.y - y0) * f, w: keep.w * f, h: keep.h * f }, Rv = rfInter(R, { x: 0, y: 0, w: W, h: H }), hv = rfArea(Rv) / rfArea(R);
@@ -2637,12 +2684,12 @@ function rfBuild(sc, W, H) {
     let place = [];
     for (const g of groups) {
       const zr = g.zone(R, Rv); if (!zr) { if (g.units.length) return; continue; }
-      const z = rfZone(sc, g.units, zr[0], zr[1], zr[2], zr[3]); if (!z) return; place = place.concat(z);
+      const z = g.tiers ? rfTiers(sc, g.units, zr[0], zr[1], zr[2], zr[3]) : rfZone(sc, g.units, zr[0], zr[1], zr[2], zr[3]); if (!z) return; place = place.concat(z);
     }
     if (!place.length) return;
     const ids = new Set(place.map(e => e[0].id));
     for (const u of A.units) if (u.kids.some(k => k.role === 'button' || k.role === 'headline') && !u.kids.every(k => ids.has(k.id))) return; // כותרת וכפתור חייבים להישאר
-    const sm = rfSmear(A, SW, SH, f, x0, y0, W, H, place), J = rfScore(place, W, H, Rv, hv, A.units.length, pad) - 6 * sm;
+    const sm = rfSmear(A, SW, SH, f, x0, y0, W, H, place), J = rfScore(place, W, H, Rv, hv, A.units.length, pad) - 6 * sm + bonus;
     if (G.__SIZY_RFLOG) G.__SIZY_RFLOG.push({ J, f, strategy, pad, hv, sm, head: place.filter(e => e[0].role === 'headline').reduce((a, e) => a + e[3], 0) });
     if (!best || J > best.J) best = { J, f, x0, y0, ww, wh, padT, padB, place, strategy, R, Rv, A };
   };
@@ -2673,15 +2720,16 @@ function rfBuild(sc, W, H) {
       }
     }
     // כמו מעצב בבאנר גבוה: הגיבור גדול למעלה, והלוח (כותרת, כפתור, פרס) מונח על החצי התחתון שלו (הרגליים), הלוגו בפינה העליונה מול הגיבור
-    if (W / H < 0.8) for (const ry of [0.05, 0.09, 0.13]) {
+    if (W / H < 0.8) for (const ry of [0.05, 0.09, 0.13, ...(AU.some(u => u.role === 'logo') ? [] : [keep.y * f / H])]) { // בלי לוגו מזוהה: גם חלון שמתחיל בראש המקור, כדי שלא ייחתך לוגו שהזיהוי החמיץ
+      const topAnch = ry === keep.y * f / H && !AU.some(u => u.role === 'logo');
       const R_h = keep.h * f, R_y = ry * H; if (R_y + R_h > H + 0.5) continue;
       const y0 = keep.y - R_y / f, x0 = bestX(lo, hi, ww, y0, wh); if (x0 === null) continue;
       const logos = AU.filter(u => u.role === 'logo'), rest = AU.filter(u => u.role !== 'logo');
       for (const cut of [0.5, 0.58, 0.66]) {
         const gs = [
           { units: logos, zone: (R, Rv) => logos.length ? [left ? W - 0.3 * W - mg : mg, mg, 0.3 * W, 0.16 * H] : [0, 0, W, 0] },
-          { units: rest, zone: (R, Rv) => { const y = Rv.y + cut * Rv.h; return H - y >= 0.3 * H ? [0, y, W, H - y] : null; } }];
-        consider(f, x0, y0, 'overlay', gs);
+          { units: rest, tiers: true, zone: (R, Rv) => { const y = Rv.y + cut * Rv.h; return H - y >= 0.3 * H ? [0, y, W, H - y] : null; } }];
+        consider(f, x0, y0, 'overlay', gs, topAnch ? 0.3 : 0);
       }
     }
     // לצד: הגיבור בקצה (בצד המקורי) והיחידות בעמודה לידו
@@ -2881,5 +2929,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.17-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.18-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
