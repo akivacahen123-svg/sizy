@@ -1,7 +1,8 @@
 // סייזי · עובד רקע: מריץ את המנוע מחוץ לחוט הראשי כדי שהדף לא ייתקע.
 // בריכת עובדים: עובד אחד בונה את הסצנה (פעם אחת), ושולח עותק שלה לשאר העובדים דרך MessagePort,
 // ואז כל העובדים מסדרים ומציירים גדלים במקביל.
-importScripts('/bgmap.js', '/inpaint.js', '/engine.js');
+const V = self.location.search; // גרסת בנייה בכתובת: מונעת מהדפדפן להריץ קבצי מנוע ישנים מהמטמון
+importScripts('/bgmap.js' + V, '/inpaint.js' + V, '/engine.js' + V);
 let scene = null, pixels = null;
 function sceneBytes(sc) {
   let n = sc.W * sc.H * 12;
@@ -61,22 +62,22 @@ onmessage = async e => {
       (m.peers || []).forEach(p => p.postMessage({ type: 'scene', scene }));
       const ex = SizyEngine.exportScene(scene);
       const bufs = [ex.plate.buffer, ...ex.leaves.map(l => l.rgba.buffer)];
-      postMessage({ type: 'built', id: m.id, why: (() => { try { return SizyEngine.reframeWhy(scene); } catch (e) { return 'שגיאת אבחון: ' + e.message; } })(), mattes: (m.elements || []).filter(e => e.matte).length, boxes: scene.boxes, units: SizyEngine.describeUnits(scene), srcW: scene.W, srcH: scene.H, scene: ex, bytes }, bufs);
+      postMessage({ type: 'built', id: m.id, eng: SizyEngine.BUILD, why: (() => { try { return SizyEngine.reframeWhy(scene); } catch (e) { return 'שגיאת אבחון: ' + e.message; } })(), mattes: (m.elements || []).filter(e => e.matte).length, boxes: scene.boxes, units: SizyEngine.describeUnits(scene), srcW: scene.W, srcH: scene.H, scene: ex, bytes }, bufs);
     } else if (m.type === 'place') {
       if (!scene) throw new Error('no scene');
       const items = SizyEngine.placements(scene, m.w, m.h, m.plan);
       // REFRAME: הרקע הוא חלון חיתוך מהמקור, לא הרקע הרגיל של הסצנה; העורך צריך אותו כדי לצייר נכון
-      let bg = null; const bufs = items.filter(i => i.layer).map(i => i.layer.rgba.buffer);
+      let bg = null, dbg = {}; const bufs = items.filter(i => i.layer).map(i => i.layer.rgba.buffer);
       try {
-        const rf = SizyEngine.reframeFor(scene, m.w, m.h, m.plan);
+        const rf = SizyEngine.reframeFor(scene, m.w, m.h, m.plan); dbg.rf = rf ? rf.strategy : null;
         if (rf) {
           const K = Math.max(1, Math.min(2, 1600 / Math.max(m.w, m.h)));
           const b = SizyEngine.reframeBg(scene, rf, Math.floor(m.w * K), Math.floor(m.h * K), K), n = b.w * b.h, rgba = new Uint8ClampedArray(n * 4);
           for (let i = 0; i < n; i++) { rgba[i * 4] = b.d[i * 3]; rgba[i * 4 + 1] = b.d[i * 3 + 1]; rgba[i * 4 + 2] = b.d[i * 3 + 2]; rgba[i * 4 + 3] = 255; }
           bg = { w: b.w, h: b.h, rgba: rgba.buffer }; bufs.push(rgba.buffer);
         }
-      } catch (e) { bg = null; }
-      postMessage({ type: 'placed', id: m.id, items, bg }, bufs);
+      } catch (e) { bg = null; dbg.err = String((e && e.message) || e); }
+      postMessage({ type: 'placed', id: m.id, items, bg, dbg }, bufs);
     } else if (m.type === 'render') {
       if (!scene) throw new Error('no scene');
       const r = SizyEngine.render(scene, m.w, m.h, m.k, m.plan);

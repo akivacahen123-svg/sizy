@@ -172,8 +172,9 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
 </div>
 <p class="foot"><a href="/logout" style="color:inherit">יציאה</a> · סייזי · Sizes · <span id="bld"></span></p><div id="diag" style="display:none;max-width:900px;margin:12px auto;direction:ltr"><b style="direction:rtl;display:block;text-align:right">אבחון (למנהל): העתיקו ושלחו</b><textarea id="diagtx" readonly style="width:100%;height:140px;font:12px monospace" onclick="this.select()"></textarea></div>
 
-<script src="/bgmap.js"></script>
-<script src="/qa.js"></script>
+<script>var BUILD='15.12-א';</script>
+<script src="/bgmap.js?v=15.12"></script>
+<script src="/qa.js?v=15.12"></script>
 <script>
 const $=s=>document.querySelector(s);
 const ROLES={caption:'כיתוב',label:'טקסט כפתור',photo:'תמונה',button:'כפתור',badge:'תגית',decor:'עיטור',headline:'כותרת',subheadline:'תת־כותרת',bullets:'יתרונות',brand:'מותג',body:'טקסט',logo:'לוגו',hero:'ויזואל'};
@@ -212,7 +213,7 @@ function killPool(){if(!pool)return;pool.ws.forEach(k=>{try{k.w.terminate()}catc
 function newPool(n){
   killPool();const ws=[],P={ws,queue:[]};pool=P;
   for(let i=0;i<n;i++){
-    const wk={w:new Worker('/worker.js'),busy:false,ready:false,dead:false,i};
+    const wk={w:new Worker('/worker.js?v='+encodeURIComponent(BUILD)),busy:false,ready:false,dead:false,i};
     try{wk.w.postMessage({type:'bans',bans:getBans()})}catch(e){}
     wk.w.onmessage=e=>{const m=e.data;
       if(m.type==='ready'){wk.ready=true;pump();return}
@@ -269,7 +270,7 @@ function prepScene(elements,cv){
     if(!busy)$('#st').textContent='בונה את הבאנר המקורי ברקע…';
     const res=await buildScene({type:'build',w:cv.width,h:cv.height,elements},[],t=>$('#st').textContent=t);
     if(cv!==srcCanvas)return;
-    lastEls=elements;window.__diag={build:BUILD,size:[cv.width,cv.height],why:res.why,mattes:res.mattes,elements:elements.map(e=>({id:e.id,role:e.role,box:e.box,lines:e.lines,shape:e.shape,group:e.group}))};showDiag();setScene(res.scene);built=true;units=res.units;srcDim=[res.srcW,res.srcH];plansBy={};showBoxes(res.boxes);
+    lastEls=elements;window.__diag={build:BUILD,eng:res.eng,sizes:{},size:[cv.width,cv.height],why:res.why,mattes:res.mattes,elements:elements.map(e=>({id:e.id,role:e.role,box:e.box,lines:e.lines,shape:e.shape,group:e.group}))};showDiag();setScene(res.scene);built=true;units=res.units;srcDim=[res.srcW,res.srcH];plansBy={};showBoxes(res.boxes);
   })();
   sceneP={cv,p};p.catch(()=>{if(sceneP&&sceneP.p===p)sceneP=null});return p;
 }
@@ -526,7 +527,7 @@ async function produce(sizes,st,note,label){
   const total=sizes.length,slots=sizes.map(([w,h])=>{const d=skeleton(w,h);$('#out').appendChild(d);return d});
   let done=0,aiFail=false;setProg(0);
   const finish=async i=>{const[w,h]=sizes[i];setSlot(slots[i],'בונה את הבאנר…');
-    const r=await job({type:'place',w,h,plan:plansBy[w+'x'+h]});addCard(w,h,r.items,slots[i],i,r.bg);done++;setProg(done/total);
+    const r=await job({type:'place',w,h,plan:plansBy[w+'x'+h]});if(window.__diag){window.__diag.sizes[w+'x'+h]=r.dbg;showDiag()}addCard(w,h,r.items,slots[i],i,r.bg);done++;setProg(done/total);
     st.textContent=`מוכנים ${done} מתוך ${total}…`;await tick()};
   const need=[],have=[];sizes.forEach(([w,h],i)=>(units&&!plansBy[w+'x'+h]?need:have).push(i));
   const chunks=[];for(let i=0;i<need.length;i+=8)chunks.push(need.slice(i,i+8));
@@ -632,7 +633,7 @@ document.querySelectorAll('#bans [data-ban]').forEach(c=>{const b=getBans();if(c
 const banSend=document.getElementById('bansend');
 if(banSend)banSend.onclick=async()=>{const t=document.getElementById('bantxt').value.trim(),st=document.getElementById('banst');if(!t)return;st.textContent='שומר…';try{const r=await fetch('/api/feedback',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({note:'איסור קבוע (לעולם לא לעשות): '+t})});st.textContent=r.ok?'נשמר. סייזי יכבד את האיסור הזה בבאנרים הבאים.':'לא הצלחתי לשמור כרגע, נסו שוב.';if(r.ok)document.getElementById('bantxt').value=''}catch(e){st.textContent='לא הצלחתי לשמור כרגע, נסו שוב.'}};
 </script>
-<script>var BUILD='15.11-א';(function(){var e=document.getElementById('bld');if(e)e.textContent='גרסה '+BUILD})();
+<script>(function(){var e=document.getElementById('bld');if(e)e.textContent='גרסה '+BUILD})();
 function showDiag(){try{if(!/[?&]admin\b/.test(location.search))return;var d=document.getElementById('diag'),t=document.getElementById('diagtx');d.style.display='block';t.value=JSON.stringify(window.__diag)}catch(e){}}</script>
 <script>try{if(!/[?&]admin\b/.test(location.search)){['settings','bans'].forEach(function(id){var e=document.getElementById(id);if(e)e.style.display='none'})}}catch(e){}</script>
 </body>
