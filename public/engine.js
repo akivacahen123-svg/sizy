@@ -2421,7 +2421,8 @@ function rfAssets(sc, P) {
     for (let j = 0; j < mh; j++) for (let i = 0; i < mw; i++) { const gx = x0 + i, gy = y0 + j; if (dm[j * mw + i] && gx >= 0 && gy >= 0 && gx < W && gy < H) hole[gy * W + gx] = 1; }
     if (e.role === 'badge' || e.role === 'logo' || e.role === 'photo') for (let gy = Math.max(0, e.y - 2); gy < Math.min(H, e.y + e.h + 2); gy++) for (let gx = Math.max(0, e.x - 2); gx < Math.min(W, e.x + e.w + 2); gx++) hole[gy * W + gx] = 1;
   }
-  let plate = msFill(img, hole, { tex: { budget: 500000, ms: 20000, lo: 0.8, hi: 2.5 } }); // חורים גדולים (פאנל, כפתור): גם הם מסונתזים מטקסטורת התמונה עצמה ולא רק מילוי חלק
+  const avoid = new Uint8Array(W * H); if (hero) for (let y = Math.max(0, hero.y - 6); y < Math.min(H, hero.y + hero.h + 6); y++) for (let x = Math.max(0, hero.x - 6); x < Math.min(W, hero.x + hero.w + 6); x++) avoid[y * W + x] = 1; // הגיבור אינו רקע: לא לוקחים ממנו טקסטורה
+  let plate = msFill(img, hole, { tex: { budget: 500000, ms: 20000, lo: 0.8, hi: 2.5, maxFrac: 0.65, force: true, avoid } }); // חורים גדולים (פאנל, כפתור): גם הם מסונתזים מטקסטורת התמונה עצמה ולא רק מילוי חלק
   plate = softenDenseHoles(plate, hole, plate.tex);
   for (let i = 0; i < plate.d.length; i++) plate.d[i] = clp(plate.d[i], 0, 255);
   // אנרגיית קצוות (אינטגרל) לבחירת חלון

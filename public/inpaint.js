@@ -240,7 +240,7 @@
     const act = activityMap(img, hole, w, h);
     const lo = opts.lo == null ? 1.8 : opts.lo, hi = opts.hi == null ? 4.2 : opts.hi;
     const wmap = new Float32Array(N); // רצון לטקסטורה לפי פעילות מקומית
-    for (let i = 0; i < N; i++) { const t = clp((act[i] - lo) / (hi - lo), 0, 1); wmap[i] = t * t * (3 - 2 * t); }
+    for (let i = 0; i < N; i++) { const t = clp((act[i] - lo) / (hi - lo), 0, 1); wmap[i] = opts.force ? 1 : t * t * (3 - 2 * t); }
     const merged = dilate(hole, w, h, 5), { lab, res } = comps(merged, w, h);
     const order = res.map((c, i) => ({ c, i })).filter(o => o.c.n >= 30).sort((a, b) => b.c.n - a.c.n);
     const budget = opts.budget || 90000, deadline = t0 + (opts.ms || 1300); let used = 0;
@@ -252,13 +252,13 @@
       if (idx.length < 20) continue;
       if (Date.now() > deadline) { stats.skipped++; continue; }
       if (sw / idx.length < 0.08) { stats.skipped++; continue; }
-      if (idx.length > 0.3 * N || used + idx.length > budget) { stats.skipped++; continue; }
+      if (idx.length > (opts.maxFrac || 0.3) * N || used + idx.length > budget) { stats.skipped++; continue; }
       const bw = c.x1 - c.x0 + 1, bh = c.y1 - c.y0 + 1, M = clp(Math.round(0.7 * Math.max(bw, bh)), 26, 90);
       const X0 = Math.max(0, c.x0 - M), Y0 = Math.max(0, c.y0 - M), X1 = Math.min(w, c.x1 + 1 + M), Y1 = Math.min(h, c.y1 + 1 + M), cw = X1 - X0, ch = Y1 - Y0;
       const col = new Float32Array(cw * ch * 3), inv = new Uint8Array(cw * ch), tgt = new Uint8Array(cw * ch);
       for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
         const gi = (Y0 + y) * w + X0 + x, ci = y * cw + x;
-        const hh = hole[gi] === 1; inv[ci] = hh ? 1 : 0;
+        const hh = hole[gi] === 1; inv[ci] = hh || (opts.avoid && opts.avoid[gi]) ? 1 : 0;
         if (hh && lab[gi] === c.id) tgt[ci] = 1;
         for (let k = 0; k < 3; k++) col[ci * 3 + k] = hh ? base[gi * 3 + k] : img.d[gi * 3 + k];
       }
