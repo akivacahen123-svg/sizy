@@ -2817,7 +2817,7 @@ function rfBuild(sc, W, H) {
       }
     }
     // כמו מעצב בבאנר גבוה: הגיבור גדול למעלה, והלוח (כותרת, כפתור, פרס) מונח על החצי התחתון שלו (הרגליים), הלוגו בפינה העליונה מול הגיבור
-    if (W / H < 0.8) for (const ry of [0.05, 0.09, 0.13, ...(AU.some(u => u.role === 'logo') ? [] : [keep.y * f / H])]) { // בלי לוגו מזוהה: גם חלון שמתחיל בראש המקור, כדי שלא ייחתך לוגו שהזיהוי החמיץ
+    if (W / H < 0.8 && f <= (fcov > 1.02 ? fcov * 1.3 : 1.02)) for (const ry of [0.05, 0.09, 0.13, ...(AU.some(u => u.role === 'logo') ? [] : [keep.y * f / H])]) { // בלי לוגו מזוהה: גם חלון שמתחיל בראש המקור, כדי שלא ייחתך לוגו שהזיהוי החמיץ
       const topAnch = ry === keep.y * f / H && !AU.some(u => u.role === 'logo');
       const R_h = keep.h * f, R_y = ry * H; if (R_y + R_h > H + 0.5) continue;
       const y0 = keep.y - R_y / f, x0 = bestX(lo, hi, ww, y0, wh); if (x0 === null) continue;
@@ -3028,5 +3028,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.21-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.22-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
