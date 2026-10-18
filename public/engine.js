@@ -966,6 +966,46 @@ function ringDiff(clean, box, pad) {
   for (let i = 0; i < cw * ch; i++) df[i] = Math.max(Math.abs(crop.d[i * 3] - bg.d[i * 3]), Math.abs(crop.d[i * 3 + 1] - bg.d[i * 3 + 1]), Math.abs(crop.d[i * 3 + 2] - bg.d[i * 3 + 2]));
   return { df, cw, ch, x0, y0 };
 }
+// מטה (שקיפות) ללוגו/תגית חופשיים על רקע מרקם (אבן, שמיים): הרקע = כל מה שמחובר לשולי הסביבה ודומה בצבע לדגימות השוליים.
+// כל מה שלא מחובר לשוליים נשאר באלמנט (כולל רקע בתוכו), והחיתוך הסופי הדוק לאובייקט גם אם התיבה של הזיהוי הייתה קטנה או גדולה מדי.
+function freeMatte(clean, x, y, w, h) {
+  const W = clean.w, H = clean.h, pad = Math.max(8, Math.round(0.22 * Math.min(w, h)));
+  const x0 = clp(x - pad, 0, W - 8), y0 = clp(y - pad, 0, H - 8), x1 = clp(x + w + pad, x0 + 8, W), y1 = clp(y + h + pad, y0 + 8, H), cw = x1 - x0, ch = y1 - y0;
+  if (cw * ch > 6e5 || cw < 12 || ch < 12) return null;
+  const D = clean.d, col = (i, j) => (((y0 + j) * W + x0 + i) * 3), sm = [];
+  const bnd = 3;
+  for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) if (Math.min(i, j, cw - 1 - i, ch - 1 - j) < bnd && !((i + j) % 2)) { const q = col(i, j); sm.push([D[q], D[q + 1], D[q + 2]]); }
+  if (sm.length < 20) return null;
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const nn = []; const st = Math.max(1, Math.floor(sm.length / 80));
+  for (let a = 0; a < sm.length; a += st) { let m = 1e9; for (let b = 0; b < sm.length; b++) if (b !== a) { const d = dist(sm[a], sm[b]); if (d < m) m = d; } nn.push(m); }
+  nn.sort((a, b) => a - b); const tau = clp(2.4 * nn[nn.length >> 1] + 16, 20, 64);
+  const lim = tau * tau, sub = sm.length > 500 ? sm.filter((_, k) => k % Math.ceil(sm.length / 500) === 0) : sm;
+  const bg = new Uint8Array(cw * ch);
+  for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) {
+    const q = col(i, j), r = D[q], g = D[q + 1], b = D[q + 2]; let ok = 0;
+    for (let k = 0; k < sub.length; k++) { const e = sub[k], dr = r - e[0], dg = g - e[1], db = b - e[2]; if (dr * dr + dg * dg + db * db < lim) { ok = 1; break; } }
+    bg[j * cw + i] = ok;
+  }
+  const out = new Uint8Array(cw * ch), stk = [];
+  const push = (i, j) => { const k = j * cw + i; if (bg[k] && !out[k]) { out[k] = 1; stk.push(k); } };
+  for (let i = 0; i < cw; i++) { push(i, 0); push(i, ch - 1); } for (let j = 0; j < ch; j++) { push(0, j); push(cw - 1, j); }
+  while (stk.length) { const k = stk.pop(), i = k % cw, j = (k / cw) | 0; if (i > 0) push(i - 1, j); if (i < cw - 1) push(i + 1, j); if (j > 0) push(i, j - 1); if (j < ch - 1) push(i, j + 1); }
+  let fg = new Uint8Array(cw * ch), nfg = 0; for (let k = 0; k < cw * ch; k++) if (!out[k]) { fg[k] = 1; nfg++; }
+  // רכיבים מחוברים: משאירים את הגדול ואת מה שגדול מ-6% ממנו (כתמי רקע כהים/בהירים מבודדים נמחקים)
+  const lab = new Int32Array(cw * ch).fill(-1), sizes = []; let nl = 0;
+  for (let s0 = 0; s0 < cw * ch; s0++) { if (!fg[s0] || lab[s0] >= 0) continue; let n = 0; const sk = [s0]; lab[s0] = nl; while (sk.length) { const k = sk.pop(); n++; const i = k % cw, j = (k / cw) | 0; for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= cw || b >= ch) continue; const kk = b * cw + a; if (fg[kk] && lab[kk] < 0) { lab[kk] = nl; sk.push(kk); } } } sizes.push(n); nl++; }
+  const mx = Math.max(...sizes, 1); fg = new Uint8Array(cw * ch); nfg = 0; for (let k = 0; k < cw * ch; k++) if (lab[k] >= 0 && sizes[lab[k]] >= 0.25 * mx) { fg[k] = 1; nfg++; }
+  if (nfg < 0.04 * w * h || nfg > 0.96 * cw * ch) return null;
+  let bx0 = cw, by0 = ch, bx1 = -1, by1 = -1; for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) if (fg[j * cw + i]) { if (i < bx0) bx0 = i; if (i > bx1) bx1 = i; if (j < by0) by0 = j; if (j > by1) by1 = j; }
+  bx0 = Math.max(0, bx0 - 1); by0 = Math.max(0, by0 - 1); bx1 = Math.min(cw - 1, bx1 + 1); by1 = Math.min(ch - 1, by1 + 1);
+  const lw = bx1 - bx0 + 1, lh = by1 - by0 + 1, m0 = new Float32Array(lw * lh);
+  for (let j = 0; j < lh; j++) for (let i = 0; i < lw; i++) m0[j * lw + i] = fg[(by0 + j) * cw + bx0 + i];
+  const a = boxMin(boxMax(m0, lw, lh, 1), lw, lh, 1), a2 = new Float32Array(lw * lh); // סגירה קלה, ואז טשטוש של פיקסל אחד לקצה רך
+  for (let j = 0; j < lh; j++) for (let i = 0; i < lw; i++) { let s = 0, n = 0; for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const ii = i + di, jj = j + dj; if (ii >= 0 && jj >= 0 && ii < lw && jj < lh) { s += a[jj * lw + ii]; n++; } } a2[j * lw + i] = s / n; }
+  const crop = cropImg(clean, x0 + bx0, y0 + by0, x0 + bx0 + lw, y0 + by0 + lh);
+  return { rgb: crop.d, a: a2, lw, lh, up: 1, x: x0 + bx0, y: y0 + by0, w: lw, h: lh, rectHero: false };
+}
 function graphicLayer(clean, e, grad) {
   const W = clean.w, H = clean.h;
   if (e.matte) { const LM = matteLayer(clean, e); if (LM) return LM; }
@@ -991,6 +1031,10 @@ function graphicLayer(clean, e, grad) {
     for (let i = 0; i < w; i++) { cmp(x + i, y, x + i, y - dd); cmp(x + i, y + h - 1, x + i, y + h - 1 + dd); }
     for (let j = 0; j < h; j++) { cmp(x, y + j, x - dd, y + j); cmp(x + w - 1, y + j, x + w - 1 + dd, y + j); }
     if (nb && nd / nb < 0.2) shape = 'free';
+  }
+  if (shape === 'free' && (e.role === 'logo' || e.role === 'badge' || e.role === 'photo')) { // רק כשהרקע סביב האלמנט מרקמי (אבן, שמיים בשיפוע): על רקע חלק השיטה הישנה מדויקת יותר
+    const pd = Math.max(8, Math.round(0.22 * Math.min(w, h))), xa = clp(x - pd, 0, W - 8), ya = clp(y - pd, 0, H - 8), xb = clp(x + w + pd, xa + 8, W), yb = clp(y + h + pd, ya + 8, H);
+    if (ringBg(cropImg(clean, xa, ya, xb, yb)).err > 9) { const FM = freeMatte(clean, x, y, w, h); if (FM) return FM; }
   }
   const crop = cropImg(clean, x, y, x + w, y + h), a = new Float32Array(w * h);
   if (shape === 'circle') {
@@ -2475,8 +2519,8 @@ function rfAssets(sc, P) {
   return (P.A = { plate, units, I, hole, hb, orig: img, KT: band(0, 1), KB: band(H - 1, -1), ext: new Map(), panels });
 }
 // הרחבת הרקע למעלה/למטה (ריפוד): מותחים את פס הקצה השקט (שמיים/רצפה) ומטשטשים אופקית כדי שלא יישארו פסים אנכיים
-function rfExtend(A, W, H, padT, padB, orig) {
-  const key = padT + '|' + padB + (orig ? 'o' : ''); if (A.ext.has(key)) return A.ext.get(key);
+function rfExtend(A, W, H, padT, padB, orig, padL = 0, padR = 0) {
+  const key = padT + '|' + padB + '|' + padL + '|' + padR + (orig ? 'o' : ''); if (A.ext.has(key)) return A.ext.get(key);
   const h2 = H + padT + padB, out = { w: W, h: h2, c: 3, d: new Float32Array(W * h2 * 3) }, src = orig ? A.orig.d : A.plate.d, KT = A.KT, KB = A.KB, stretch = [];
   for (let ye = 0; ye < h2; ye++) {
     let ys, st = 1;
@@ -2501,12 +2545,27 @@ function rfExtend(A, W, H, padT, padB, orig) {
     if (padT > 0 && KT >= 6) { const m = blur(med(0, Math.min(KT, H)), Math.max(2, Math.round(0.02 * W))); for (let ye = 0; ye < padT; ye++) mix(ye, m, clp(((padT - ye) / padT) * 1.4, 0, 1)); }
     if (padB > 0 && KB >= 6) { const m = blur(med(H - Math.min(KB, H), H), Math.max(2, Math.round(0.02 * W))); const big = padB >= 0.05 * h2, y0 = big ? padT + H - KB : padT + H; for (let ye = y0; ye < h2; ye++) mix(ye, m, big ? clp((ye - y0) / (padB + KB) * 1.6, 0, 1) : clp(((ye - y0) / padB) * 1.4, 0, 1)); }
   }
+  let res = out;
+  if (padL > 0 || padR > 0) { // הרחבה אופקית: שיקוף של קצה התמונה, מטושטש יותר ככל שמתרחקים מהתפר
+    const w2 = W + padL + padR, o2 = { w: w2, h: h2, c: 3, d: new Float32Array(w2 * h2 * 3) };
+    for (let y = 0; y < h2; y++) {
+      const row = o2.d.subarray(y * w2 * 3, (y + 1) * w2 * 3), src0 = out.d.subarray(y * W * 3, (y + 1) * W * 3);
+      row.set(src0, padL * 3);
+      const fillSide = (n, dir) => { // dir -1: שמאל, 1: ימין
+        const tmp = new Float32Array(n * 3);
+        for (let k = 0; k < n; k++) { const sx = Math.min(W - 1, k), si = (dir < 0 ? sx : W - 1 - sx) * 3, di = (dir < 0 ? n - 1 - k : k) * 3; tmp[di] = src0[si]; tmp[di + 1] = src0[si + 1]; tmp[di + 2] = src0[si + 2]; }
+        for (let k = 0; k < n; k++) { const d = k + 1, r = Math.min(Math.round(0.012 * W), Math.round(0.12 * d)), x = dir < 0 ? n - 1 - k : k; for (let c = 0; c < 3; c++) { let sm = 0, nn = 0; for (let t = -r; t <= r; t++) { const xx = x + t; if (xx >= 0 && xx < n) { sm += tmp[xx * 3 + c]; nn++; } } row[((dir < 0 ? x : padL + W + x) * 3) + c] = nn ? sm / nn : tmp[x * 3 + c]; } }
+      };
+      if (padL > 0) fillSide(padL, -1); if (padR > 0) fillSide(padR, 1);
+    }
+    res = o2;
+  }
   if (A.ext.size > 8) A.ext.delete(A.ext.keys().next().value);
-  A.ext.set(key, out); return out;
+  A.ext.set(key, res); return res;
 }
 function reframeBg(sc, rf, Wk, Hk, K) {
-  const A = rf.A, ext = rfExtend(A, sc.W, sc.H, rf.padT, rf.padB, rf.native);
-  const wx0 = clp(Math.round(rf.x0), 0, ext.w - 4), wy0 = clp(Math.round(rf.y0 + rf.padT), 0, ext.h - 4), ww = clp(Math.round(rf.ww), 4, ext.w - wx0), wh = clp(Math.round(rf.wh), 4, ext.h - wy0);
+  const A = rf.A, pl = rf.padL || 0, ext = rfExtend(A, sc.W, sc.H, rf.padT, rf.padB, rf.native, pl, rf.padR || 0);
+  const wx0 = clp(Math.round(rf.x0 + pl), 0, ext.w - 4), wy0 = clp(Math.round(rf.y0 + rf.padT), 0, ext.h - 4), ww = clp(Math.round(rf.ww), 4, ext.w - wx0), wh = clp(Math.round(rf.wh), 4, ext.h - wy0);
   return resizePlate(cropImg(ext, wx0, wy0, wx0 + ww, wy0 + wh), Wk, Hk);
 }
 const rfArea = r => Math.max(0, r.w) * Math.max(0, r.h);
@@ -2684,7 +2743,7 @@ function rfBuild(sc, W, H) {
   if (W / H >= 7 && H <= 100) { let st = null; try { st = rfStrip(sc, W, H, P, A, AU); } catch (e) { if (G.__SIZY_DEBUG) throw e; } if (st) return st; }
   let best = null;
   const consider = (f, x0, y0, strategy, groups, bonus = 0) => {
-    const ww = W / f, wh = H / f; if (ww > SW + 0.5 || x0 < -0.5 || x0 + ww > SW + 0.5) return;
+    const ww = W / f, wh = H / f, hp = strategy === 'side' && W / H >= 2 ? 0.22 * ww : 0, padL = Math.ceil(Math.max(0, -x0 - 0.01)), padR = Math.ceil(Math.max(0, x0 + ww - SW - 0.01)); if ((ww > SW + 0.5 && hp === 0) || padL > hp + 0.5 || padR > hp + 0.5 || padL + padR > hp + 0.5) return;
     const padT = Math.ceil(Math.max(0, -y0 - 0.01)), padB = Math.ceil(Math.max(0, y0 + wh - SH - 0.01)), pad = (padT + padB) / wh; if (pad > RF.maxPad) return;
     const R = { x: (keep.x - x0) * f, y: (keep.y - y0) * f, w: keep.w * f, h: keep.h * f }, Rv = rfInter(R, { x: 0, y: 0, w: W, h: H }), hv = rfArea(Rv) / rfArea(R);
     const fcy = (face.y - y0) * f, fch = face.h * f, fcx = (face.x - x0) * f; if (fcy < -1 || fcy + fch > H + 1 || fcx < -1 || fcx + face.w * f > W + 1) return; // הפנים חייבות להיות שלמות
@@ -2695,11 +2754,18 @@ function rfBuild(sc, W, H) {
       const z = g.tiers ? rfTiers(sc, g.units, zr[0], zr[1], zr[2], zr[3]) : rfZone(sc, g.units, zr[0], zr[1], zr[2], zr[3]); if (!z) return; place = place.concat(z);
     }
     if (!place.length) return;
+    { // פנים של הגיבור לא מכוסות, ושתי יחידות שונות לא חופפות (חוץ מהגיבור והרקע)
+      const fr = { x: fcx, y: fcy, w: face.w * f, h: fch }, mv = e => !e[0].isPlate && e[0].role !== 'hero', ov = (a, b, k = 0) => Math.min(a[1] + a[3], b[1] + b[3]) - Math.max(a[1], b[1]) > k && Math.min(a[2] + a[4], b[2] + b[4]) - Math.max(a[2], b[2]) > k;
+      const un = new Map(); A.units.forEach((u, i) => u.kids.forEach(k => un.set(k.id, i)));
+      const mvp = place.filter(mv);
+      for (const e of mvp) if (ov(e, [null, fr.x, fr.y, fr.w, fr.h], 0.12 * Math.min(fr.w, fr.h))) return;
+      for (let i = 0; i < mvp.length; i++) for (let j = i + 1; j < mvp.length; j++) if (un.get(mvp[i][0].id) !== un.get(mvp[j][0].id) && ov(mvp[i], mvp[j], 1.5)) return;
+    }
     const ids = new Set(place.map(e => e[0].id));
     for (const u of A.units) if (u.kids.some(k => k.role === 'button' || k.role === 'headline') && !u.kids.every(k => ids.has(k.id))) return; // כותרת וכפתור חייבים להישאר
     const sm = rfSmear(A, SW, SH, f, x0, y0, W, H, place), J = rfScore(place, W, H, Rv, hv, A.units.length, pad) - 6 * sm + bonus;
     if (G.__SIZY_RFLOG) G.__SIZY_RFLOG.push({ J, f, strategy, pad, hv, sm, head: place.filter(e => e[0].role === 'headline').reduce((a, e) => a + e[3], 0) });
-    if (!best || J > best.J) best = { J, f, x0, y0, ww, wh, padT, padB, place, strategy, R, Rv, A };
+    if (!best || J > best.J) best = { J, f, x0, y0, ww, wh, padT, padB, padL, padR, place, strategy, R, Rv, A };
   };
   const xRange = (f, ww) => [Math.max(0, keep.x + keep.w - ww), Math.min(SW - ww, keep.x)];
   const bestX = (x0lo, x0hi, ww, y0, wh) => { // החלון האופקי עם הכי הרבה פרטים
@@ -2744,15 +2810,17 @@ function rfBuild(sc, W, H) {
     for (const al of ['bottom', 'center', 'top']) {
       const R_h = keep.h * f, R_y = al === 'bottom' ? H - mg - R_h : al === 'top' ? mg : (H - R_h) / 2, y0 = keep.y - R_y / f;
       const [lo2, hi2] = xRange(f, ww); let x0 = left ? keep.x - mg / f : keep.x + keep.w + mg / f - ww; x0 = clp(x0, lo2, hi2); if (hi2 < lo2) continue;
-      for (const aligned of [false, true]) {
-        const gs = [{ units: AU, zone: (R, Rv) => {
+      const logosS = AU.filter(u => u.role === 'logo'), restS = AU.filter(u => u.role !== 'logo');
+      for (const lg of logosS.length ? (W / H >= 2 ? [false, true] : [false]) : [false]) for (const aligned of [false, true]) {
+        const colZone = (R, Rv) => {
           let x1 = left ? Rv.x + Rv.w + gap : 0, x2 = left ? W : Rv.x - gap;
           if (aligned) { // העמודה מתחילה במקום שבו היו היחידות במקור (שם הרקע ממילא ממולא), ולא על נוף שלם
             const hx0 = (A.hb.x0 - x0) * f, hx1 = (A.hb.x1 - x0) * f; if (left) x1 = Math.max(x1, hx0 - gap); else x2 = Math.min(x2, hx1 + gap);
           }
           return x2 - x1 >= 0.25 * W ? [x1, 0, x2 - x1, H] : null;
-        } }];
-        consider(f, x0, y0, 'side', gs);
+        };
+        const gs = lg ? [{ units: logosS, zone: () => [left ? mg : W - mg - Math.min(0.17 * W, 0.4 * H * 1.2), mg, Math.min(0.17 * W, 0.4 * H * 1.2), 0.4 * H] }, { units: restS, zone: colZone }] : [{ units: AU, zone: colZone }];
+        const lwS = Math.min(0.17 * W, 0.4 * H * 1.2); consider(f, lg ? (left ? x0 - (lwS * 0.8 + gap) / f : x0 + (lwS * 0.8 + gap) / f) : x0, y0, 'side', gs, lg ? 0.25 : 0); // הלוגו בפינה העליונה בצד שבו הוא היה במקור (כמו מעצב)
       }
     }
     // כמו מעצב: רצועת הפרס ברוחב מלא בתחתית, והגיבור והעמודה (כותרת, כפתור, לוגו) מעליה
@@ -2937,5 +3005,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.19-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.20-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
