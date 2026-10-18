@@ -167,6 +167,7 @@ function layoutHealth(items, W, H, flags, sceneMode, pix) {
     let ov = 0; const pairs = [];
     for (let i = 0; i < content.length; i++) for (let j = i + 1; j < content.length; j++) {
       const a = content[i], b = content[j], ra = a.role, rb = b.role;
+      if (a.group && a.group === b.group) continue; // אותה קבוצה (תגית מאחורי כותרת, תמונה בתוך תגית): חפיפה מכוונת
       if (((ra === 'button' || ra === 'badge') && rb === 'label') || ((rb === 'button' || rb === 'badge') && ra === 'label')) continue;
       const ix = Math.min(a.box[0] + a.box[2], b.box[0] + b.box[2]) - Math.max(a.box[0], b.box[0]), iy = Math.min(a.box[1] + a.box[3], b.box[1] + b.box[3]) - Math.max(a.box[1], b.box[1]);
       if (ix > 0 && iy > 0) { const f = inkOverlap(a, b); if (f > 0.05) { ov += f; pairs.push(`${a.id}/${b.id}:${f.toFixed(2)}`); } }
@@ -306,7 +307,7 @@ export function scoreScene(sc, pl, rgba, W, H, orig) {
   for (const [leaf, x, y, w, h] of pl) {
     if (w < 1 || h < 1) continue;
     const nl = Math.max(1, (leaf.lines || [1]).length), pitch = h / nl;
-    const it = { id: leaf.id, role: leaf.role, text: !!leaf.text, isPlate: !!leaf.isPlate, box: [x, y, w, h], nLines: nl, glyphH: 0.82 * pitch, reflowed: !!leaf.reflowed, absorbs: leaf.absorbs, orig: [leaf.x, leaf.y, leaf.w, leaf.h], layer: leaf.layer };
+    const it = { id: leaf.id, group: leaf.group, role: leaf.role, text: !!leaf.text, isPlate: !!leaf.isPlate, box: [x, y, w, h], nLines: nl, glyphH: 0.82 * pitch, reflowed: !!leaf.reflowed, absorbs: leaf.absorbs, orig: [leaf.x, leaf.y, leaf.w, leaf.h], layer: leaf.layer };
     if (it.text) { // ניגודיות: צבע הטקסט מול הרקע בפלט בפיקסלים שאינם אות
       const L = leaf.layer; let tr = 0, tg = 0, tb = 0, tc = 0;
       for (let i = 0; i < L.lw * L.lh; i++) if (L.a[i] > 0.8) { tr += L.rgb[i * 3]; tg += L.rgb[i * 3 + 1]; tb += L.rgb[i * 3 + 2]; tc++; }
