@@ -1,5 +1,5 @@
 {
- "avg": 93.34,
+ "avg": 93.49,
  "cases": {
   "dreams@1200x200": {
    "score": 68.8,
@@ -235,17 +235,14 @@
    }
   },
   "dreams_live2@300x250": {
-   "score": 82.5,
+   "score": 93.8,
    "flags": [
-    "lowcontrast",
-    "overlap",
-    "ragged",
     "tightmargin"
    ],
    "sub": {
-    "legibility": 60.6,
-    "sharpness": 100,
-    "layout": 69.4,
+    "legibility": null,
+    "sharpness": null,
+    "layout": 85,
     "dropped": 100,
     "fill": 100
    }
@@ -262,17 +259,14 @@
    }
   },
   "dreams_live2@800x600": {
-   "score": 83.2,
+   "score": 93.8,
    "flags": [
-    "lowcontrast",
-    "overlap",
-    "ragged",
     "tightmargin"
    ],
    "sub": {
-    "legibility": 64.3,
-    "sharpness": 100,
-    "layout": 68.7,
+    "legibility": null,
+    "sharpness": null,
+    "layout": 85,
     "dropped": 100,
     "fill": 100
    }
@@ -1602,15 +1596,14 @@
    }
   },
   "dreams_live@800x600": {
-   "score": 91.4,
+   "score": 93.8,
    "flags": [
-    "overlap",
     "tightmargin"
    ],
    "sub": {
-    "legibility": 95.7,
-    "sharpness": 100,
-    "layout": 69.9,
+    "legibility": null,
+    "sharpness": null,
+    "layout": 85,
     "dropped": 100,
     "fill": 100
    }
@@ -1731,19 +1724,16 @@
    }
   },
   "dreams_live3@300x250": {
-   "score": 83.4,
+   "score": 93.8,
    "flags": [
-    "lowcontrast",
-    "overlap",
-    "ragged",
     "tightmargin"
    ],
    "sub": {
-    "legibility": 64.6,
-    "sharpness": 100,
-    "layout": 70.9,
+    "legibility": null,
+    "sharpness": null,
+    "layout": 85,
     "dropped": 100,
-    "fill": 97.1
+    "fill": 100
    }
   },
   "dreams_live3@320x70": {
@@ -1760,15 +1750,14 @@
    }
   },
   "dreams_live3@800x600": {
-   "score": 86.6,
+   "score": 93.8,
    "flags": [
-    "overlap",
     "tightmargin"
    ],
    "sub": {
-    "legibility": 76.1,
-    "sharpness": 100,
-    "layout": 70.3,
+    "legibility": null,
+    "sharpness": null,
+    "layout": 85,
     "dropped": 100,
     "fill": 100
    }
@@ -2118,16 +2107,17 @@
    }
   },
   "yachin@895x80": {
-   "score": 92,
+   "score": 86.3,
    "flags": [
-    "lowcontrast"
+    "smeared",
+    "tightmargin"
    ],
    "sub": {
-    "legibility": 84.3,
-    "sharpness": 100,
-    "layout": 97.1,
+    "legibility": null,
+    "sharpness": null,
+    "layout": 85,
     "dropped": 100,
-    "fill": 77.8
+    "fill": 70
    }
   },
   "yachin@320x320": {

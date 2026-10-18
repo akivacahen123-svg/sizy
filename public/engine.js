@@ -2303,10 +2303,37 @@ function enforceBans(sc, W, H, pl) {
   return out;
 }
 let APGEN = 0; // מספר הגרסה עולה כשמשתנים האיסורים, ואז הזיכרון נמחק
+// ---------------------------------------------------------------- רשת ביטחון (כמו במערכות מסחריות: אף פעם לא שבור)
+// אם הסידור שנבנה נכשל בבדיקות גיאומטריה (חפיפה, חיתוך, כותרת חסרה), מחליפים אותו בבאנר המקורי השלם: הקטנה אחת בלי חיתוך, על רקע מטושטש מאותה תמונה.
+// זה אולי פשוט, אבל תמיד נקי ושלם (בגודל המקורי זה בדיוק המקור). לא פועל כשיש תכנון מפורש (plan).
+const SAFE_CODES = new Set(['clipped', 'overlap', 'headline_missing']);
+function containPlace(sc, W, H) {
+  const img = sc._img; if (!img) return null;
+  const sw = sc.W, sh = sc.H; let s = Math.min(W / sw, H / sh);
+  if (s * s * sw * sh < 0.35 * W * H && Math.abs(W / H - sw / sh) > 0.03) return null; // רצועה קטנה באמצע קנבס גדול: לא טוב יותר מהסידור הקיים
+  if (Math.abs(W / H - sw / sh) < 0.03) s = Math.max(W / sw, H / sh);
+  const w = sw * s, h = sh * s, a = new Float32Array(sw * sh).fill(1);
+  const ids = (sc.leaves instanceof Map ? [...sc.leaves.values()] : sc.leaves).map(l => l.id);
+  const leaf = { id: 'whole', role: 'photo', text: false, shape: 'rect', group: null, z: 0, x: 0, y: 0, w: sw, h: sh, reflowed: true, absorbs: ids, layer: { rgb: img.d, a, lw: sw, lh: sh, up: 1, x: 0, y: 0, w: sw, h: sh } };
+  return [[leaf, (W - w) / 2, (H - h) / 2, w, h]];
+}
+function rfSafe(sc, W, H, plan, pl) {
+  const c = sc._cont || (sc._cont = new Map()), key = W + 'x' + H;
+  if (plan || !G.SizyQA || !sc._img) { c.set(key, false); return pl; }
+  let bad = false; try { bad = G.SizyQA.qaCheck(sc, W, H, pl).issues.some(i => SAFE_CODES.has(i.code)); } catch (e) { bad = false; }
+  const cp = bad ? containPlace(sc, W, H) : null; c.set(key, !!cp);
+  return cp || pl;
+}
+function containFor(sc, W, H) { autoplace(sc, W, H); return !!(sc._cont && sc._cont.get(W + 'x' + H)); }
+function containBg(sc, Wk, Hk) {
+  const img = sc._img, s = Math.max(Wk / sc.W, Hk / sc.H), nw = Math.max(Wk, Math.round(sc.W * s)), nh = Math.max(Hk, Math.round(sc.H * s));
+  const big = resize(img, nw, nh, s < 1 ? 'area' : 'cubic'), x0 = Math.floor((nw - Wk) / 2), y0 = Math.floor((nh - Hk) / 2);
+  return blur(cropImg(big, x0, y0, x0 + Wk, y0 + Hk), 0.035 * Math.max(Wk, Hk));
+}
 function autoplace(sc, W, H, plan) {
   const ck = W + 'x' + H + '|' + APGEN + '|' + (plan ? JSON.stringify(plan) : ''), mc = sc._ap || (sc._ap = new Map()), hit = mc.get(ck);
   if (hit) return hit.map(e => e.slice());
-  const res = autoplace0(sc, W, H, plan);
+  const res = rfSafe(sc, W, H, plan, autoplace0(sc, W, H, plan));
   if (mc.size > 64) mc.delete(mc.keys().next().value);
   mc.set(ck, res.map(e => e.slice()));
   return res;
@@ -2718,8 +2745,9 @@ function render(sc, W, H, K, plan) {
   let nw = Math.max(Wk, Math.round(sc.W * s)), nh = Math.max(Hk, Math.round(sc.H * s));
   const xs = G.SizyBg ? G.SizyBg.map(sc.W, sc.H, Wk, Hk) : null;
   let bg, ox, oy, panelBg = false;
-  const rf = reframeFor(sc, W, H, plan);
-  if (rf) { bg = reframeBg(sc, rf, Wk, Hk, K); ox = 0; oy = 0; nw = Wk; nh = Hk; }
+  const cn = !plan && containFor(sc, W, H), rf = cn ? null : reframeFor(sc, W, H, plan);
+  if (cn) { bg = containBg(sc, Wk, Hk); ox = 0; oy = 0; nw = Wk; nh = Hk; }
+  else if (rf) { bg = reframeBg(sc, rf, Wk, Hk, K); ox = 0; oy = 0; nw = Wk; nh = Hk; }
   else if (xs) {
     const tall = resizePlate(sc.plate, sc.W, Hk); bg = { w: Wk, h: Hk, c: 3, d: new Float32Array(Wk * Hk * 3) }; ox = 0; oy = 0; nw = Wk; nh = Hk;
     for (let u = 0; u < Wk; u++) {
@@ -2834,5 +2862,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.14-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.15-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);

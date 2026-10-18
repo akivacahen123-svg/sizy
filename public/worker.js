@@ -2,7 +2,7 @@
 // בריכת עובדים: עובד אחד בונה את הסצנה (פעם אחת), ושולח עותק שלה לשאר העובדים דרך MessagePort,
 // ואז כל העובדים מסדרים ומציירים גדלים במקביל.
 const V = self.location.search; // גרסת בנייה בכתובת: מונעת מהדפדפן להריץ קבצי מנוע ישנים מהמטמון
-importScripts('/bgmap.js' + V, '/inpaint.js' + V, '/engine.js' + V);
+importScripts('/bgmap.js' + V, '/inpaint.js' + V, '/qa.js' + V, '/engine.js' + V);
 let scene = null, pixels = null;
 function sceneBytes(sc) {
   let n = sc.W * sc.H * 12;
@@ -69,8 +69,12 @@ onmessage = async e => {
       // REFRAME: הרקע הוא חלון חיתוך מהמקור, לא הרקע הרגיל של הסצנה; העורך צריך אותו כדי לצייר נכון
       let bg = null, dbg = {}; const bufs = items.filter(i => i.layer).map(i => i.layer.rgba.buffer);
       try {
-        const rf = SizyEngine.reframeFor(scene, m.w, m.h, m.plan); dbg.rf = rf ? rf.strategy : null;
-        if (rf) {
+        const cn = !m.plan && SizyEngine.containFor(scene, m.w, m.h), rf = cn ? null : SizyEngine.reframeFor(scene, m.w, m.h, m.plan); dbg.rf = cn ? 'contain' : rf ? rf.strategy : null;
+        if (cn) {
+          const K = Math.max(1, Math.min(2, 1600 / Math.max(m.w, m.h))), b = SizyEngine.containBg(scene, Math.floor(m.w * K), Math.floor(m.h * K)), n = b.w * b.h, rgba = new Uint8ClampedArray(n * 4);
+          for (let i = 0; i < n; i++) { rgba[i * 4] = b.d[i * 3]; rgba[i * 4 + 1] = b.d[i * 3 + 1]; rgba[i * 4 + 2] = b.d[i * 3 + 2]; rgba[i * 4 + 3] = 255; }
+          bg = { w: b.w, h: b.h, rgba: rgba.buffer }; bufs.push(rgba.buffer);
+        } else if (rf) {
           const K = Math.max(1, Math.min(2, 1600 / Math.max(m.w, m.h)));
           const b = SizyEngine.reframeBg(scene, rf, Math.floor(m.w * K), Math.floor(m.h * K), K), n = b.w * b.h, rgba = new Uint8ClampedArray(n * 4);
           for (let i = 0; i < n; i++) { rgba[i * 4] = b.d[i * 3]; rgba[i * 4 + 1] = b.d[i * 3 + 1]; rgba[i * 4 + 2] = b.d[i * 3 + 2]; rgba[i * 4 + 3] = 255; }
