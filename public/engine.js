@@ -2402,17 +2402,23 @@ function rfAssets(sc, P) {
     const o = panels.find(p => Math.min(p.x + p.w, r.x + r.w) - Math.max(p.x, r.x) > 0.5 * Math.min(p.w, r.w) && Math.min(p.y + p.h, r.y + r.h) - Math.max(p.y, r.y) > 0.5 * Math.min(p.h, r.h));
     if (o) { const x1 = Math.max(o.x + o.w, r.x + r.w), y1 = Math.max(o.y + o.h, r.y + r.h); o.x = Math.min(o.x, r.x); o.y = Math.min(o.y, r.y); o.w = x1 - o.x; o.h = y1 - o.y; } else panels.push({ ...r });
   }
+  const btnU = u => u.kids.some(k => k.role === 'button') && u.kids.every(k => k.role === 'button' || k.text || k.panel);
+  for (const u of sc.units) { // כפתור (עם הטקסט שבתוכו) נחתך כתמונה אחת עם פינות מעוגלות: הוצאת אלפא מזהב על מג'נטה שוחקת את הספרות ומשאירה קצוות מנוקדים
+    if (u === heroU || !btnU(u)) continue;
+    const b = u.kids.filter(k => k.role === 'button'), x0 = Math.max(0, Math.floor(Math.min(...b.map(k => k.x)))), y0 = Math.max(0, Math.floor(Math.min(...b.map(k => k.y)))), x1 = Math.min(W, Math.ceil(Math.max(...b.map(k => k.x + k.w)))), y1 = Math.min(H, Math.ceil(Math.max(...b.map(k => k.y + k.h))));
+    if (x1 - x0 >= 20 && y1 - y0 >= 12 && !panels.some(q => Math.min(q.x + q.w, x1) - Math.max(q.x, x0) > 0 && Math.min(q.y + q.h, y1) - Math.max(q.y, y0) > 0)) panels.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0, btn: true });
+  }
   const absorbed = new Set();
   panels.forEach((p, i) => {
-    const kids = sc.units.filter(u => u !== heroU && textU(u) && u.x + u.w / 2 > p.x && u.x + u.w / 2 < p.x + p.w && u.y + u.h / 2 > p.y && u.y + u.h / 2 < p.y + p.h);
+    const kids = sc.units.filter(u => u !== heroU && (p.btn ? btnU(u) : textU(u)) && u.x + u.w / 2 > p.x && u.x + u.w / 2 < p.x + p.w && u.y + u.h / 2 > p.y && u.y + u.h / 2 < p.y + p.h);
     kids.forEach(u => absorbed.add(u));
-    const lw = p.w, lh = p.h, rgb = new Float32Array(lw * lh * 3), a = rfRound(lw, lh, 0.07 * Math.min(lw, lh), 0);
+    const lw = p.w, lh = p.h, rgb = new Float32Array(lw * lh * 3), rr = p.btn ? 0.3 : 0.07, a = rfRound(lw, lh, rr * Math.min(lw, lh), p.btn ? -1.2 : 0);
     for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) { const si = ((p.y + y) * W + p.x + x) * 3, di = (y * lw + x) * 3; rgb[di] = img.d[si]; rgb[di + 1] = img.d[si + 1]; rgb[di + 2] = img.d[si + 2]; }
-    const hm = rfRound(lw + 8, lh + 8, 0.07 * Math.min(lw, lh) + 4, 0);
+    const hm = rfRound(lw + 8, lh + 8, rr * Math.min(lw, lh) + 4, 0);
     for (let y = 0; y < lh + 8; y++) for (let x = 0; x < lw + 8; x++) if (hm[y * (lw + 8) + x] > 0.02) { const gx = p.x - 4 + x, gy = p.y - 4 + y; if (gx >= 0 && gy >= 0 && gx < W && gy < H) hole[gy * W + gx] = 1; }
-    const hz = kids.flatMap(u => u.kids.filter(k => k.role === 'headline').map(k => k.z)), z = Math.min(...(hz.length ? hz : kids.flatMap(u => u.kids.map(k => k.z))), 1e9); // z של עלה כותרת: העורך וה-QA מזהים את הלוח ככותרת
-    const leaf = { id: 'panel' + i, role: 'headline', lines: kids.flatMap(u => u.lines || []), text: false, shape: 'rect', group: null, z, layer: { rgb, a, lw, lh, up: 1, x: p.x, y: p.y, w: lw, h: lh }, x: p.x, y: p.y, w: lw, h: lh, panelCrop: true, reflowed: true, absorbs: kids.flatMap(u => u.kids.map(k => k.id)) }; // reflowed: העורך מקבל את השכבה המורכבת
-    units.push({ role: 'headline', kids: [leaf], x: p.x, y: p.y, w: lw, h: lh, lines: leaf.lines, pin: null });
+    const hz = kids.flatMap(u => u.kids.filter(k => k.role === (p.btn ? 'button' : 'headline')).map(k => k.z)), z = Math.min(...(hz.length ? hz : kids.flatMap(u => u.kids.map(k => k.z))), 1e9); // z של עלה כותרת: העורך וה-QA מזהים את הלוח ככותרת
+    const leaf = { id: 'panel' + i, role: p.btn ? 'button' : 'headline', lines: kids.flatMap(u => u.lines || []), text: false, shape: 'rect', group: null, z, layer: { rgb, a, lw, lh, up: 1, x: p.x, y: p.y, w: lw, h: lh }, x: p.x, y: p.y, w: lw, h: lh, panelCrop: true, reflowed: true, absorbs: kids.flatMap(u => u.kids.map(k => k.id)) }; // reflowed: העורך מקבל את השכבה המורכבת
+    units.push({ role: p.btn ? 'button' : 'headline', kids: [leaf], x: p.x, y: p.y, w: lw, h: lh, lines: leaf.lines, pin: null });
   });
   for (const u of sc.units) if (u !== heroU && !absorbed.has(u)) units.push(u);
   for (const e of sc.leaves) { // חורים ליחידות שזזות (לא לגיבור): המסכה המורחבת של היחידה + מלבן התיבה שלה (שאריות הילה/עיטורים מחוץ לאלפא)
@@ -2492,7 +2498,7 @@ function rfSmear(A, SW, SH, f, x0, y0, W, H, place) {
 }
 function rfScore(place, W, H, Rv, hv, nUnits, pad) {
   let head = 0, other = 0, btn = 0, kept = new Set();
-  for (const e of place) { const a = e[3] * e[4]; if (e[0].role === 'headline') head += a; else if (e[0].role === 'button') btn += a; else other += a; kept.add(e[0].id); }
+  for (const e of place) { const a = e[3] * e[4]; if (e[0].role === 'headline') head += a; else if (e[0].role === 'button' && !e[0].panelCrop) btn += a; else other += a; kept.add(e[0].id); }
   return 1.0 * Math.sqrt(btn / (W * H)) + 3.2 * Math.sqrt(head / (W * H)) + 0.5 * Math.sqrt(rfArea(Rv) / (W * H)) + 0.5 * Math.sqrt(other / (W * H)) - 1.0 * pad - 1.5 * (1 - hv) - (W / H < 3 ? 2.4 * Math.max(0, 0.6 - Math.min(Rv.h, H) / H) : 0) - 2.4 * Math.max(0, Math.min(Rv.h, H) / H - 0.82); // מעצב: הדמות תופסת לפחות ~60% מהגובה (לא קטנה ברקע מרופד)
 }
 // כללי מעצב (נמדדו ב-19 גדלים של קמפיין צילומי אחד): מה מורידים לפי גודל הבאנר, לפי תפקיד ולא לפי טקסט
@@ -2510,7 +2516,7 @@ function rfKeepUnits(units, W, H) {
 
 // פס דק (למשל 728x90, 1200x60): הכותרת הופכת לשורה אחת. שורות הלוח נחתכות מהמקור (כולל הרקע שלהן) ומוצמדות זו לזו; כפתור/פרס/לוגו בשורה לידו
 function rfStrip(sc, W, H, P, A, AU) {
-  const pu = AU.find(u => u.kids.some(k => k.panelCrop)); if (!pu) return null;
+  const pu = AU.find(u => u.kids.some(k => k.panelCrop && k.role === 'headline')); if (!pu) return null;
   const pk = pu.kids.find(k => k.panelCrop), p = A.panels && A.panels[0]; if (!p) return null;
   const ab = new Set(pk.absorbs || []), tl = sc.leaves.filter(l => l.text && l.role === 'headline' && ab.has(l.id) && l.layer);
   if (!tl.length) return null;
@@ -2556,16 +2562,16 @@ function rfStrip(sc, W, H, P, A, AU) {
   }
   const barLeaf = { ...pk, id: 'panel_strip', layer: { rgb, a, lw: bw, lh: bhh, up: 1, x: p.x, y: p.y, w: bw, h: bhh }, x: p.x, y: p.y, w: bw, h: bhh };
   // סידור אופקי
-  const mg = Math.max(2, 0.05 * H), hb = Math.min(0.92 * H, 0.68 * W * bhh / bw), wb = bw * hb / bhh;
+  const mg = Math.max(2, 0.05 * H), barF = W >= 700 && AU.some(u => u.role === 'logo') ? 0.6 : 0.68, hb = Math.min(0.92 * H, barF * W * bhh / bw), wb = bw * hb / bhh;
   const barX = W - mg - wb, barY = (H - hb) / 2, place = [[barLeaf, barX, barY, wb, hb]];
   const isPrize = u => u.kids.length > 0 && u.kids.every(k => k.role === 'badge' || k.role === 'photo') && u.role !== 'badge';
   const btnU = AU.find(u => u.role === 'button'), logoU = AU.find(u => u.role === 'logo'), prizeU = AU.find(isPrize);
   if (!btnU) return null;
   const gap = 0.02 * W, items = []; let left = barX - gap - mg;
   const add = (u, hr, must) => { const h0 = hr * H, w0 = u.w / u.h * h0; let w1 = w0, h1 = h0; if (w0 > left) { if (!must) return; w1 = left; h1 = w1 * u.h / u.w; if (h1 < 0.4 * H) return; } items.push({ u, w: w1, h: h1 }); left -= w1 + gap; };
-  add(btnU, 0.8, true); if (items.length !== 1) return null;
+  add(btnU, logoU && W >= 700 ? 0.56 : 0.7, true); if (items.length !== 1) return null;
   if (prizeU && (W >= 1000 || H >= 80)) add(prizeU, 0.8, false);
-  if (logoU && W >= 700) add(logoU, 0.78, false);
+  if (logoU && W >= 700) add(logoU, 0.62, false);
   // מימין לשמאל: כפתור, פרס, לוגו; המרווח שנשאר מתחלק בין הפריטים
   const tot = items.reduce((a, i) => a + i.w, 0), spare = barX - mg - tot, g = Math.min(spare / items.length, 0.06 * W);
   let xr = barX - Math.max(g, gap);
@@ -2828,5 +2834,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.13-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.14-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
