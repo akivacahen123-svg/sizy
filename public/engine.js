@@ -2422,14 +2422,14 @@ function rfAssets(sc, P) {
   if (P.A) return P.A;
   const img = sc._img, W = sc.W, H = sc.H, lum = rfLum(img), hero = P.hero, units = [], hole = Uint8Array.from(sc._holesT || new Uint8Array(W * H));
   const heroU = sc.units.find(u => u.kids.includes(hero));
-  const textU = u => u.kids.every(k => k.text || k.panel || (k.role === 'badge' && u.kids.some(q => q.role === 'headline'))), cand = sc.units.filter(u => u !== heroU && textU(u) && u.kids.some(k => k.role === 'headline')); // יחידת כותרת על לוח: הלוח והטקסט נחתכים יחד מהמקור (אלפא של טקסט זהב עם צללים כהים על לוח כהה מוחק חלקי אותיות)
+  const textU = u => u.kids.every(k => k.text || k.panel || ((k.role === 'badge' || k.role === 'decor') && u.kids.some(q => q.role === 'headline'))), cand = sc.units.filter(u => u !== heroU && textU(u) && u.kids.some(k => k.role === 'headline')); // יחידת כותרת על לוח: הלוח והטקסט נחתכים יחד מהמקור (אלפא של טקסט זהב עם צללים כהים על לוח כהה מוחק חלקי אותיות)
   const panels = [];
   for (const u of cand) {
     const r = rfPanelRect(img, lum, [u.x, u.y, u.x + u.w, u.y + u.h]); if (!r) continue;
     const o = panels.find(p => Math.min(p.x + p.w, r.x + r.w) - Math.max(p.x, r.x) > 0.5 * Math.min(p.w, r.w) && Math.min(p.y + p.h, r.y + r.h) - Math.max(p.y, r.y) > 0.5 * Math.min(p.h, r.h));
     if (o) { const x1 = Math.max(o.x + o.w, r.x + r.w), y1 = Math.max(o.y + o.h, r.y + r.h); o.x = Math.min(o.x, r.x); o.y = Math.min(o.y, r.y); o.w = x1 - o.x; o.h = y1 - o.y; } else panels.push({ ...r });
   }
-  const btnU = u => u.kids.some(k => k.role === 'button') && u.kids.every(k => k.role === 'button' || k.text || k.panel);
+  const btnU = u => u.kids.some(k => k.role === 'button') && u.kids.every(k => k.role === 'button' || k.role === 'decor' || k.text || k.panel);
   for (const u of sc.units) { // כפתור (עם הטקסט שבתוכו) נחתך כתמונה אחת עם פינות מעוגלות: הוצאת אלפא מזהב על מג'נטה שוחקת את הספרות ומשאירה קצוות מנוקדים
     if (u === heroU || !btnU(u)) continue;
     const b = u.kids.filter(k => k.role === 'button'), x0 = Math.max(0, Math.floor(Math.min(...b.map(k => k.x)))), y0 = Math.max(0, Math.floor(Math.min(...b.map(k => k.y)))), x1 = Math.min(W, Math.ceil(Math.max(...b.map(k => k.x + k.w)))), y1 = Math.min(H, Math.ceil(Math.max(...b.map(k => k.y + k.h))));
@@ -2605,8 +2605,15 @@ function rfStrip(sc, W, H, P, A, AU) {
   for (const it of items) { const x = xr - it.w, y = (H - it.h) / 2, z = rfZone(sc, [it.u], x, y, it.w, it.h); if (!z) { if (it.u === btnU) return null; continue; } place.push(...z); xr = x - Math.max(g, gap); }
   // חלון הרקע: פס מהתמונה עם הכי מעט חורים מולאו
   const f = W / SW, wh = H / f; if (wh > sc.H) return null;
+  // חלון הרקע: שורות עם הכי מעט חורים. אם הרצועה חותכת את הגיבור (למשל רגליים בלבד) מענישים, כך שתיבחר רצועה נקייה (שמיים/עיר)
   const rowHole = new Float32Array(sc.H); for (let y = 0; y < sc.H; y++) { let c = 0; for (let x = 0; x < SW; x++) c += A.hole[y * SW + x]; rowHole[y] = c / SW; }
-  let by = 0, bs = 1e9; for (let y0 = 0; y0 <= sc.H - wh; y0 += 2) { let h = 0; for (let y = Math.floor(y0); y < Math.ceil(y0 + wh); y++) h += rowHole[y]; const sc2 = h / wh; if (sc2 < bs) { bs = sc2; by = y0; } }
+  const hero = P.hero, hy0 = hero.y, hy1 = hero.y + hero.h;
+  let by = 0, bs = 1e9; for (let y0 = 0; y0 <= sc.H - wh; y0 += 2) {
+    let h = 0; for (let y = Math.floor(y0); y < Math.ceil(y0 + wh); y++) h += rowHole[y];
+    let c = h / wh; const ov = Math.min(y0 + wh, hy1) - Math.max(y0, hy0);
+    if (ov > 0) c += 0.5 * Math.min(1, ov / wh);
+    if (c < bs) { bs = c; by = y0; }
+  }
   return { J: 1, f, x0: 0, y0: by, ww: SW, wh, padT: 0, padB: 0, place, strategy: 'strip', native: false, R: { x: 0, y: 0, w: 0, h: 0 }, Rv: { x: 0, y: 0, w: 0, h: 0 }, A };
 }
 function rfBuild(sc, W, H) {
@@ -2862,5 +2869,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.15-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.16-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
