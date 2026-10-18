@@ -50,8 +50,9 @@ function qaCheck(sc, W, H, placement, pix) {
   m.droppedRoles = orig.filter(l => !ids.has(l.id)).map(l => l.role);
   if (leaves.some(l => l.role === 'headline' && !ids.has(l.id))) add('headline_missing');
   if (leaves.some(l => l.role === 'button' && !ids.has(l.id))) add('button_missing');
-  const placed = content.filter(e => e[0].role !== 'decor').length;
-  if (orig.length && placed < 0.6 * orig.length && W * H > 20000) add('dropped', placed + ' מתוך ' + orig.length);
+  // הושמט = חסרים אלמנטים חשובים (לוגו) או רוב האלמנטים. פרטים קטנים/תגית/שורת פרטים שמוסרים בכוונה (כמו אצל מעצב) לא נחשבים אזהרה
+  const lost = orig.filter(l => !ids.has(l.id)), placed = orig.length - lost.length, coreLost = lost.filter(l => l.role === 'logo' || l.role === 'subheadline');
+  if (orig.length && (coreLost.length || placed < 0.4 * orig.length) && W * H > 20000) add('dropped', placed + ' מתוך ' + orig.length);
 
   if (content.length) {
     const x0 = Math.min(...content.map(e => e[1])), x1 = Math.max(...content.map(e => e[1] + e[3])), y0 = Math.min(...content.map(e => e[2])), y1 = Math.max(...content.map(e => e[2] + e[4]));

@@ -2672,6 +2672,18 @@ function rfBuild(sc, W, H) {
         consider(f, x0, y0, 'stack', gs);
       }
     }
+    // כמו מעצב בבאנר גבוה: הגיבור גדול למעלה, והלוח (כותרת, כפתור, פרס) מונח על החצי התחתון שלו (הרגליים), הלוגו בפינה העליונה מול הגיבור
+    if (W / H < 0.8) for (const ry of [0.05, 0.09, 0.13]) {
+      const R_h = keep.h * f, R_y = ry * H; if (R_y + R_h > H + 0.5) continue;
+      const y0 = keep.y - R_y / f, x0 = bestX(lo, hi, ww, y0, wh); if (x0 === null) continue;
+      const logos = AU.filter(u => u.role === 'logo'), rest = AU.filter(u => u.role !== 'logo');
+      for (const cut of [0.5, 0.58, 0.66]) {
+        const gs = [
+          { units: logos, zone: (R, Rv) => logos.length ? [left ? W - 0.3 * W - mg : mg, mg, 0.3 * W, 0.16 * H] : [0, 0, W, 0] },
+          { units: rest, zone: (R, Rv) => { const y = Rv.y + cut * Rv.h; return H - y >= 0.3 * H ? [0, y, W, H - y] : null; } }];
+        consider(f, x0, y0, 'overlay', gs);
+      }
+    }
     // לצד: הגיבור בקצה (בצד המקורי) והיחידות בעמודה לידו
     for (const al of ['bottom', 'center', 'top']) {
       const R_h = keep.h * f, R_y = al === 'bottom' ? H - mg - R_h : al === 'top' ? mg : (H - R_h) / 2, y0 = keep.y - R_y / f;
@@ -2869,5 +2881,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.16-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.17-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);

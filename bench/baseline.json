@@ -1,5 +1,5 @@
 {
- "avg": 92.98,
+ "avg": 93.12,
  "cases": {
   "dreams_live@1200x200": {
    "score": 86,
@@ -42,17 +42,17 @@
    }
   },
   "dreams_live@300x600": {
-   "score": 88,
+   "score": 89.4,
    "flags": [
     "empty_band",
-    "tightmargin"
+    "sticker_edge"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 93.9,
+    "layout": 96.3,
     "dropped": 74.4,
-    "fill": 96.4
+    "fill": 98
    }
   },
   "dreams_live@160x600": {
@@ -134,17 +134,17 @@
    }
   },
   "dreams_live@600x1100": {
-   "score": 94.3,
+   "score": 97.6,
    "flags": [
     "empty_band",
-    "tightmargin"
+    "sticker_edge"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 89.3,
+    "layout": 98.6,
     "dropped": 100,
-    "fill": 95
+    "fill": 92.9
    }
   },
   "dreams_live@895x80": {
@@ -197,21 +197,20 @@
    }
   },
   "dreams_live3@300x600": {
-   "score": 96.9,
+   "score": 97.3,
    "flags": [
-    "empty_band",
-    "tightmargin"
+    "empty_band"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 94.2,
+    "layout": 96.8,
     "dropped": 100,
-    "fill": 97.1
+    "fill": 94.5
    }
   },
   "dreams_live3@160x600": {
-   "score": 88.4,
+   "score": 89.9,
    "flags": [
     "blotchy",
     "empty_band"
@@ -219,9 +218,9 @@
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 94.7,
+    "layout": 97.6,
     "dropped": 100,
-    "fill": 62.5
+    "fill": 63.6
    }
   },
   "dreams_live3@728x90": {
@@ -288,17 +287,16 @@
    }
   },
   "dreams_live3@600x1100": {
-   "score": 94.8,
+   "score": 96.9,
    "flags": [
-    "empty_band",
-    "tightmargin"
+    "empty_band"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 90.5,
+    "layout": 97.7,
     "dropped": 100,
-    "fill": 95.1
+    "fill": 91.4
    }
   },
   "dreams_live3@895x80": {
@@ -1532,16 +1530,16 @@
    }
   },
   "dreams@300x600": {
-   "score": 92.6,
+   "score": 94.7,
    "flags": [
     "empty_band"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 94,
+    "layout": 98.2,
     "dropped": 88.1,
-    "fill": 96
+    "fill": 97.5
    }
   },
   "dreams@160x600": {
@@ -1672,44 +1670,40 @@
    }
   },
   "dreams_live2@120x500": {
-   "score": 87.7,
+   "score": 88.9,
    "flags": [
-    "blotchy",
-    "empty_band"
+    "blotchy"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 95.8,
+    "layout": 96.1,
     "dropped": 100,
-    "fill": 57.7
+    "fill": 61.9
    }
   },
   "dreams_live2@300x600": {
-   "score": 95.8,
-   "flags": [
-    "empty_band"
-   ],
+   "score": 94.5,
+   "flags": [],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 92.3,
+    "layout": 92.2,
     "dropped": 100,
-    "fill": 95.9
+    "fill": 90.9
    }
   },
   "dreams_live2@160x600": {
-   "score": 90.1,
+   "score": 91.4,
    "flags": [
-    "blotchy",
-    "empty_band"
+    "blotchy"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 96.2,
+    "layout": 95.6,
     "dropped": 100,
-    "fill": 66.8
+    "fill": 73.1
    }
   },
   "dreams_live2@728x90": {
@@ -1774,17 +1768,14 @@
    }
   },
   "dreams_live2@600x1100": {
-   "score": 94,
-   "flags": [
-    "empty_band",
-    "tightmargin"
-   ],
+   "score": 95.7,
+   "flags": [],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 90.8,
+    "layout": 93.4,
     "dropped": 100,
-    "fill": 91.5
+    "fill": 93.8
    }
   },
   "dreams_live2@895x80": {
@@ -1853,18 +1844,17 @@
    }
   },
   "dreams_live4@160x600": {
-   "score": 75.2,
+   "score": 86.9,
    "flags": [
     "blotchy",
-    "empty_band",
-    "sparse"
+    "empty_band"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 90.3,
-    "dropped": 64.8,
-    "fill": 64.2
+    "layout": 98.8,
+    "dropped": 93.8,
+    "fill": 57.7
    }
   },
   "dreams_live4@728x90": {
@@ -1934,16 +1924,16 @@
    }
   },
   "dreams_live4@600x1100": {
-   "score": 85.4,
+   "score": 96.3,
    "flags": [
-    "blotchy"
+    "empty_band"
    ],
    "sub": {
-    "legibility": 69.8,
-    "sharpness": 82.3,
-    "layout": 98.3,
+    "legibility": 93.6,
+    "sharpness": 100,
+    "layout": 98,
     "dropped": 100,
-    "fill": 73.9
+    "fill": 89.5
    }
   },
   "dreams_live4@895x80": {
