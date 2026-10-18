@@ -2479,11 +2479,34 @@ function rfAssets(sc, P) {
     const b = u.kids.filter(k => k.role === 'button'), x0 = Math.max(0, Math.floor(Math.min(...b.map(k => k.x)))), y0 = Math.max(0, Math.floor(Math.min(...b.map(k => k.y)))), x1 = Math.min(W, Math.ceil(Math.max(...b.map(k => k.x + k.w)))), y1 = Math.min(H, Math.ceil(Math.max(...b.map(k => k.y + k.h))));
     if (x1 - x0 >= 20 && y1 - y0 >= 12 && !panels.some(q => Math.min(q.x + q.w, x1) - Math.max(q.x, x0) > 0 && Math.min(q.y + q.h, y1) - Math.max(q.y, y0) > 0)) panels.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0, btn: true });
   }
+  for (const p of panels) { // מצמצמים את מלבן הלוח אל קצה המסגרת: מוצאים את תחילת הפנים הכהים וחוזרים אחורה רק על עובי הפס הזהוב עצמו (אחרת נשארים פסים של רקע בצדדים ובפינות)
+    if (p.btn) continue;
+    const lumA = (x, y) => { const q = (Math.round(y) * W + Math.round(x)) * 3; return 0.299 * img.d[q] + 0.587 * img.d[q + 1] + 0.114 * img.d[q + 2]; }, goldA = (x, y) => { const q = (Math.round(y) * W + Math.round(x)) * 3, r = img.d[q], g = img.d[q + 1], b = img.d[q + 2]; return r > 150 && g > 100 && r - b > 90 && b < 120; };
+    const lim = Math.max(3, Math.round(0.14 * Math.min(p.w, p.h))), cap = Math.max(3, Math.round(0.045 * Math.min(p.w, p.h))), med = a => { a.sort((u, v) => u - v); return a[a.length >> 1]; };
+    const sc1 = side => { const ks = []; for (const f of [0.3, 0.4, 0.5, 0.6, 0.7]) {
+      const pos = t => [side === 0 ? p.x + t : side === 1 ? p.x + p.w - 1 - t : p.x + p.w * f, side === 2 ? p.y + t : side === 3 ? p.y + p.h - 1 - t : p.y + p.h * f];
+      let kd = -1; for (let t = 0; t < lim; t++) { const [x, y] = pos(t); if (lumA(x, y) < 70) { kd = t; break; } }
+      if (kd < 0) { ks.push(0); continue; }
+      ks.push(Math.max(0, kd - cap - 1)); } return med(ks); };
+    const l = sc1(0), r2 = sc1(1), t0 = sc1(2), b0 = sc1(3);
+    const nx = p.x + l, ny = p.y + t0, nx1 = p.x + p.w - r2, ny1 = p.y + p.h - b0;
+    if (nx1 - nx > 0.8 * p.w && ny1 - ny > 0.8 * p.h) { p.x = nx; p.y = ny; p.w = nx1 - nx; p.h = ny1 - ny; }
+  }
   const absorbed = new Set();
   panels.forEach((p, i) => {
     const kids = sc.units.filter(u => u !== heroU && (p.btn ? btnU(u) : textU(u)) && u.x + u.w / 2 > p.x && u.x + u.w / 2 < p.x + p.w && u.y + u.h / 2 > p.y && u.y + u.h / 2 < p.y + p.h);
     kids.forEach(u => absorbed.add(u));
-    const lw = p.w, lh = p.h, rgb = new Float32Array(lw * lh * 3), rr = p.btn ? 0.3 : 0.07, a = rfRound(lw, lh, rr * Math.min(lw, lh), p.btn ? -1.2 : 0);
+    let rr = p.btn ? 0.3 : 0.07;
+    if (!p.btn) { // רדיוס פינות אמיתי של מסגרת הלוח: מרחק המסגרת (t) מהקצה + מיקום תחילת הפנים הכהה לאורך האלכסון
+      const L = i => 0, dk = (x, y) => lum[Math.round(y) * W + Math.round(x)] < 70, mid = [p.x + p.w / 2, p.y + p.h / 2];
+      const scan = (x, y, dx, dy, n) => { for (let k = 0; k < n; k++) if (dk(x + dx * k, y + dy * k)) return k; return -1; };
+      const lim = Math.round(0.3 * Math.min(p.w, p.h)), ts = [scan(p.x, mid[1], 1, 0, lim), scan(p.x + p.w - 1, mid[1], -1, 0, lim), scan(mid[0], p.y, 0, 1, lim), scan(mid[0], p.y + p.h - 1, 0, -1, lim)].filter(v => v >= 0);
+      const ds = [scan(p.x, p.y, 1, 1, lim), scan(p.x + p.w - 1, p.y, -1, 1, lim), scan(p.x, p.y + p.h - 1, 1, -1, lim), scan(p.x + p.w - 1, p.y + p.h - 1, -1, -1, lim)].filter(v => v >= 0);
+      if (ts.length >= 3 && ds.length >= 3) { const t = ts.reduce((q, v) => q + v, 0) / ts.length, xd = ds.reduce((q, v) => q + v, 0) / ds.length, Rin = Math.max(0, (xd - t) / 0.293), Ro = Rin + t; rr = clp(Ro / Math.min(p.w, p.h), 0.03, 0.2); }
+    }
+    const fm = !p.btn ? freeMatte(img, p.x - 3, p.y - 3, p.w + 6, p.h + 6) : null, okfm = fm && fm.w > 0.9 * p.w && fm.w < 1.1 * p.w + 8 && fm.h > 0.9 * p.h && fm.h < 1.1 * p.h + 8;
+    if (okfm) { p.x = fm.x; p.y = fm.y; p.w = fm.w; p.h = fm.h; }
+    const lw = p.w, lh = p.h, rgb = new Float32Array(lw * lh * 3), a = okfm ? fm.a : rfRound(lw, lh, rr * Math.min(lw, lh), p.btn ? -1.2 : 0.4);
     for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) { const si = ((p.y + y) * W + p.x + x) * 3, di = (y * lw + x) * 3; rgb[di] = img.d[si]; rgb[di + 1] = img.d[si + 1]; rgb[di + 2] = img.d[si + 2]; }
     const hm = rfRound(lw + 8, lh + 8, rr * Math.min(lw, lh) + 4, 0);
     for (let y = 0; y < lh + 8; y++) for (let x = 0; x < lw + 8; x++) if (hm[y * (lw + 8) + x] > 0.02) { const gx = p.x - 4 + x, gy = p.y - 4 + y; if (gx >= 0 && gy >= 0 && gx < W && gy < H) hole[gy * W + gx] = 1; }
@@ -2629,7 +2652,7 @@ function rfTiers(sc, units, zx, zy, zw, zh) {
     for (const u of heads) rows.push([sz(u, headK, aw, 0.55 * zh, 3.2)]);
     let cur = null;
     for (const u of sec) {
-      const e = sz(u, secK, aw, 0.2 * zh, 2.4); if (e.h < Math.max(14, 0.085 * zh) && (pri(u) < 3)) return null; if (e.h < (pri(u) < 3 ? 8 : Math.max(12, 0.05 * zh))) return null;
+      const e = sz(u, secK, aw, 0.2 * zh, 2.4); if (e.h < Math.max(14, 0.085 * zh) && (pri(u) < 3)) return null; if (pri(u) < 3 && u.w / u.h < 2.5 && Math.min(e.w, e.h) < 0.19 * aw) return null; /* תמונה/עיגול משני קטן מדי לא קריא: מורידים אותו (כמו מעצב) במקום להשאיר פצפון */ if (e.h < (pri(u) < 3 ? 8 : Math.max(14, 0.075 * zh))) return null;
       if (cur && cur.w + gx + e.w <= aw) { cur.items.push(e); cur.w += gx + e.w; cur.h = Math.max(cur.h, e.h); } else { cur = { items: [e], w: e.w, h: e.h }; rows.push(cur); }
     }
     const fixed = rows.map(r => Array.isArray(r) ? { items: r, w: r[0].w, h: r[0].h } : r); // כותרות: שורה לכל אחת
@@ -3005,5 +3028,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.20-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.21-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);

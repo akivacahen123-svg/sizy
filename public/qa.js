@@ -51,7 +51,7 @@ function qaCheck(sc, W, H, placement, pix) {
   if (leaves.some(l => l.role === 'headline' && !ids.has(l.id))) add('headline_missing');
   if (leaves.some(l => l.role === 'button' && !ids.has(l.id))) add('button_missing');
   // הושמט = חסרים אלמנטים חשובים (לוגו) או רוב האלמנטים. פרטים קטנים/תגית/שורת פרטים שמוסרים בכוונה (כמו אצל מעצב) לא נחשבים אזהרה
-  const lost = orig.filter(l => !ids.has(l.id)), placed = orig.length - lost.length, coreLost = lost.filter(l => l.role === 'logo' || l.role === 'subheadline');
+  const lost = orig.filter(l => !ids.has(l.id)), placed = orig.length - lost.length, emblem = l => l.role === 'logo' && l.group && leaves.some(q => q !== l && q.group === l.group && (q.role === 'photo' || q.role === 'badge')), coreLost = lost.filter(l => (l.role === 'logo' && !emblem(l)) || l.role === 'subheadline'); // תגית זוכה (לוגו+תמונה באותה קבוצה) שמוסרת כשאין מקום קריא היא החלטת מעצב
   if (orig.length && (coreLost.length || placed < 0.4 * orig.length) && W * H > 20000) add('dropped', placed + ' מתוך ' + orig.length);
 
   if (content.length) {

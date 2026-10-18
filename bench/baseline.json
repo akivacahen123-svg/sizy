@@ -1,5 +1,5 @@
 {
- "avg": 92.91,
+ "avg": 92.79,
  "cases": {
   "dreams@1200x200": {
    "score": 73.6,
@@ -119,27 +119,25 @@
    }
   },
   "dreams@290x350": {
-   "score": 93.1,
+   "score": 92.9,
    "flags": [],
    "sub": {
     "legibility": null,
     "sharpness": null,
     "layout": 99.9,
     "dropped": 88.1,
-    "fill": 88.5
+    "fill": 87.8
    }
   },
   "dreams@600x1100": {
-   "score": 95.9,
-   "flags": [
-    "empty_band"
-   ],
+   "score": 95.7,
+   "flags": [],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 98.1,
-    "dropped": 95.5,
-    "fill": 92.7
+    "layout": 99.5,
+    "dropped": 88.1,
+    "fill": 99.3
    }
   },
   "dreams@895x80": {
@@ -192,14 +190,14 @@
    }
   },
   "dreams_live2@300x600": {
-   "score": 95.7,
+   "score": 90.7,
    "flags": [],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 94.7,
-    "dropped": 100,
-    "fill": 91.7
+    "layout": 95.2,
+    "dropped": 89.2,
+    "fill": 85.3
    }
   },
   "dreams_live2@160x600": {
@@ -277,16 +275,14 @@
    }
   },
   "dreams_live2@600x1100": {
-   "score": 93,
-   "flags": [
-    "unbalanced"
-   ],
+   "score": 93.3,
+   "flags": [],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 90.2,
-    "dropped": 100,
-    "fill": 88.6
+    "layout": 96.1,
+    "dropped": 89.2,
+    "fill": 94.1
    }
   },
   "dreams_live2@895x80": {
@@ -341,16 +337,16 @@
    }
   },
   "dreams_live4@300x600": {
-   "score": 96.9,
+   "score": 84.7,
    "flags": [
     "empty_band"
    ],
    "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 98.5,
-    "dropped": 93.8,
-    "fill": 98.4
+    "legibility": 47,
+    "sharpness": 100,
+    "layout": 98.6,
+    "dropped": 91.7,
+    "fill": 99.4
    }
   },
   "dreams_live4@160x600": {
@@ -434,16 +430,14 @@
    }
   },
   "dreams_live4@600x1100": {
-   "score": 95.4,
-   "flags": [
-    "empty_band"
-   ],
+   "score": 97.2,
+   "flags": [],
    "sub": {
-    "legibility": 86.6,
+    "legibility": 100,
     "sharpness": 100,
-    "layout": 98.7,
-    "dropped": 100,
-    "fill": 93.8
+    "layout": 99.8,
+    "dropped": 91.7,
+    "fill": 92.9
    }
   },
   "dreams_live4@895x80": {
@@ -1765,16 +1759,14 @@
    }
   },
   "dreams_live@600x1100": {
-   "score": 98.9,
-   "flags": [
-    "empty_band"
-   ],
+   "score": 95.1,
+   "flags": [],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 99.3,
-    "dropped": 100,
-    "fill": 96.9
+    "layout": 99.7,
+    "dropped": 87.2,
+    "fill": 97.9
    }
   },
   "dreams_live@895x80": {
@@ -1827,14 +1819,16 @@
    }
   },
   "dreams_live3@300x600": {
-   "score": 94.4,
-   "flags": [],
+   "score": 92.5,
+   "flags": [
+    "empty_band"
+   ],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 77.6
+    "layout": 97.9,
+    "dropped": 80,
+    "fill": 100
    }
   },
   "dreams_live3@160x600": {
@@ -1913,16 +1907,14 @@
    }
   },
   "dreams_live3@600x1100": {
-   "score": 98.6,
-   "flags": [
-    "empty_band"
-   ],
+   "score": 92.1,
+   "flags": [],
    "sub": {
     "legibility": null,
     "sharpness": null,
     "layout": 99.5,
-    "dropped": 100,
-    "fill": 95.1
+    "dropped": 80,
+    "fill": 95.9
    }
   },
   "dreams_live3@895x80": {
@@ -1950,20 +1942,18 @@
    }
   },
   "dreams_live5@1200x60": {
-   "score": 85,
-   "flags": [
-    "dropped"
-   ],
+   "score": 88.3,
+   "flags": [],
    "sub": {
     "legibility": null,
     "sharpness": null,
     "layout": 99.8,
-    "dropped": 57.4,
+    "dropped": 67.5,
     "fill": 97
    }
   },
   "dreams_live5@120x500": {
-   "score": 79.9,
+   "score": 78.9,
    "flags": [
     "blotchy",
     "empty_band"
@@ -1972,25 +1962,25 @@
     "legibility": null,
     "sharpness": null,
     "layout": 95,
-    "dropped": 83,
+    "dropped": 80,
     "fill": 50.7
    }
   },
   "dreams_live5@300x600": {
-   "score": 93.4,
+   "score": 87.4,
    "flags": [
     "empty_band"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 99.1,
-    "dropped": 83,
-    "fill": 97.7
+    "layout": 96.1,
+    "dropped": 67.5,
+    "fill": 99.5
    }
   },
   "dreams_live5@160x600": {
-   "score": 82.5,
+   "score": 81.5,
    "flags": [
     "blotchy",
     "empty_band"
@@ -1999,36 +1989,34 @@
     "legibility": null,
     "sharpness": null,
     "layout": 95,
-    "dropped": 83,
+    "dropped": 80,
     "fill": 61.1
    }
   },
   "dreams_live5@728x90": {
-   "score": 80.8,
-   "flags": [
-    "dropped"
-   ],
+   "score": 84.2,
+   "flags": [],
    "sub": {
     "legibility": null,
     "sharpness": null,
     "layout": 96.9,
-    "dropped": 57.4,
+    "dropped": 67.5,
     "fill": 85.1
    }
   },
   "dreams_live5@300x250": {
-   "score": 92.3,
+   "score": 91.3,
    "flags": [],
    "sub": {
     "legibility": null,
     "sharpness": null,
     "layout": 97.1,
-    "dropped": 83,
+    "dropped": 80,
     "fill": 96.6
    }
   },
   "dreams_live5@320x70": {
-   "score": 87.4,
+   "score": 85.4,
    "flags": [
     "dropped"
    ],
@@ -2036,7 +2024,7 @@
     "legibility": null,
     "sharpness": null,
     "layout": 98.6,
-    "dropped": 66,
+    "dropped": 60,
     "fill": 97.4
    }
   },
@@ -2054,39 +2042,37 @@
    }
   },
   "dreams_live5@290x350": {
-   "score": 87.4,
+   "score": 86.4,
    "flags": [],
    "sub": {
     "legibility": null,
     "sharpness": null,
     "layout": 90.4,
-    "dropped": 83,
+    "dropped": 80,
     "fill": 88.3
    }
   },
   "dreams_live5@600x1100": {
-   "score": 96.3,
+   "score": 91.6,
    "flags": [
     "empty_band"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
-    "layout": 99.2,
-    "dropped": 93.6,
-    "fill": 95.1
+    "layout": 98.9,
+    "dropped": 80,
+    "fill": 94.8
    }
   },
   "dreams_live5@895x80": {
-   "score": 82.5,
-   "flags": [
-    "dropped"
-   ],
+   "score": 85.9,
+   "flags": [],
    "sub": {
     "legibility": null,
     "sharpness": null,
     "layout": 97.3,
-    "dropped": 57.4,
+    "dropped": 67.5,
     "fill": 91.3
    }
   },

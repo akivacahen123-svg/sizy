@@ -226,7 +226,7 @@ export function pixelContent(rgba, W, H) {
 // ---------------------------------------------------------------- (ד) אלמנטים שנפלו
 function droppedScore(origLeaves, placedIds, flags) {
   let tot = 0, lost = 0; const gone = [];
-  for (const l of origLeaves) { const w = ROLE_WEIGHT[l.role] ?? 2; tot += w; if (!placedIds.has(l.id)) { lost += w; if (w >= 2) gone.push(l.role + ':' + l.id); } }
+  for (const l of origLeaves) { const em = l.role === 'logo' && l.group && origLeaves.some(q => q !== l && q.group === l.group && (q.role === 'photo' || q.role === 'badge')), w = em ? 1 : (ROLE_WEIGHT[l.role] ?? 2); tot += w; if (!placedIds.has(l.id)) { lost += w; if (w >= 2) gone.push(l.role + ':' + l.id); } }
   if (!tot) return null;
   const fr = lost / tot; if (fr > 0.25) for (const g of gone.filter(x => /^(headline|logo|button)/.test(x))) flags.add('dropped');
   if (gone.some(x => x.startsWith('headline'))) flags.add('headline-missing');
