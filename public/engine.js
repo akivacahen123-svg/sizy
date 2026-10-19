@@ -2624,7 +2624,7 @@ function rfKeepUnits(units, W, H) {
   return units.filter(u => {
     const kid = u.kids[0], role = u.role === 'unit' && u.kids.every(k => k.role === 'badge' || k.role === 'photo') ? 'prize' : u.role;
     if (role === 'body' || role === 'legal') return area >= 200000 || (W >= 700 && H >= 190 && ar >= 2.4); // שורת פרטים קטנה: רק כשיש מקום
-    if (role === 'badge') return area >= 200000; // עיגול זוכה/חותם קטן: רק כשיש מקום
+    if (role === 'badge') return area >= 200000 || u.w / u.h >= 2.5; // עיגול זוכה/חותם קטן: רק כשיש מקום. רצועת פרס רחבה (עם טקסט) היא מסר משני חשוב ונשארת
     if (role === 'prize') return !(tiny || (H <= 90 && W < 1000));
     if (role === 'logo') return !(H <= 70 && W < 500);
     return true;
@@ -2650,13 +2650,14 @@ function rfTiers(sc, units, zx, zy, zw, zh) {
     const sec = sec0.slice(0, Math.max(0, sec0.length - dropN)), rows = [];
     const sz = (u, k, wMax, hMax, cap) => { const s = k * Math.min(wMax / u.w, hMax / u.h, cap); return { u, s, w: u.w * s, h: u.h * s }; };
     for (const u of heads) rows.push([sz(u, headK, aw, 0.55 * zh, 3.2)]);
+    for (const u of btns) rows.push({ items: [sz(u, btnK, 0.92 * aw, 0.22 * zh, 2.6)], w: 0, h: 0 }); // סדר כמו מעצב: כותרת, כפתור, ואז המסרים המשניים
     let cur = null;
     for (const u of sec) {
       const e = sz(u, secK, aw, 0.2 * zh, 2.4); if (e.h < Math.max(14, 0.085 * zh) && (pri(u) < 3)) return null; if (pri(u) < 3 && u.w / u.h < 2.5 && Math.min(e.w, e.h) < 0.19 * aw) return null; /* תמונה/עיגול משני קטן מדי לא קריא: מורידים אותו (כמו מעצב) במקום להשאיר פצפון */ if (e.h < (pri(u) < 3 ? 8 : Math.max(14, 0.075 * zh))) return null;
       if (cur && cur.w + gx + e.w <= aw) { cur.items.push(e); cur.w += gx + e.w; cur.h = Math.max(cur.h, e.h); } else { cur = { items: [e], w: e.w, h: e.h }; rows.push(cur); }
     }
     const fixed = rows.map(r => Array.isArray(r) ? { items: r, w: r[0].w, h: r[0].h } : r); // כותרות: שורה לכל אחת
-    for (const u of btns) fixed.push({ items: [sz(u, btnK, 0.92 * aw, 0.22 * zh, 2.6)], w: 0, h: 0 }); fixed.forEach(r => { r.w = r.items.reduce((a, e) => a + e.w, 0) + gx * (r.items.length - 1); r.h = Math.max(...r.items.map(e => e.h)); });
+    fixed.forEach(r => { r.w = r.items.reduce((a, e) => a + e.w, 0) + gx * (r.items.length - 1); r.h = Math.max(...r.items.map(e => e.h)); });
     const tot = fixed.reduce((a, r) => a + r.h, 0) + gmin * (fixed.length - 1), room = zh - mb;
     if (tot > room) return null;
     const gap = fixed.length > 1 ? Math.min(gmax, (room - fixed.reduce((a, r) => a + r.h, 0)) / (fixed.length - 1)) : 0;
@@ -3028,5 +3029,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.22-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.23-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
