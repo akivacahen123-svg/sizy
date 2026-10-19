@@ -997,6 +997,7 @@ function freeMatte(clean, x, y, w, h) {
   for (let s0 = 0; s0 < cw * ch; s0++) { if (!fg[s0] || lab[s0] >= 0) continue; let n = 0; const sk = [s0]; lab[s0] = nl; while (sk.length) { const k = sk.pop(); n++; const i = k % cw, j = (k / cw) | 0; for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = i + di, b = j + dj; if (a < 0 || b < 0 || a >= cw || b >= ch) continue; const kk = b * cw + a; if (fg[kk] && lab[kk] < 0) { lab[kk] = nl; sk.push(kk); } } } sizes.push(n); nl++; }
   const mx = Math.max(...sizes, 1); fg = new Uint8Array(cw * ch); nfg = 0; for (let k = 0; k < cw * ch; k++) if (lab[k] >= 0 && sizes[lab[k]] >= 0.25 * mx) { fg[k] = 1; nfg++; }
   if (nfg < 0.04 * w * h || nfg > 0.96 * cw * ch) return null;
+  { let inb = 0; for (let j = Math.max(0, y - y0); j < Math.min(ch, y - y0 + h); j++) for (let i = Math.max(0, x - x0); i < Math.min(cw, x - x0 + w); i++) inb += fg[j * cw + i]; if (inb < 0.3 * w * h) return null; } // האובייקט נאכל (דומה לרקע): חוזרים לשיטה הישנה
   let bx0 = cw, by0 = ch, bx1 = -1, by1 = -1; for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) if (fg[j * cw + i]) { if (i < bx0) bx0 = i; if (i > bx1) bx1 = i; if (j < by0) by0 = j; if (j > by1) by1 = j; }
   bx0 = Math.max(0, bx0 - 1); by0 = Math.max(0, by0 - 1); bx1 = Math.min(cw - 1, bx1 + 1); by1 = Math.min(ch - 1, by1 + 1);
   const lw = bx1 - bx0 + 1, lh = by1 - by0 + 1, m0 = new Float32Array(lw * lh);
@@ -1032,7 +1033,7 @@ function graphicLayer(clean, e, grad) {
     for (let j = 0; j < h; j++) { cmp(x, y + j, x - dd, y + j); cmp(x + w - 1, y + j, x + w - 1 + dd, y + j); }
     if (nb && nd / nb < 0.2) shape = 'free';
   }
-  if (shape === 'free' && (e.role === 'logo' || e.role === 'badge' || e.role === 'photo')) { // רק כשהרקע סביב האלמנט מרקמי (אבן, שמיים בשיפוע): על רקע חלק השיטה הישנה מדויקת יותר
+  if (shape === 'free' && (e.role === 'logo' || e.role === 'badge')) { // רק כשהרקע סביב האלמנט מרקמי (אבן, שמיים בשיפוע): על רקע חלק השיטה הישנה מדויקת יותר
     const pd = Math.max(8, Math.round(0.22 * Math.min(w, h))), xa = clp(x - pd, 0, W - 8), ya = clp(y - pd, 0, H - 8), xb = clp(x + w + pd, xa + 8, W), yb = clp(y + h + pd, ya + 8, H);
     if (ringBg(cropImg(clean, xa, ya, xb, yb)).err > 9) { const FM = freeMatte(clean, x, y, w, h); if (FM) return FM; }
   }
@@ -2488,7 +2489,7 @@ function rfAssets(sc, P) {
       let kd = -1; for (let t = 0; t < lim; t++) { const [x, y] = pos(t); if (lumA(x, y) < 70) { kd = t; break; } }
       if (kd < 0) { ks.push(0); continue; }
       ks.push(Math.max(0, kd - cap - 1)); } return med(ks); };
-    const l = sc1(0), r2 = sc1(1), t0 = sc1(2), b0 = sc1(3);
+    const l = sc1(0), r2 = sc1(1), t0 = 0 /* למעלה לא מצמצמים: סרט הכותרת בולט מעל המסגרת */, b0 = sc1(3);
     const nx = p.x + l, ny = p.y + t0, nx1 = p.x + p.w - r2, ny1 = p.y + p.h - b0;
     if (nx1 - nx > 0.8 * p.w && ny1 - ny > 0.8 * p.h) { p.x = nx; p.y = ny; p.w = nx1 - nx; p.h = ny1 - ny; }
   }
@@ -2504,9 +2505,7 @@ function rfAssets(sc, P) {
       const ds = [scan(p.x, p.y, 1, 1, lim), scan(p.x + p.w - 1, p.y, -1, 1, lim), scan(p.x, p.y + p.h - 1, 1, -1, lim), scan(p.x + p.w - 1, p.y + p.h - 1, -1, -1, lim)].filter(v => v >= 0);
       if (ts.length >= 3 && ds.length >= 3) { const t = ts.reduce((q, v) => q + v, 0) / ts.length, xd = ds.reduce((q, v) => q + v, 0) / ds.length, Rin = Math.max(0, (xd - t) / 0.293), Ro = Rin + t; rr = clp(Ro / Math.min(p.w, p.h), 0.03, 0.2); }
     }
-    const fm = !p.btn ? freeMatte(img, p.x - 3, p.y - 3, p.w + 6, p.h + 6) : null, okfm = fm && fm.w > 0.9 * p.w && fm.w < 1.1 * p.w + 8 && fm.h > 0.9 * p.h && fm.h < 1.1 * p.h + 8;
-    if (okfm) { p.x = fm.x; p.y = fm.y; p.w = fm.w; p.h = fm.h; }
-    const lw = p.w, lh = p.h, rgb = new Float32Array(lw * lh * 3), a = okfm ? fm.a : rfRound(lw, lh, rr * Math.min(lw, lh), p.btn ? -1.2 : 0.4);
+    const lw = p.w, lh = p.h, rgb = new Float32Array(lw * lh * 3), a = rfRound(lw, lh, rr * Math.min(lw, lh), p.btn ? -1.2 : 0.4);
     for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) { const si = ((p.y + y) * W + p.x + x) * 3, di = (y * lw + x) * 3; rgb[di] = img.d[si]; rgb[di + 1] = img.d[si + 1]; rgb[di + 2] = img.d[si + 2]; }
     const hm = rfRound(lw + 8, lh + 8, rr * Math.min(lw, lh) + 4, 0);
     for (let y = 0; y < lh + 8; y++) for (let x = 0; x < lw + 8; x++) if (hm[y * (lw + 8) + x] > 0.02) { const gx = p.x - 4 + x, gy = p.y - 4 + y; if (gx >= 0 && gy >= 0 && gx < W && gy < H) hole[gy * W + gx] = 1; }
@@ -3029,5 +3028,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.23-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.24-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
