@@ -2471,6 +2471,7 @@ function rfAssets(sc, P) {
   const panels = [];
   for (const u of cand) {
     const r = rfPanelRect(img, lum, [u.x, u.y, u.x + u.w, u.y + u.h]); if (!r) continue;
+    { const uy = Math.max(0, Math.floor(Math.min(...u.kids.filter(k => k.role === 'headline').map(k => k.y))) - 3); if (uy < r.y && r.y - uy <= 0.18 * r.h) { r.h += r.y - uy; r.y = uy; } } // סרט שבולט מעל המסגרת (כמו 'חדשה לגמרי!') נשאר בתוך הלוח
     const o = panels.find(p => Math.min(p.x + p.w, r.x + r.w) - Math.max(p.x, r.x) > 0.5 * Math.min(p.w, r.w) && Math.min(p.y + p.h, r.y + r.h) - Math.max(p.y, r.y) > 0.5 * Math.min(p.h, r.h));
     if (o) { const x1 = Math.max(o.x + o.w, r.x + r.w), y1 = Math.max(o.y + o.h, r.y + r.h); o.x = Math.min(o.x, r.x); o.y = Math.min(o.y, r.y); o.w = x1 - o.x; o.h = y1 - o.y; } else panels.push({ ...r });
   }
@@ -2479,6 +2480,13 @@ function rfAssets(sc, P) {
     if (u === heroU || !btnU(u)) continue;
     const b = u.kids.filter(k => k.role === 'button'), x0 = Math.max(0, Math.floor(Math.min(...b.map(k => k.x)))), y0 = Math.max(0, Math.floor(Math.min(...b.map(k => k.y)))), x1 = Math.min(W, Math.ceil(Math.max(...b.map(k => k.x + k.w)))), y1 = Math.min(H, Math.ceil(Math.max(...b.map(k => k.y + k.h))));
     if (x1 - x0 >= 20 && y1 - y0 >= 12 && !panels.some(q => Math.min(q.x + q.w, x1) - Math.max(q.x, x0) > 0 && Math.min(q.y + q.h, y1) - Math.max(q.y, y0) > 0)) panels.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0, btn: true });
+  }
+  const inBox = (k, b) => { const cx = k.x + k.w / 2, cy = k.y + k.h / 2; return cx > b[0] && cx < b[2] && cy > b[1] && cy < b[3]; };
+  const stripU = u => { const b = u.kids.find(k => k.role === 'badge' && !k.text && k.w > 1.6 * k.h); if (!b || u.kids.length < 2) return false; const bb = [b.x, b.y, b.x + b.w, b.y + b.h]; return u.kids.every(k => k === b || inBox(k, bb)) && u.kids.some(k => k.text || k.role === 'photo'); };
+  for (const u of sc.units) { // רצועת פרס (תווית + תמונה + טקסט בתוך תגית): נחתכת כתמונה אחת עם פינות מעוגלות, כמו כפתור. טקסט שנחלץ בנפרד מצבע על צבע מתעוות
+    if (u === heroU || !stripU(u)) continue;
+    const sk = u.kids.filter(k => !k.text), x0 = Math.max(0, Math.floor(Math.min(...sk.map(k => k.x)))), y0 = Math.max(0, Math.floor(Math.min(...sk.map(k => k.y)))), x1 = Math.min(W, Math.ceil(Math.max(...sk.map(k => k.x + k.w)))), y1 = Math.min(H, Math.ceil(Math.max(...sk.map(k => k.y + k.h)))); // רק התגית והתמונה: הכיתוב יושב בתוכה
+    if (x1 - x0 >= 40 && y1 - y0 >= 14 && !panels.some(q => Math.min(q.x + q.w, x1) - Math.max(q.x, x0) > 0 && Math.min(q.y + q.h, y1) - Math.max(q.y, y0) > 0)) panels.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0, btn: true, kind: 'prize' });
   }
   for (const p of panels) { // מצמצמים את מלבן הלוח אל קצה המסגרת: מוצאים את תחילת הפנים הכהים וחוזרים אחורה רק על עובי הפס הזהוב עצמו (אחרת נשארים פסים של רקע בצדדים ובפינות)
     if (p.btn) continue;
@@ -2495,9 +2503,9 @@ function rfAssets(sc, P) {
   }
   const absorbed = new Set();
   panels.forEach((p, i) => {
-    const kids = sc.units.filter(u => u !== heroU && (p.btn ? btnU(u) : textU(u)) && u.x + u.w / 2 > p.x && u.x + u.w / 2 < p.x + p.w && u.y + u.h / 2 > p.y && u.y + u.h / 2 < p.y + p.h);
+    const kids = sc.units.filter(u => u !== heroU && (p.kind === 'prize' ? stripU(u) : p.btn ? btnU(u) : textU(u)) && u.x + u.w / 2 > p.x && u.x + u.w / 2 < p.x + p.w && u.y + u.h / 2 > p.y && u.y + u.h / 2 < p.y + p.h);
     kids.forEach(u => absorbed.add(u));
-    let rr = p.btn ? 0.3 : 0.07;
+    let rr = p.kind === 'prize' ? 0.22 : p.btn ? 0.3 : 0.07;
     if (!p.btn) { // רדיוס פינות אמיתי של מסגרת הלוח: מרחק המסגרת (t) מהקצה + מיקום תחילת הפנים הכהה לאורך האלכסון
       const L = i => 0, dk = (x, y) => lum[Math.round(y) * W + Math.round(x)] < 70, mid = [p.x + p.w / 2, p.y + p.h / 2];
       const scan = (x, y, dx, dy, n) => { for (let k = 0; k < n; k++) if (dk(x + dx * k, y + dy * k)) return k; return -1; };
@@ -2509,9 +2517,9 @@ function rfAssets(sc, P) {
     for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) { const si = ((p.y + y) * W + p.x + x) * 3, di = (y * lw + x) * 3; rgb[di] = img.d[si]; rgb[di + 1] = img.d[si + 1]; rgb[di + 2] = img.d[si + 2]; }
     const hm = rfRound(lw + 8, lh + 8, rr * Math.min(lw, lh) + 4, 0);
     for (let y = 0; y < lh + 8; y++) for (let x = 0; x < lw + 8; x++) if (hm[y * (lw + 8) + x] > 0.02) { const gx = p.x - 4 + x, gy = p.y - 4 + y; if (gx >= 0 && gy >= 0 && gx < W && gy < H) hole[gy * W + gx] = 1; }
-    const hz = kids.flatMap(u => u.kids.filter(k => k.role === (p.btn ? 'button' : 'headline')).map(k => k.z)), z = Math.min(...(hz.length ? hz : kids.flatMap(u => u.kids.map(k => k.z))), 1e9); // z של עלה כותרת: העורך וה-QA מזהים את הלוח ככותרת
-    const leaf = { id: 'panel' + i, role: p.btn ? 'button' : 'headline', lines: kids.flatMap(u => u.lines || []), text: false, shape: 'rect', group: null, z, layer: { rgb, a, lw, lh, up: 1, x: p.x, y: p.y, w: lw, h: lh }, x: p.x, y: p.y, w: lw, h: lh, panelCrop: true, reflowed: true, absorbs: kids.flatMap(u => u.kids.map(k => k.id)) }; // reflowed: העורך מקבל את השכבה המורכבת
-    units.push({ role: p.btn ? 'button' : 'headline', kids: [leaf], x: p.x, y: p.y, w: lw, h: lh, lines: leaf.lines, pin: null });
+    const hz = kids.flatMap(u => u.kids.filter(k => k.role === (p.kind === 'prize' ? 'badge' : p.btn ? 'button' : 'headline')).map(k => k.z)), z = Math.min(...(hz.length ? hz : kids.flatMap(u => u.kids.map(k => k.z))), 1e9); // z של עלה כותרת: העורך וה-QA מזהים את הלוח ככותרת
+    const leaf = { id: 'panel' + i, role: p.kind === 'prize' ? 'badge' : p.btn ? 'button' : 'headline', lines: kids.flatMap(u => u.lines || []), text: false, shape: 'rect', group: null, z, layer: { rgb, a, lw, lh, up: 1, x: p.x, y: p.y, w: lw, h: lh }, x: p.x, y: p.y, w: lw, h: lh, panelCrop: true, reflowed: true, absorbs: kids.flatMap(u => u.kids.map(k => k.id)) }; // reflowed: העורך מקבל את השכבה המורכבת
+    units.push({ role: p.kind === 'prize' ? 'badge' : p.btn ? 'button' : 'headline', kids: [leaf], x: p.x, y: p.y, w: lw, h: lh, lines: leaf.lines, pin: null });
   });
   for (const u of sc.units) if (u !== heroU && !absorbed.has(u)) units.push(u);
   for (const e of sc.leaves) { // חורים ליחידות שזזות (לא לגיבור): המסכה המורחבת של היחידה + מלבן התיבה שלה (שאריות הילה/עיטורים מחוץ לאלפא)
@@ -3028,5 +3036,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.25-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.26-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
