@@ -19,6 +19,8 @@ GRAPHIC ELEMENTS (add "shape"): roles logo, photo (a picture, e.g. a portrait or
 - For a button also add "style": "filled" (solid colour fill) or "outline" (transparent inside with a border). An outline button includes its own text, so give it "lines" too and no separate label.
 - A full-bleed background photo or gradient is NOT an element. A filled button is a "button" element and its text is a separate "label" element in the same group.
 
+PRIZE / OFFER STRIPS: a horizontal strip made of a label, a picture (e.g. cash, a gift) and more text is ONE element with role "badge" whose box covers the WHOLE strip from its left edge to its right edge, including every piece of text inside it. Never box only part of such a strip and leave the rest undetected.
+
 COMPLETENESS (important): list EVERY logo, seal or emblem (even a small one in a top corner) as a "logo" element, and EVERY line of small fine print at the bottom as a "body" element (two lines of fine print = one body element covering both). Missing a logo or fine print makes the resized banner cut or smear it.
 
 GROUPS: give the same "group" id to elements that must keep the same arrangement: a headline with its small intro line, a row of photos together with all their captions, a logo with its address line, a button with its label, a bar with its text. Use null for hero and for standalone items.`;
