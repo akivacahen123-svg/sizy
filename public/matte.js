@@ -53,7 +53,7 @@ const isCutout = (e, all) => {
 async function attach(img, elements, runModel, opts) {
   const o = Object.assign({ pad: 0.06, minArea: 0.004 }, opts), W = img.w, H = img.h;
   for (const e of elements || []) {
-    if (!(e.role === 'hero' || isCutout(e, elements)) || e.matte) continue;
+    if (!(e.role === 'hero' && !(opts && opts.skipHero) || isCutout(e, elements)) || e.matte) continue;
     const b = (e.box || []).map(Number); if (b.length !== 4 || b.some(v => !isFinite(v))) continue;
     let x1 = Math.round(b[0] / 1000 * W), y1 = Math.round(b[1] / 1000 * H), x2 = Math.round(b[2] / 1000 * W), y2 = Math.round(b[3] / 1000 * H);
     if ((x2 - x1) * (y2 - y1) < (e.role === 'hero' ? o.minArea : 0.0004) * W * H) continue;

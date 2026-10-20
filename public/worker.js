@@ -26,20 +26,20 @@ function loadMatte() {
   return matteRunner;
 }
 const mInside = (a, b) => { const cx = (a[0] + a[2]) / 2, cy = (a[1] + a[3]) / 2; return cx > b[0] && cx < b[2] && cy > b[1] && cy < b[3]; };
-const needsMatte = (els, W, H) => (els || []).some(e => { // אותו תנאי כמו isCutout ב-matte.js (כאן כדי לא לטעון את המודל לחינם)
+const needsMatte = (els, W, H, skipHero) => (els || []).some(e => { // אותו תנאי כמו isCutout ב-matte.js (כאן כדי לא לטעון את המודל לחינם)
   if (e.matte || !Array.isArray(e.box)) return false;
   const [a, b, c, d] = e.box.map(Number), x1 = a / 1000 * W, y1 = b / 1000 * H, x2 = c / 1000 * W, y2 = d / 1000 * H;
-  if (e.role === 'hero') return (x2 - x1) * (y2 - y1) >= 0.004 * W * H && x1 > 2 && y1 > 2 && x2 < W - 2 && y2 < H - 2;
+  if (e.role === 'hero') return !skipHero && (x2 - x1) * (y2 - y1) >= 0.004 * W * H && x1 > 2 && y1 > 2 && x2 < W - 2 && y2 < H - 2;
   if (e.role === 'button' || e.role === 'decor' || e.shape === 'pill' || e.shape === 'panel' || (e.lines && e.lines.length) || !['logo', 'badge', 'photo', 'brand', 'sticker', 'icon'].includes(e.role)) return false;
   const w = c - a, h = d - b; if (!(w > 0 && h > 0) || w > 2.4 * h || h > 2.4 * w || (x2 - x1) * (y2 - y1) < 0.0004 * W * H) return false;
   return !els.some(o => o !== e && Array.isArray(o.box) && o.role !== 'hero' && (mInside(o.box.map(Number), [a, b, c, d]) || (!(o.lines && o.lines.length) && o.role !== 'logo' && mInside([a, b, c, d], o.box.map(Number)))));
 });
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('matte timeout')), ms))]);
-async function tryMatte(img, elements, id) {
-  if (!needsMatte(elements, img.w, img.h)) return;
+async function tryMatte(img, elements, id, skipHero) {
+  if (!needsMatte(elements, img.w, img.h, skipHero)) return;
   try {
     postMessage({ type: 'progress', id, text: 'חותך את הדמות מהרקע…' });
-    await withTimeout((async () => { const run = await loadMatte(); await SizyMatte.attach(img, elements, run); })(), 20000);
+    await withTimeout((async () => { const run = await loadMatte(); await SizyMatte.attach(img, elements, run, { skipHero }); })(), 20000);
   } catch (err) { matteRunner = null; /* בלי חיתוך דמות: הנתיב הרגיל */ }
 }
 onmessage = async e => {
@@ -55,8 +55,9 @@ onmessage = async e => {
       const prog = text => postMessage({ type: 'progress', id: m.id, text });
       scene = SizyEngine.buildScene(img, m.elements, prog);
       // בבאנר צילומי ההרכבה-מחדש שומרת את הדמות כמות שהיא; חיתוך דמות נחוץ רק כשהיא לא פועלת (ואז בונים שוב עם המט)
-      if (needsMatte(m.elements, img.w, img.h) && !SizyEngine.willReframe(scene)) {
-        await tryMatte(img, m.elements, m.id);
+      const rfOn = (() => { try { return SizyEngine.willReframe(scene); } catch (e) { return false; } })();
+      if (needsMatte(m.elements, img.w, img.h, rfOn)) { // בהרכבה-מחדש הדמות נשארת כמות שהיא, אבל לוגו/תגית/חותמת עדיין נחתכים מהרקע
+        await tryMatte(img, m.elements, m.id, rfOn);
         if (m.elements.some(e => e.matte)) scene = SizyEngine.buildScene(img, m.elements, prog);
       }
       pixels = null;
