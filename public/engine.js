@@ -2471,7 +2471,7 @@ function rfAssets(sc, P) {
   const panels = [];
   for (const u of cand) {
     const r = rfPanelRect(img, lum, [u.x, u.y, u.x + u.w, u.y + u.h]); if (!r) continue;
-    { const uy = Math.max(0, Math.floor(Math.min(...u.kids.filter(k => k.role === 'headline').map(k => k.y))) - 3); if (uy < r.y && r.y - uy <= 0.18 * r.h) { r.h += r.y - uy; r.y = uy; } } // סרט שבולט מעל המסגרת (כמו 'חדשה לגמרי!') נשאר בתוך הלוח
+    { const uy = Math.max(0, Math.floor(Math.min(...u.kids.filter(k => k.text).map(k => k.y))) - Math.max(6, Math.round(0.03 * r.h))); if (uy < r.y && r.y - uy <= 0.18 * r.h) { r.h += r.y - uy; r.y = uy; } } // סרט שבולט מעל המסגרת (כמו 'חדשה לגמרי!') נשאר בתוך הלוח
     const o = panels.find(p => Math.min(p.x + p.w, r.x + r.w) - Math.max(p.x, r.x) > 0.5 * Math.min(p.w, r.w) && Math.min(p.y + p.h, r.y + r.h) - Math.max(p.y, r.y) > 0.5 * Math.min(p.h, r.h));
     if (o) { const x1 = Math.max(o.x + o.w, r.x + r.w), y1 = Math.max(o.y + o.h, r.y + r.h); o.x = Math.min(o.x, r.x); o.y = Math.min(o.y, r.y); o.w = x1 - o.x; o.h = y1 - o.y; } else panels.push({ ...r });
   }
@@ -2829,11 +2829,12 @@ function rfBuild(sc, W, H) {
       const topAnch = ry === keep.y * f / H && !AU.some(u => u.role === 'logo');
       const R_h = keep.h * f, R_y = ry * H; if (R_y + R_h > H + 0.5) continue;
       const y0 = keep.y - R_y / f, x0 = bestX(lo, hi, ww, y0, wh); if (x0 === null) continue;
-      const logos = AU.filter(u => u.role === 'logo'), rest = AU.filter(u => u.role !== 'logo');
+      const logos = AU.filter(u => u.role === 'logo').sort((p, q) => p.y - q.y), rest = AU.filter(u => u.role !== 'logo'), logos1 = logos.slice(0, 1), logos2 = [], restX = rest.concat(logos.slice(1)); // לוגו שני (תגית זוכה) מטופל כמסר משני בהיררכיה: אפשר להקטין/להוריד אותו, והלוגו הראשי נשאר גדול
       for (const cut of [0.5, 0.58, 0.66]) {
         const gs = [
-          { units: logos, zone: (R, Rv) => logos.length ? [left ? W - 0.3 * W - mg : mg, mg, 0.3 * W, 0.16 * H] : [0, 0, W, 0] },
-          { units: rest, tiers: true, zone: (R, Rv) => { const y = Rv.y + cut * Rv.h; return H - y >= 0.3 * H ? [0, y, W, H - y] : null; } }];
+          { units: logos1, zone: (R, Rv) => logos1.length ? [left ? W - 0.34 * W - mg : mg, mg, 0.34 * W, 0.17 * H] : [0, 0, W, 0] }, // הלוגו הראשי (העליון) בפינה; לוגו נוסף (למשל תגית זוכה) בפינה שממול ולא באותו אזור, אחרת שניהם מצטמקים
+          ...(logos2.length ? [{ units: logos2, zone: (R, Rv) => [left ? mg : W - 0.34 * W - mg, mg, 0.34 * W, 0.17 * H] }] : []),
+          { units: restX, tiers: true, zone: (R, Rv) => { const y = Rv.y + cut * Rv.h; return H - y >= 0.3 * H ? [0, y, W, H - y] : null; } }];
         consider(f, x0, y0, 'overlay', gs, topAnch ? 0.3 : 0);
       }
     }
@@ -3036,5 +3037,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.26-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.27-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
