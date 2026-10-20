@@ -175,10 +175,15 @@ function detSmear(P, content) {
 }
 
 // (ד) empty_band: רווח ריק גדול בין אלמנטים (אנכי, ובבאנר רחב גם אופקי)
-function detGap(content, W, H) {
+function detGap(content, W, H, P) {
   if (content.length < 2) return null;
-  const gap = (lo, hi, span) => { const iv = content.map(b => [b[lo], b[lo] + b[hi]]).sort((a, b) => a[0] - b[0]); let end = iv[0][1], g = 0; for (let i = 1; i < iv.length; i++) { if (iv[i][0] > end) g = Math.max(g, iv[i][0] - end); end = Math.max(end, iv[i][1]); } return g / span; };
-  const v = gap('y', 'h', H), hz = W / H >= 2 ? gap('x', 'w', W) : 0;
+  const gap = (lo, hi, span) => { const iv = content.map(b => [b[lo], b[lo] + b[hi]]).sort((a, b) => a[0] - b[0]); let end = iv[0][1], g = 0; for (let i = 1; i < iv.length; i++) { if (iv[i][0] > end && iv[i][0] - end > g) { g = iv[i][0] - end; gap.iv = [end, iv[i][0]]; } end = Math.max(end, iv[i][1]); } return g / span; };
+  let v = gap('y', 'h', H); const vIv = gap.iv, hz = W / H >= 2 ? gap('x', 'w', W) : 0;
+  if (v >= 0.28 && P && vIv) { // רווח בין אלמנטים שבו יושבת תמונה ראשית (פרטים, קצוות) הוא לא ריק: בבאנר גבוה הגיבור הוא הרקע
+    const y0 = Math.max(1, Math.floor(vIv[0] * P.s)), y1 = Math.min(P.h - 1, Math.ceil(vIv[1] * P.s)); let e = 0, n = 0;
+    for (let y = y0; y < y1; y++) for (let x = 1; x < P.w - 1; x++) { e += Math.abs(P.L[y * P.w + x + 1] - P.L[y * P.w + x - 1]) + Math.abs(P.L[(y + 1) * P.w + x] - P.L[(y - 1) * P.w + x]); n++; }
+    if (n && e / n > 9) v = 0;
+  }
   return v >= 0.28 || hz >= 0.33 ? { vertical: r1(v * 100) / 100, horizontal: r1(hz * 100) / 100 } : null;
 }
 
@@ -211,7 +216,7 @@ function pixelCheck(pix, W, H, pl) {
   const texts = items.filter(e => e[0].text && e[0].role !== 'label').map(e => ({ ...box(e), lh: e[4] / Math.max(1, (e[0].lines || [1]).length) }));
   const leaves = items.filter(e => !e[0].text && e[0].role !== 'decor').map(e => ({ ...box(e), opq: opaqueBorder(e[0]) }));
   const P = prep(pix, W, H, 480);
-  out.empty_band = detGap(items.filter(e => e[0].role !== 'decor').map(box), W, H);
+  out.empty_band = detGap(items.filter(e => e[0].role !== 'decor').map(box), W, H, P);
   out.ragged = detRagged(P, texts); out.sticker_edge = detSticker(P, leaves, W, H); out.smear = detSmear(P, items.map(box));
   return out;
 }

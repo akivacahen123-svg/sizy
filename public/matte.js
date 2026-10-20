@@ -40,16 +40,26 @@ function postprocess(p, w, h) {
   return out;
 }
 
+// כל אלמנט גרפי צף (לוגו, תגית, חותמת, מדבקה, תמונה קטנה) מקבל חיתוך עצבי כמו שירות הסרת רקע, בלי קשר לתפקיד שג'מיני נתן לו.
+// לא נחתכים: טקסט, כפתור/כמוסה, לוח שמכיל אלמנטים אחרים (כותרת/רצועת פרס), רצועה רחבה מאוד, ואלמנט שיושב בתוך לוח כזה.
+const inside = (a, b) => { const cx = (a[0] + a[2]) / 2, cy = (a[1] + a[3]) / 2; return cx > b[0] && cx < b[2] && cy > b[1] && cy < b[3]; };
+const isCutout = (e, all) => {
+  if (!e || e.role === 'hero' || e.role === 'button' || e.role === 'decor' || e.shape === 'pill' || e.shape === 'panel' || (e.lines && e.lines.length) || !Array.isArray(e.box)) return false;
+  if (!['logo', 'badge', 'photo', 'brand', 'sticker', 'icon'].includes(e.role)) return false;
+  const b = e.box.map(Number), w = b[2] - b[0], h = b[3] - b[1]; if (!(w > 0 && h > 0) || w > 2.4 * h || h > 2.4 * w) return false;
+  for (const o of all || []) { if (o === e || !Array.isArray(o.box)) continue; const ob = o.box.map(Number); if (o.role !== 'hero' && inside(ob, b)) return false; if (o.role !== 'hero' && !(o.lines && o.lines.length) && o.role !== 'logo' && inside(b, ob)) return false; }
+  return true;
+};
 async function attach(img, elements, runModel, opts) {
   const o = Object.assign({ pad: 0.06, minArea: 0.004 }, opts), W = img.w, H = img.h;
   for (const e of elements || []) {
-    if (e.role !== 'hero' || e.matte) continue;
+    if (!(e.role === 'hero' || isCutout(e, elements)) || e.matte) continue;
     const b = (e.box || []).map(Number); if (b.length !== 4 || b.some(v => !isFinite(v))) continue;
     let x1 = Math.round(b[0] / 1000 * W), y1 = Math.round(b[1] / 1000 * H), x2 = Math.round(b[2] / 1000 * W), y2 = Math.round(b[3] / 1000 * H);
-    if ((x2 - x1) * (y2 - y1) < o.minArea * W * H) continue;
+    if ((x2 - x1) * (y2 - y1) < (e.role === 'hero' ? o.minArea : 0.0004) * W * H) continue;
     // תמונה שנוגעת בקצה הבאנר נשארת מלבן (תיגרר לקצה בלי הילה); רק אלמנט צף מקבל מט
-    if (x1 <= 2 || y1 <= 2 || x2 >= W - 2 || y2 >= H - 2) continue;
-    const px = Math.round((x2 - x1) * o.pad), py = Math.round((y2 - y1) * o.pad);
+    if (e.role === 'hero' && (x1 <= 2 || y1 <= 2 || x2 >= W - 2 || y2 >= H - 2)) continue;
+    const pp = e.role === 'hero' ? o.pad : 0.12, px = Math.round((x2 - x1) * pp), py = Math.round((y2 - y1) * pp);
     const X0 = clp(x1 - px, 0, W - 8), Y0 = clp(y1 - py, 0, H - 8), X1 = clp(x2 + px, X0 + 8, W), Y1 = clp(y2 + py, Y0 + 8, H), w = X1 - X0, h = Y1 - Y0;
     let p; try { p = await runModel(preprocess(img, X0, Y0, w, h)); } catch (err) { if (opts && opts.debug) console.error(err); continue; }
     if (!p || p.length !== N * N) continue;
@@ -61,5 +71,5 @@ async function attach(img, elements, runModel, opts) {
   return elements;
 }
 
-G.SizyMatte = { attach, preprocess, postprocess, N };
+G.SizyMatte = { isCutout, attach, preprocess, postprocess, N };
 })(typeof self !== 'undefined' ? self : globalThis);

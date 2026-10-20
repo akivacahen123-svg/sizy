@@ -25,10 +25,14 @@ function loadMatte() {
   })();
   return matteRunner;
 }
-const needsMatte = (els, W, H) => (els || []).some(e => {
-  if (e.role !== 'hero' || e.matte || !Array.isArray(e.box)) return false;
+const mInside = (a, b) => { const cx = (a[0] + a[2]) / 2, cy = (a[1] + a[3]) / 2; return cx > b[0] && cx < b[2] && cy > b[1] && cy < b[3]; };
+const needsMatte = (els, W, H) => (els || []).some(e => { // אותו תנאי כמו isCutout ב-matte.js (כאן כדי לא לטעון את המודל לחינם)
+  if (e.matte || !Array.isArray(e.box)) return false;
   const [a, b, c, d] = e.box.map(Number), x1 = a / 1000 * W, y1 = b / 1000 * H, x2 = c / 1000 * W, y2 = d / 1000 * H;
-  return (x2 - x1) * (y2 - y1) >= 0.004 * W * H && x1 > 2 && y1 > 2 && x2 < W - 2 && y2 < H - 2;
+  if (e.role === 'hero') return (x2 - x1) * (y2 - y1) >= 0.004 * W * H && x1 > 2 && y1 > 2 && x2 < W - 2 && y2 < H - 2;
+  if (e.role === 'button' || e.role === 'decor' || e.shape === 'pill' || e.shape === 'panel' || (e.lines && e.lines.length) || !['logo', 'badge', 'photo', 'brand', 'sticker', 'icon'].includes(e.role)) return false;
+  const w = c - a, h = d - b; if (!(w > 0 && h > 0) || w > 2.4 * h || h > 2.4 * w || (x2 - x1) * (y2 - y1) < 0.0004 * W * H) return false;
+  return !els.some(o => o !== e && Array.isArray(o.box) && o.role !== 'hero' && (mInside(o.box.map(Number), [a, b, c, d]) || (!(o.lines && o.lines.length) && o.role !== 'logo' && mInside([a, b, c, d], o.box.map(Number)))));
 });
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('matte timeout')), ms))]);
 async function tryMatte(img, elements, id) {

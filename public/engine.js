@@ -1033,6 +1033,7 @@ function graphicLayer(clean, e, grad) {
     for (let j = 0; j < h; j++) { cmp(x, y + j, x - dd, y + j); cmp(x + w - 1, y + j, x + w - 1 + dd, y + j); }
     if (nb && nd / nb < 0.2) shape = 'free';
   }
+  if ((shape === 'rect' || shape === 'rounded') && e.role === 'logo') shape = 'free'; // ג'מיני לפעמים מסמן לוגו כ'מלבן'; לוגו אמיתי כמעט אף פעם לא מלבן מלא, ועל רקע חלק זה נופל לשיטה הישנה
   if (shape === 'free' && (e.role === 'logo' || e.role === 'badge')) { // רק כשהרקע סביב האלמנט מרקמי (אבן, שמיים בשיפוע): על רקע חלק השיטה הישנה מדויקת יותר
     const pd = Math.max(8, Math.round(0.22 * Math.min(w, h))), xa = clp(x - pd, 0, W - 8), ya = clp(y - pd, 0, H - 8), xb = clp(x + w + pd, xa + 8, W), yb = clp(y + h + pd, ya + 8, H);
     if (ringBg(cropImg(clean, xa, ya, xb, yb)).err > 9) { const FM = freeMatte(clean, x, y, w, h); if (FM) return FM; }
@@ -2471,7 +2472,7 @@ function rfAssets(sc, P) {
   const panels = [];
   for (const u of cand) {
     const r = rfPanelRect(img, lum, [u.x, u.y, u.x + u.w, u.y + u.h]); if (!r) continue;
-    { const uy = Math.max(0, Math.floor(Math.min(...u.kids.filter(k => k.text).map(k => k.y))) - Math.max(6, Math.round(0.03 * r.h))); if (uy < r.y && r.y - uy <= 0.18 * r.h) { r.h += r.y - uy; r.y = uy; } } // סרט שבולט מעל המסגרת (כמו 'חדשה לגמרי!') נשאר בתוך הלוח
+    { const uy = Math.max(0, Math.floor(Math.min(...u.kids.filter(k => k.text).map(k => k.y))) - Math.max(6, Math.round(0.03 * r.h))); if (uy < r.y) { const ext = Math.min(r.y - uy, Math.round(0.05 * r.h) + 6); r.h += ext; r.y -= ext; } }  // לא יותר מכמה פיקסלים: תיבת הטקסט רחבה מהסרט ואז נכנסת רצועת רקע 
     const o = panels.find(p => Math.min(p.x + p.w, r.x + r.w) - Math.max(p.x, r.x) > 0.5 * Math.min(p.w, r.w) && Math.min(p.y + p.h, r.y + r.h) - Math.max(p.y, r.y) > 0.5 * Math.min(p.h, r.h));
     if (o) { const x1 = Math.max(o.x + o.w, r.x + r.w), y1 = Math.max(o.y + o.h, r.y + r.h); o.x = Math.min(o.x, r.x); o.y = Math.min(o.y, r.y); o.w = x1 - o.x; o.h = y1 - o.y; } else panels.push({ ...r });
   }
@@ -2649,7 +2650,7 @@ function rfTiers(sc, units, zx, zy, zw, zh) {
   if (zw < 24 || zh < 24) return null;
   const mx = 0.04 * zw, mb = Math.max(3, 0.035 * zw), aw = zw - 2 * mx, gmin = Math.max(4, 0.022 * zh), gmax = 0.07 * zh, gx = Math.max(4, 0.03 * zw);
   const heads = units.filter(u => rfTierOf(u) === 'headline'), btns = units.filter(u => rfTierOf(u) === 'button');
-  const pri = u => { const r = rfTierOf(u); return r === 'subheadline' ? 0 : r === 'prize' ? 1 : (r === 'caption' || r === 'label' || r === 'body' || r === 'legal') ? 3 : 2; };
+  const pri = u => { const r = rfTierOf(u); return r === 'subheadline' ? 0 : r === 'prize' ? (u.w > 1.8 * u.h ? 1 : 2.5) : (r === 'caption' || r === 'label' || r === 'body' || r === 'legal') ? 3 : 2; };
   const sec0 = units.filter(u => !heads.includes(u) && !btns.includes(u) && pri(u) < 3).sort((a, b) => pri(a) - pri(b) || b.w * b.h - a.w * a.h);
   if (units.some(u => !u.kids.length)) return null;
   const rigid = u => u.kids.every(k => !k.text);
@@ -3037,5 +3038,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.27-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.28-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
