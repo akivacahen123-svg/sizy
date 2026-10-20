@@ -1159,7 +1159,7 @@ function heroWindow(L, tw, th) {
 }
 // שכבת hero חדשה מחלון חיתוך. bleed = הצדדים שנוגעים בקצה הקנבס (אלפא מלא); בשאר הצדדים שוליים חדים (פיזור קטן)
 function heroVariant(hero, win, bleed) {
-  const kid = hero.kids[0], L = kid.layer, { x: wx, y: wy, w, h } = win, rgb = new Float32Array(w * h * 3), a = new Float32Array(w * h), f = Math.max(4, 0.08 * Math.min(w, h)); // צדדים שלא נוגעים בקצה: שוליים רכים ~8% מהצלע הקצרה (smoothstep), לא קו חד
+  const kid = hero.kids[0], L = kid.layer, { x: wx, y: wy, w, h } = win, rgb = new Float32Array(w * h * 3), a = new Float32Array(w * h), f = kid.crisp ? 1.2 : Math.max(4, 0.08 * Math.min(w, h)); // צדדים שלא נוגעים בקצה: שוליים רכים ~8% מהצלע הקצרה (smoothstep), לא קו חד
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const si = (wy + j) * L.lw + wx + i, di = j * w + i;
     rgb[di * 3] = L.rgb[si * 3]; rgb[di * 3 + 1] = L.rgb[si * 3 + 1]; rgb[di * 3 + 2] = L.rgb[si * 3 + 2];
@@ -1510,6 +1510,32 @@ function panelClean(clean, img, holes, e, inner) {
   return out;
 }
 
+// עיצוב שטוח (רקע חלק + פסים/תמונות כאלמנטים): שורות שכולן חור (פס צבע מלא-רוחב או תמונה ראשית) מתמלאות במריחה מעורבבת מהשכנים (אדום+לבן+שמיים).
+// במקום זה מעתיקים את השורה הקרובה ביותר שיש בה רקע אמיתי (מעדיפים מלמטה), כך שהרקע נשאר נקי וחלק
+const nearA = (L, x, y) => { for (let dy = -3; dy <= 3; dy += 3) for (let dx = -3; dx <= 3; dx += 3) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < L.lw && yy < L.lh && L.a[yy * L.lw + xx] >= 0.3) return true; } return false; };
+function flatRowsFix(plate, hole, src, W, H) {
+  const L = rfLum(src); let flat = 0, nb = 0;
+  for (let by = 0; by + 8 <= H; by += 8) for (let bx = 0; bx + 8 <= W; bx += 8) {
+    let hh = 0, s = 0, s2 = 0;
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { const i = (by + y) * W + bx + x; hh += hole[i]; s += L[i]; s2 += L[i] * L[i]; }
+    if (hh) continue; nb++; if (Math.sqrt(Math.max(0, s2 / 64 - (s / 64) * (s / 64))) < 0.8) flat++;
+  }
+  if (nb < 20 || flat / nb < 0.55) return false;
+  // צבע הרקע בכל שורה = חציון הפיקסלים שאינם חור באותה שורה (שורה בלי כאלה: הקרובה ביותר, מעדיפים מלמטה). פיקסל חור מקבל את צבע השורה; פיקסל רגיל לא משתנה
+  const med = new Float32Array(H * 3), ok = new Uint8Array(H);
+  for (let y = 0; y < H; y++) {
+    const rs = [], gs = [], bs = []; for (let x = 0; x < W; x += 2) if (!hole[y * W + x]) { const q = (y * W + x) * 3; rs.push(src.d[q]); gs.push(src.d[q + 1]); bs.push(src.d[q + 2]); }
+    if (rs.length >= 0.03 * W / 2 && rs.length >= 4) { const m = a => (a.sort((p, q) => p - q), a[a.length >> 1]); med[y * 3] = m(rs); med[y * 3 + 1] = m(gs); med[y * 3 + 2] = m(bs); ok[y] = 1; }
+  }
+  if (!ok.some(v => v)) return false;
+  { let dev = 0, tot = 0; for (let y = 0; y < H; y += 2) { if (!ok[y]) continue; for (let x = 0; x < W; x += 4) if (!hole[y * W + x]) { const q = (y * W + x) * 3; tot++; if (Math.max(Math.abs(src.d[q] - med[y * 3]), Math.abs(src.d[q + 1] - med[y * 3 + 1]), Math.abs(src.d[q + 2] - med[y * 3 + 2])) > 10) dev++; } }
+    if (!tot || dev / tot > 0.06) return false; } // רקע עם שיפוע אופקי/תמונה בצדדים: חציון שורה לא מייצג אותו
+  for (let y = 0; y < H; y++) {
+    if (!ok[y]) { let d = y; while (d < H && !ok[d]) d++; let u = y; while (u >= 0 && !ok[u]) u--; const k = d < H ? d : u; if (k < 0) continue; med.copyWithin(y * 3, k * 3, k * 3 + 3); }
+    for (let x = 0; x < W; x++) if (hole[y * W + x]) { const q = (y * W + x) * 3; plate.d[q] = med[y * 3]; plate.d[q + 1] = med[y * 3 + 1]; plate.d[q + 2] = med[y * 3 + 2]; }
+  }
+  return true;
+}
 function buildScene(img, elements, onProgress) {
   const W = img.w, H = img.h, tell = m => onProgress && onProgress(m);
   const els = [];
@@ -1683,6 +1709,28 @@ function buildScene(img, elements, onProgress) {
   let plate = msFill(clean, holes2, { tex: true });
   plate = softenDenseHoles(plate, holes2, plate.tex);
   for (let i = 0; i < plate.d.length; i++) plate.d[i] = clp(plate.d[i], 0, 255);
+  for (const hl of leaves) { // אלמנט שיושב חלקית על תמונה ראשית (חותמת שחוצה את קצה התמונה): בתמונה הראשית מוחלף ברקע המשלים, אחרת נשארת חצי חותמת כפולה
+    if (hl.role !== 'hero' || !hl.layer || hl.layer.up !== 1) continue; const HL = hl.layer;
+    for (const o of leaves) {
+      if (o === hl || o.text || !['badge', 'logo', 'photo'].includes(o.role) || !o.layer) continue; const OL = o.layer;
+      const ix0 = Math.max(HL.x, OL.x), iy0 = Math.max(HL.y, OL.y), ix1 = Math.min(HL.x + HL.lw, OL.x + OL.lw), iy1 = Math.min(HL.y + HL.lh, OL.y + OL.lh); if (ix1 <= ix0 || iy1 <= iy0) continue;
+      if ((ix1 - ix0) * (iy1 - iy0) > 0.5 * OL.lw * OL.lh * (OL.up || 1) * (OL.up || 1) && (ix1 - ix0) * (iy1 - iy0) > 0.5 * OL.w * OL.h) continue; // רוב האלמנט בתוך התמונה: זה חלק ממנה
+      if (OL.up && OL.up !== 1) continue;
+      let bx0 = 1e9, by0 = 1e9, bx1 = -1, by1 = -1; const msk = [];
+      for (let y = iy0; y < iy1; y++) for (let x = ix0; x < ix1; x++) if (nearA(OL, x - OL.x, y - OL.y)) { msk.push(x, y); if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; if (y < by0) by0 = y; if (y > by1) by1 = y; }
+      if (!msk.length) continue;
+      // ממלאים בכל שורה בהשבה לינארית בין הפיקסל הקרוב מימין לשמאל מחוץ למסכה (נוף הוא חלק לרוחב, על עומק אנכי משקף נראה הפוך)
+      const inM = new Set(); for (let k = 0; k < msk.length; k += 2) inM.add(msk[k + 1] * 100000 + msk[k]);
+      for (let k = 0; k < msk.length; k += 2) {
+        const x = msk[k], y = msk[k + 1]; let xl = x, xr = x;
+        while (xl > HL.x && inM.has(y * 100000 + xl)) xl--; while (xr < HL.x + HL.lw - 1 && inM.has(y * 100000 + xr)) xr++;
+        const lOk = !inM.has(y * 100000 + xl), rOk = !inM.has(y * 100000 + xr); let t = (x - xl) / Math.max(1, xr - xl); if (!lOk) t = 1; if (!rOk) t = 0;
+        const hi = ((y - HL.y) * HL.lw + (x - HL.x)) * 3, a = ((y - HL.y) * HL.lw + (xl - HL.x)) * 3, b = ((y - HL.y) * HL.lw + (xr - HL.x)) * 3;
+        for (let c = 0; c < 3; c++) HL.rgb[hi + c] = HL.rgb[a + c] * (1 - t) + HL.rgb[b + c] * t;
+      }
+    }
+  }
+  const flatDesign = flatRowsFix(plate, holes2, clean, W, H); if (flatDesign) for (const e of leaves) if (e.role === 'hero') e.crisp = true; // רקע חלק: קצה התמונה חד, לא מטושטש מעל לבן
   for (const e of leaves) { const L = e.layer; e.x = L.x; e.y = L.y; e.w = L.w; e.h = L.h; }
   for (const t of leaves) {
     if (!t.text || t.group) continue;
@@ -1741,7 +1789,7 @@ function buildScene(img, elements, onProgress) {
   }
   const holeRows = new Float32Array(H);
   for (let y = 0; y < H; y++) { let c = 0; for (let x = 0; x < W; x++) c += holes2[y * W + x]; holeRows[y] = c / W; }
-  return { W, H, plate, units, leaves, holeRows, holes2, _img: img, _holesT: holes, boxes: leaves.map(e => ({ id: e.id, role: e.role, x: e.x / W, y: e.y / H, w: e.w / W, h: e.h / H })) };
+  return { W, H, plate, units, leaves, holeRows, holes2, flat: flatDesign, _img: img, _holesT: holes, boxes: leaves.map(e => ({ id: e.id, role: e.role, x: e.x / W, y: e.y / H, w: e.w / W, h: e.h / H })) };
 }
 
 // ---------------------------------------------------------------- גלריה
@@ -2385,7 +2433,61 @@ function autoplace(sc, W, H, plan) {
   mc.set(ck, res.map(e => e.slice()));
   return res;
 }
+// ---------------------------------------------------------------- BANDS
+// עיצוב "פסים": תמונה ראשית כפס, פס צבע מלא עם הכותרת, כפתור על רקע חלק (+ חותמת שחוצה את הגבול). כך מעצב מסדר מחדש:
+// גבוה/כמעט מרובע: אותם פסים אחד מעל השני (התמונה נחתכת cover כדי למלא את הגובה); רחב: התמונה בצד, הפס והכפתור בעמודה לידה.
+function bandsLayout(sc, W, H) {
+  if (!sc.flat) return null;
+  const asp = W / H; if (asp >= 4.2 || W * H < 9000) return null;
+  const hero = sc.units.find(u => u.role === 'hero' && u.kids.length === 1 && u.kids[0].layer && u.kids[0].layer.rectHero);
+  const band0 = sc.units.find(u => u !== hero && u.kids.some(k => !k.text && k.solid) && u.kids.some(k => k.text && (k.role === 'headline' || k.role === 'subheadline')));
+  if (!hero || !band0 || hero.w < 0.8 * sc.W || band0.w < 0.8 * sc.W) return null;
+  const btn = sc.units.find(u => u !== hero && u !== band0 && u.kids.some(k => k.role === 'button'));
+  const badge = sc.units.find(u => u !== hero && u !== band0 && u !== btn && u.kids.length === 1 && u.kids[0].role === 'badge' && !u.kids[0].text);
+  const rest = sc.units.filter(u => ![hero, band0, btn, badge].includes(u));
+  if (rest.length) return null; // יחידות נוספות (לוגו, כתובות): נשארים עם הסידור הרגיל
+  const pl = [], add = (u, x, y, w, h) => { const sf = w / u.w, kf = u.kf || 1; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * sf, y + dy * sf, k.w * sf * kf, k.h * sf * kf]); } };
+  const L = hero.kids[0].layer, rtl = true;
+  const heroAt = (x, y, w, h, mk = 0.4) => { const win = heroWindow(L, w, h); if (win.kept < mk) return false; const sf = w / win.w; if (sf > 1.8 || sf < 0.15) return false; add(heroVariant(hero, win, { l: x <= 0.5, r: x + w >= W - 0.5, t: y <= 0.5, b: y + h >= H - 0.5 }), x, y, w, h); return true; };
+  const bandBox = (bu, x, y, w, h) => { const pk = bu.kids.find(k => !k.text && k.solid); const np = { ...pk, layer: solidLayer(w * (pk.layer.up || 1), h * (pk.layer.up || 1), pk.solid), x: 0, y: 0, w, h, reflowed: true, isPlate: true, z: pk.z }; pl.push([np, x, y, w, h]); return pk; };
+  const textsOf = bu => bu.kids.filter(k => k.text);
+  const tbox = bu => { const t = textsOf(bu).map(k => { const [dx, dy] = bu.rel ? bu.rel.get(k) : [k.x - bu.x, k.y - bu.y]; return [dx, dy, dx + k.w, dy + k.h]; }); return [Math.min(...t.map(q => q[0])), Math.min(...t.map(q => q[1])), Math.max(...t.map(q => q[2])), Math.max(...t.map(q => q[3]))]; };
+  const placeTexts = (bu, cx, cy, sf) => { const tb = tbox(bu), ox = cx - (tb[0] + tb[2]) / 2 * sf, oy = cy - (tb[1] + tb[3]) / 2 * sf; for (const k of textsOf(bu)) { const [dx, dy] = bu.rel ? bu.rel.get(k) : [k.x - bu.x, k.y - bu.y]; pl.push([k, ox + dx * sf, oy + dy * sf, k.w * sf, k.h * sf]); } };
+  const finish = () => { if (badge) { const bk = badge.kids[0]; pl.badge = bk; } return pl; };
+  if (asp <= 1.35) { // ערימה אנכית
+    for (const f of [1, 0.92, 0.84, 0.76, 0.68, 0.6, 0.52]) {
+      pl.length = 0;
+      const bandR = reflowUnit(band0, W * 0.96, H), st = f * W / band0.w, tbx = tbox(bandR), tw = tbx[2] - tbx[0], th = tbx[3] - tbx[1];
+      let sT = Math.min(st * (band0.w / Math.max(1, bandR.w < band0.w ? band0.w : bandR.w)), 0.9 * W / tw); sT = Math.max(sT, 0); // גודל כיתוב
+      const padY = Math.max(0.35 * th * sT, 0.025 * H), Hb = th * sT + 2 * padY;
+      const sb = btn ? Math.min(f * W / band0.w, 0.86 * W / btn.w) : 0, Hbtn = btn ? btn.h * sb : 0, g1 = btn ? 0.025 * H : 0, g2 = btn ? 0.04 * H : 0;
+      const Hh = H - Hb - Hbtn - g1 - g2; if (Hh < 0.3 * H) continue;
+      if (!heroAt(0, 0, W, Hh, 0.27)) continue;
+      bandBox(band0, 0, Hh, W, Hb); placeTexts(bandR, W / 2, Hh + Hb / 2, sT);
+      if (btn) add(btn, (W - btn.w * sb) / 2, Hh + Hb + g1, btn.w * sb, Hbtn);
+      if (badge) { const bd = Math.min(0.22 * W, 0.2 * Hh, badge.w * sT); add(badge, W - 0.03 * W - bd, Hh - bd * 0.5, bd, bd); }
+      return pl;
+    }
+  }
+  { // רחב (או ערימה שלא נכנסה): תמונה בצד (ימין בעברית), עמודה עם הפס והכפתור
+    if (asp < 0.95) return null;
+    for (const wf of [0.29, 0.33, 0.38, 0.44, 0.5]) {
+      pl.length = 0;
+      const Wh = wf * W, Lw = W - Wh, x0 = rtl ? 0 : Wh, hx = rtl ? Lw : 0, m = 0.03 * H;
+      const bandR = reflowUnit(band0, Lw, H), tbx = tbox(bandR), tw = tbx[2] - tbx[0], th = tbx[3] - tbx[1];
+      const bd = badge ? Math.min(0.3 * H, 0.45 * Wh) : 0, Hbmax = btn ? 0.6 * H : H; let sT = Math.min((0.92 * Lw - 0.5 * bd) / tw, 0.78 * Hbmax / th); const Hb = Math.min(Hbmax, th * sT / 0.78);
+      let sb = 0, Hbtn = 0; if (btn) { Hbtn = H - Hb - 2.2 * m; sb = Math.min((0.9 * Lw - (badge ? 0.14 * H : 0)) / btn.w, Hbtn / btn.h); Hbtn = btn.h * sb; if (Hbtn < 0.14 * H) continue; }
+      if (!heroAt(hx, 0, Wh, H, 0.5)) continue;
+      bandBox(band0, x0, 0, Lw, Hb); placeTexts(bandR, x0 + (Lw - 0.4 * bd) / 2, Hb / 2, sT);
+      if (btn) add(btn, x0 + (Lw - btn.w * sb) / 2, Hb + (H - Hb - Hbtn) / 2, btn.w * sb, Hbtn);
+      if (badge) { add(badge, rtl ? Lw - bd * 0.55 : Wh - bd * 0.45, Math.max(0.02 * H, Hb - bd * 0.75), bd, bd); }
+      return pl;
+    }
+  }
+  return null;
+}
 function autoplace0(sc, W, H, plan) {
+  if (!plan) { let b = null; try { b = bandsLayout(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b = null; } if (b) { delete b.badge; b.sort((x, y) => (x[0].role === 'hero' ? 0 : 1) - (y[0].role === 'hero' ? 0 : 1) || (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b; } }
   const rf = reframeFor(sc, W, H, plan); if (rf) return rf.place.map(e => e.slice()); // REFRAME: רקע צילומי עם גיבור – חלון חיתוך מהמקור ויחידות מעליו
   const base = autoplaceRules(sc, W, H);
   let res = base;
@@ -3039,5 +3141,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.30-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.31-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);

@@ -217,7 +217,7 @@ function pixelCheck(pix, W, H, pl) {
   const leaves = items.filter(e => !e[0].text && e[0].role !== 'decor').map(e => ({ ...box(e), opq: opaqueBorder(e[0]) }));
   const P = prep(pix, W, H, 480);
   out.empty_band = detGap(items.filter(e => e[0].role !== 'decor').map(box), W, H, P);
-  out.ragged = detRagged(P, texts); out.sticker_edge = detSticker(P, leaves, W, H); out.smear = detSmear(P, items.map(box));
+  out.ragged = detRagged(P, texts); out.sticker_edge = detSticker(P, leaves, W, H); out.smear = detSmear(P, items.concat((pl || []).filter(e => e && e[0] && e[0].isPlate && e[0].solid !== undefined && e[3] > 1 && e[4] > 1)).map(box)); // לוחות צבע מלא שהמנוע שם בכוונה הם לא 'רקע מרוח'
   return out;
 }
 
