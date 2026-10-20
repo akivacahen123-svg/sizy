@@ -1536,8 +1536,43 @@ function flatRowsFix(plate, hole, src, W, H) {
   }
   return true;
 }
+// כרטיס: אזור גדול וצבעוני שיושב בתוך שוליים אחידים (עמוד A4 עם לוח כחול מעוגל, כרטיס על רקע לבן). ג'מיני מפרק אותו לחתיכות (כותרת, תמונה חלקית),
+// ואז כל חתיכה נחתכת ומוזזת לבד וההרכב נהרס. מתייחסים אליו כתמונה ראשית אחת (עם פינות מעוגלות) והאלמנטים שבתוכו נשארים אפויים בה.
+function cardFix(img, elements) {
+  try {
+    const W = img.w, H = img.h, D = img.d, K = 4, gw = Math.floor(W / K), gh = Math.floor(H / K); if (gw < 20 || gh < 20 || !elements) return elements;
+    const ring = []; for (let i = 0; i < W; i += 3) for (const y of [0, 1, H - 2, H - 1]) ring.push(y * W + i); for (let j = 0; j < H; j += 3) for (const x of [0, 1, W - 2, W - 1]) ring.push(j * W + x);
+    const med = [0, 1, 2].map(c => { const a = ring.map(q => D[q * 3 + c]).sort((x, y) => x - y); return a[a.length >> 1]; });
+    const far = q => Math.max(Math.abs(D[q * 3] - med[0]), Math.abs(D[q * 3 + 1] - med[1]), Math.abs(D[q * 3 + 2] - med[2])) > 36;
+    if (ring.filter(q => !far(q)).length < 0.9 * ring.length) return elements; // אין שוליים אחידים
+    const m = new Uint8Array(gw * gh); for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) m[y * gw + x] = far((y * K + 2) * W + x * K + 2) ? 1 : 0;
+    const lab = new Int32Array(gw * gh); let best = null, n = 0;
+    for (let i0 = 0; i0 < m.length; i0++) if (m[i0] && !lab[i0]) {
+      n++; const st = [i0]; lab[i0] = n; let a = 0, x0 = gw, y0 = gh, x1 = -1, y1 = -1;
+      while (st.length) { const p = st.pop(), x = p % gw, y = (p / gw) | 0; a++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; for (const q of [x > 0 ? p - 1 : -1, x < gw - 1 ? p + 1 : -1, y > 0 ? p - gw : -1, y < gh - 1 ? p + gw : -1]) if (q >= 0 && m[q] && !lab[q]) { lab[q] = n; st.push(q); } }
+      if (!best || a > best.a) best = { a, x0, y0, x1, y1, id: n };
+    }
+    if (!best) return elements;
+    const bw = best.x1 - best.x0 + 1, bh = best.y1 - best.y0 + 1; if (bw * bh < 0.2 * gw * gh) return elements;
+    const side = (best.x0 <= 2) + (best.y0 <= 2) + (best.x1 >= gw - 3) + (best.y1 >= gh - 3); if (side >= 2) return elements; // נוגע בקצוות: זה לא כרטיס
+    // רצועות לפי שורה/עמודה (ממלאים חורי טקסט בצבע הרקע): חיתוך השטחים נותן צורת מלבן מעוגל
+    const X0 = best.x0 * K, Y0 = best.y0 * K, cw = Math.min(W - X0, bw * K + K), ch = Math.min(H - Y0, bh * K + K);
+    const rl = new Int32Array(ch).fill(1e9), rr = new Int32Array(ch).fill(-1), cl = new Int32Array(cw).fill(1e9), cr = new Int32Array(cw).fill(-1);
+    for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) { if (!far((Y0 + j) * W + X0 + i)) continue; const gx = Math.min(gw - 1, (X0 + i) / K | 0), gy = Math.min(gh - 1, (Y0 + j) / K | 0); if (lab[gy * gw + gx] !== best.id) continue; if (i < rl[j]) rl[j] = i; if (i > rr[j]) rr[j] = i; if (j < cl[i]) cl[i] = j; if (j > cr[i]) cr[i] = j; }
+    const a = new Uint8Array(cw * ch); let on = 0;
+    for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) if (i >= rl[j] && i <= rr[j] && j >= cl[i] && j <= cr[i]) { a[j * cw + i] = 255; on++; }
+    if (on < 0.8 * cw * ch * 0.85 && on < 0.55 * cw * ch) return elements;
+    const cx = (e) => { const b = e.box.map(Number); return [(b[0] + b[2]) / 2 / 1000 * W, (b[1] + b[3]) / 2 / 1000 * H]; };
+    const inside = e => { if (!Array.isArray(e.box)) return false; const [x, y] = cx(e); return x > X0 && x < X0 + cw && y > Y0 && y < Y0 + ch; };
+    const ins = elements.filter(inside); if (!ins.length) return elements;
+    const out = elements.filter(e => !inside(e));
+    out.unshift({ id: 'card', role: 'hero', shape: 'hero', group: null, box: [X0 / W * 1000, Y0 / H * 1000, (X0 + cw) / W * 1000, (Y0 + ch) / H * 1000], matte: { x0: X0, y0: Y0, w: cw, h: ch, a } });
+    return out;
+  } catch (e) { return elements; }
+}
 function buildScene(img, elements, onProgress) {
   const W = img.w, H = img.h, tell = m => onProgress && onProgress(m);
+  elements = cardFix(img, elements);
   const els = [];
   (elements || []).slice(0, 60).forEach((e, i) => {
     const b = e.box; if (!Array.isArray(b) || b.length !== 4) return;
@@ -1667,7 +1702,10 @@ function buildScene(img, elements, onProgress) {
     if (e.panelAllow) { L = clipLayerTo(L, e.panelAllow); if (!L) continue; }
     if (['caption', 'body', 'label'].includes(e.role)) { // פס רקע שנחתך במקום אותיות: שורה שכמעט כולה אטומה
       let rm = 0; for (let j = 0; j < L.lh; j++) { let r = 0; for (let i = 0; i < L.lw; i++) { if (L.a[j * L.lw + i] > 0.5) { r++; if (r > rm) rm = r; } else r = 0; } }
-      if (rm > 0.4 * L.lw && L.lw > 6 * L.lh) continue;
+      if (rm > 0.4 * L.lw && L.lw > 6 * L.lh) { // נדחה: מחזירים את הפיקסלים שסומנו כחור (אחרת הרקע/כפתור שמאחורי הטקסט נמחק ומתמלא בצבע שגוי, כמו כפתור כתום שהפך ללבן)
+        for (let j = 0; j < L.lh; j++) for (let i = 0; i < L.lw; i++) if (L.a[j * L.lw + i] > 0.5) { const gx = L.x + Math.floor(i * L.w / L.lw), gy = L.y + Math.floor(j * L.h / L.lh); if (gx >= 0 && gy >= 0 && gx < W && gy < H) holes[gy * W + gx] = 0; }
+        continue;
+      }
     }
     e.layer = L; if (['caption', 'subheadline', 'body'].includes(e.role)) centerLines(L, e.lines.length); leaves.push(e);
   }
@@ -1947,7 +1985,7 @@ function layoutBase(W, H, units, sw, sh, forceWide) {
     const plan = () => {
       const mw = tx.length ? Math.max(...tx.map(u => u.w)) : 1, tH = n ? gh(allg) : 1;
       let best = null; const cands = [];
-      for (const fr of (hero ? (H / W > 1.5 ? [0.36, 0.3, 0.24] : [0.42, 0.34, 0.26]) : [0])) {
+      for (const fr of (hero ? (hero.kids[0] && hero.kids[0].layer && hero.kids[0].layer.matted ? (H / W > 1.5 ? [0.52, 0.45, 0.38, 0.32, 0.26] : [0.5, 0.42, 0.34, 0.26]) : H / W > 1.5 ? [0.36, 0.3, 0.24] : [0.42, 0.34, 0.26]) : [0])) {
         let hs = hero ? Math.min(fr * H / hero.h, aw / hero.w, 1.2) : 0, hh = hero ? hero.h * hs : 0, hb = null;
         if (hero && hero.kids.length === 1 && hero.kids[0].layer && hero.kids[0].layer.rectHero) { // cover + bleed: רוחב מלא, גובה fr*H, חלון עם הכי הרבה פרטים; אם חותך יותר מדי מהתמונה – נשארים עם contain
           const tH = fr * H, win = heroWindow(hero.kids[0].layer, W, tH), sc = W / win.w;
@@ -1981,7 +2019,7 @@ function layoutBase(W, H, units, sw, sh, forceWide) {
     const tHb = tx.reduce((a, u) => a + u.h * eff(u), 0) + tg;
     let used = s * tHb;
     if (tg > 0) { gm = Math.max(1, Math.min(2.2, 1 + (th - used) / (tg * s))); used = s * (tHb - tg) + s * tg * gm; }
-    const bottom = !hero || (hero.y + hero.h / 2) / sh > 0.35;
+    const bottom = !hero || ((hero.y + hero.h / 2) / sh > 0.35 && !(hero.y <= 0.12 * sh && hero.kids[0] && hero.kids[0].layer && hero.kids[0].layer.matted)); // תמונה שמתחילה בראש המקור נשארת למעלה
     const y0 = bottom ? m + (th - used) / 2 : (hb ? 0 : m) + hh + vg * 2 + (th - used) / 2;
     put(allg, s, 0, W, y0);
     if (hero && hb) out.push([heroVariant(hero, hb.win, { l: true, r: true, t: !bottom, b: bottom }), 0, bottom ? H - hh : 0, W, hh]);
@@ -3141,5 +3179,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.32-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.33-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
