@@ -46,7 +46,7 @@ assert(q.issues.every(i => /[א-ת]/.test(i.textHe)), 'Hebrew text');
   assert(!qaCheck(sc3, 300, 600, pl3).issues.some(i => ['ragged', 'sticker_edge', 'smear', 'empty_band'].includes(i.code)));
   // רקע חלק ונקי עם טקסט וכפתור: ללא דגלי פיקסלים
   const fw = 300, fh = 250, flat = new Uint8ClampedArray(fw * fh * 4); for (let i = 0; i < fw * fh; i++) { flat[i * 4] = 30; flat[i * 4 + 1] = 60 + (i / fw | 0) / 6; flat[i * 4 + 2] = 120; flat[i * 4 + 3] = 255; }
-  for (let y = 40; y < 90; y++) for (let x = 40; x < 260; x += 3) { const i = (y * fw + x) * 4; flat[i] = flat[i + 1] = flat[i + 2] = 245; }
+  for (let y = 15; y < 45; y++) for (let x = 40; x < 260; x += 3) { const i = (y * fw + x) * 4; flat[i] = flat[i + 1] = flat[i + 2] = 245; }
   const qf = qaCheck(sc, fw, fh, good, { rgba: flat, w: fw, h: fh }); assert(!qf.issues.some(i => ['ragged', 'sticker_edge', 'smear', 'empty_band'].includes(i.code)), 'clean flat banner: ' + qf.issues.map(i => i.code));
   // רווח ריק גדול בין אלמנטים
   const gap = qaCheck(sc, fw, fh, [[sc.leaves[0], 40, 10, 220, 40], [sc.leaves[1], 80, 190, 140, 40]], { rgba: flat, w: fw, h: fh }); assert(gap.issues.some(i => i.code === 'empty_band'));
