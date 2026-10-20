@@ -1033,6 +1033,7 @@ function graphicLayer(clean, e, grad) {
     for (let j = 0; j < h; j++) { cmp(x, y + j, x - dd, y + j); cmp(x + w - 1, y + j, x + w - 1 + dd, y + j); }
     if (nb && nd / nb < 0.2) shape = 'free';
   }
+  if (e.role === 'badge' && shape === 'free' && w > 1.8 * h) shape = 'rounded'; // רצועת פרס רחבה (תגית+כסף+כיתוב) שסומנה 'free': חיתוך חופשי אוכל את התמונה שבתוכה; חותכים כמלבן מעוגל
   if ((shape === 'rect' || shape === 'rounded') && e.role === 'logo') shape = 'free'; // ג'מיני לפעמים מסמן לוגו כ'מלבן'; לוגו אמיתי כמעט אף פעם לא מלבן מלא, ועל רקע חלק זה נופל לשיטה הישנה
   if (shape === 'free' && (e.role === 'logo' || e.role === 'badge')) { // רק כשהרקע סביב האלמנט מרקמי (אבן, שמיים בשיפוע): על רקע חלק השיטה הישנה מדויקת יותר
     const pd = Math.max(8, Math.round(0.22 * Math.min(w, h))), xa = clp(x - pd, 0, W - 8), ya = clp(y - pd, 0, H - 8), xb = clp(x + w + pd, xa + 8, W), yb = clp(y + h + pd, ya + 8, H);
@@ -3038,5 +3039,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.29-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.30-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
