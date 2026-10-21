@@ -2235,7 +2235,10 @@ function planValid(plan, sc, W, H) {
 // שורות קטנות מדי לקריאה (פחות מכ-6.5 פיקסלים) בכיתובים מוסרות, כדי שלא יישארו כתמים לא קריאים
 function dropTiny(pl) {
   if (!BANS.tiny) return pl;
-  return pl.filter(e => !(e[0].text && ['caption', 'body', 'subheadline'].includes(e[0].role) && e[4] / Math.max(1, (e[0].lines || [1]).length) < 7.5));
+  const tinyLabel = e => e[0].text && e[0].role === 'label' && e[4] / Math.max(1, (e[0].lines || [1]).length) < 5, gone = pl.filter(tinyLabel);
+  const keep = pl.filter(e => !(e[0].text && ['caption', 'body', 'subheadline'].includes(e[0].role) && e[4] / Math.max(1, (e[0].lines || [1]).length) < 7.5) && !tinyLabel(e));
+  // כפתור שהכיתוב שלו היה קטן מדי ונמחק הוא פס ריק: מוחקים גם אותו
+  return keep.filter(e => !(e[0].role === 'button' && !e[0].text && gone.some(t => t[1] + t[3] / 2 > e[1] && t[1] + t[3] / 2 < e[1] + e[3] && t[2] + t[4] / 2 > e[2] && t[2] + t[4] / 2 < e[2] + e[4])));
 }
 // ---- שורת פריטים קטנים (תגים, תמונה, כיתוב) וכיתוב קטן: כשהם יוצאים קטנים מדי לקריאה בבאנר צר/גבוה
 // מסדרים את השורה ל-2 שורות, מגדילים את היחידה על חשבון הכותרת (לא יותר מ-12%), ואם עדיין לא קריא מוותרים על הכיתוב הקטן (הכי פחות חשוב).
@@ -3181,5 +3184,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.34-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.35-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
