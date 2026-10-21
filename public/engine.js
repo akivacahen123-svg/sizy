@@ -1575,6 +1575,11 @@ function cardFix(img, elements) {
 function buildScene(img, elements, onProgress) {
   const W = img.w, H = img.h, tell = m => onProgress && onProgress(m);
   if (!G.__NOCARD) elements = cardFix(img, elements);
+  { // שורה בגוף הטקסט שחוזרת על כיתוב הכפתור/התווית (ג'מיני סופר אותה פעמיים): מוציאים אותה מהגוף, אחרת השורות לא תואמות לפיקסלים ונוצרות אותיות רפאים
+    const norm = t => String(t).replace(/[\s.,!?:;"'״׳־-]/g, ''), lab = new Set();
+    for (const e of elements || []) if ((e.role === 'label' || e.role === 'button') && Array.isArray(e.lines)) for (const l of e.lines) if (norm(l).length > 3) lab.add(norm(l));
+    if (lab.size) elements = elements.map(e => e.role === 'body' && Array.isArray(e.lines) && e.lines.length > 1 && e.lines.some(l => lab.has(norm(l))) ? { ...e, lines: e.lines.filter(l => !lab.has(norm(l))) } : e);
+  }
   const els = [];
   (elements || []).slice(0, 60).forEach((e, i) => {
     const b = e.box; if (!Array.isArray(b) || b.length !== 4) return;
@@ -2541,9 +2546,16 @@ function cardTemplates(sc, W, H) {
   const others = sc.units.filter(u => u !== hero && !nested.includes(u)); if (!others.length || others.length > 8 || others.some(u => u.cards)) return null;
   const isBtn = u => u.kids.some(k => k.role === 'button'), isLogo = u => u.kids.every(k => k.role === 'logo' || k.role === 'brand');
   const btn = others.filter(isBtn).sort((a, b) => b.w * b.h - a.w * a.h)[0] || null, logo = others.filter(u => u !== btn && isLogo(u)).sort((a, b) => b.w * b.h - a.w * a.h)[0] || null;
-  const texts = others.filter(u => u !== btn && u !== logo && u.kids.every(k => k.text));
+  const smallDecor = (k, u) => !k.text && k.role === 'decor' && k.w * k.h < 0.35 * u.w * u.h; // חץ קטן ליד כיתוב
+  const texts = others.filter(u => u !== btn && u !== logo && u.kids.some(k => k.text) && u.kids.every(k => k.text || smallDecor(k, u)));
   if (texts.length + (btn ? 1 : 0) + (logo ? 1 : 0) !== others.length) return null; // יחידה לא מוכרת (תג, תמונה): נשארים בסידור הרגיל
-  const chars = u => (u.lines || []).join('').replace(/[\d\s.<>«»-]/g, '').length, body = texts.slice().sort((a, b) => chars(b) - chars(a))[0] || null, contact = texts.filter(u => u !== body);
+  const chars = u => (u.lines || []).join('').replace(/[\d\s.<>«»-]/g, '').length, body = texts.slice().sort((a, b) => chars(b) - chars(a))[0] || null, contact0 = texts.filter(u => u !== body);
+  let cuMerged = null; // כמה יחידות קשר (טלפון, "לתיאום פגישה") נעשות שורה אחת, לפי הסדר המקורי
+  if (contact0.length === 1) cuMerged = contact0[0];
+  else if (contact0.length > 1) { const x0 = Math.min(...contact0.map(u => u.x)), y0 = Math.min(...contact0.map(u => u.y)), x1 = Math.max(...contact0.map(u => u.x + u.w)), y1 = Math.max(...contact0.map(u => u.y + u.h)), rel = new Map(), kids = [];
+    for (const u of contact0) for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; rel.set(k, [u.x - x0 + dx, u.y - y0 + dy]); kids.push(k); }
+    cuMerged = { kids, rel, x: x0, y: y0, w: x1 - x0, h: y1 - y0, role: 'body', lines: contact0.flatMap(u => u.lines || []) }; }
+  const contact = cuMerged ? [cuMerged] : [];
   const pl = [], add0 = (u, x, y, w) => { const sf = w / u.w, kf = u.kf || 1; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * sf, y + dy * sf, k.w * sf * kf, k.h * sf * kf]); } };
   const add = (u, x, y, w) => { add0(u, x, y, w); if (u === hero) for (const n of nested) add0(n, x + (n.x - hero.x) * (w / hero.w), y + (n.y - hero.y) * (w / hero.w), n.w * (w / hero.w)); };
   const lastLine = body && (body.lines || []).filter(Boolean).slice(-1)[0] || '', cont = !!btn && btn.kids.some(k => k.text || k.role === 'button') && lastLine && !/[.!?:…]\s*$/.test(lastLine); // הכפתור ממשיך את המשפט של הטקסט: חייב להיות ישר מתחתיו
@@ -2569,7 +2581,7 @@ function cardTemplates(sc, W, H) {
       const cf = cu ? fit(cu, aw - lgw - gap, 0.075 * H * q) : 0, ch = cu ? cu.h * cf : 0, cw = cu ? cu.w * cf : 0;
       const rowH = Math.max(lgh, ch), fixed = bh + bth + rowH + gap * ((bodyR ? 1 : 0) + (btn ? 1 : 0) + (rowH ? 1 : 0));
       const Hh = H - 2 * m - fixed; if (Hh < 0.34 * H) continue;
-      const [hw, hh] = heroBox(aw, Hh); add(hero, (W - hw) / 2, y + (Hh - hh) / 2, hw); y += Hh + gap;
+      const [hw, hh] = heroBox(aw, Hh); const lo = Hh - hh; add(hero, (W - hw) / 2, y + lo / 3, hw); y += lo / 3 + hh + lo / 3 + gap;
       if (bodyR) { add(bodyR, (W - bodyR.w * bf) / 2, y, bodyR.w * bf); y += bh + gap; }
       if (btn) { add(btn, (W - btn.w * btf) / 2, y, btn.w * btf); y += bth + gap; }
       if (rowH) { const tw = lgw + (cu ? cw + gap : 0), x0 = (W - tw) / 2; if (logo) add(logo, x0 + (cu ? cw + gap : 0), y + (rowH - lgh) / 2, lgw); if (cu) add(cu, x0, y + (rowH - ch) / 2, cw); }
@@ -3261,5 +3273,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.37-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.38-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
