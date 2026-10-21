@@ -1,5 +1,5 @@
 {
- "avg": 91.68,
+ "avg": 91.57,
  "cases": {
   "dreams_live@1200x200": {
    "score": 87.7,
@@ -3475,28 +3475,32 @@
    }
   },
   "verit2@1200x200": {
-   "score": 92.8,
+   "score": 86.1,
    "flags": [
+    "dropped",
     "lowcontrast"
    ],
    "sub": {
     "legibility": 84,
     "sharpness": 100,
-    "layout": 97.1,
-    "dropped": 87.5,
+    "layout": 93.8,
+    "dropped": 58.3,
     "fill": 100
    }
   },
   "verit2@1200x60": {
-   "score": 91.2,
+   "score": 77,
    "flags": [
-    "lowcontrast"
+    "dropped",
+    "lowcontrast",
+    "sparse",
+    "unbalanced"
    ],
    "sub": {
-    "legibility": 84,
+    "legibility": 68.1,
     "sharpness": 100,
-    "layout": 90.7,
-    "dropped": 87.5,
+    "layout": 73.3,
+    "dropped": 58.3,
     "fill": 100
    }
   },
@@ -3550,15 +3554,18 @@
    }
   },
   "verit2@728x90": {
-   "score": 91.1,
+   "score": 83.8,
    "flags": [
-    "lowcontrast"
+    "dropped",
+    "lowcontrast",
+    "sparse",
+    "unbalanced"
    ],
    "sub": {
-    "legibility": 75.1,
+    "legibility": 82.5,
     "sharpness": 100,
-    "layout": 99.5,
-    "dropped": 87.5,
+    "layout": 86.1,
+    "dropped": 58.3,
     "fill": 100
    }
   },
@@ -3627,21 +3634,24 @@
    "sub": {
     "legibility": 89.4,
     "sharpness": 100,
-    "layout": 86.4,
+    "layout": 86.1,
     "dropped": 100,
     "fill": 100
    }
   },
   "verit2@895x80": {
-   "score": 93.5,
+   "score": 81.1,
    "flags": [
-    "lowcontrast"
+    "dropped",
+    "lowcontrast",
+    "sparse",
+    "unbalanced"
    ],
    "sub": {
-    "legibility": 84,
+    "legibility": 77.7,
     "sharpness": 100,
-    "layout": 100,
-    "dropped": 87.5,
+    "layout": 80,
+    "dropped": 58.3,
     "fill": 100
    }
   },
