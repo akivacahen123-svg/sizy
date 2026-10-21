@@ -2529,8 +2529,71 @@ function bandsLayout(sc, W, H) {
   }
   return null;
 }
+
+// תבניות הרכבה של מעצב לבאנר עם כרטיס (תמונה ראשית אחת) וסביבו טקסט, לוגו, כפתור ופרטי קשר.
+// במקום לשמור על המיקום היחסי מהמקור: גבוה = כרטיס למעלה ועמודה (טקסט, כפתור, שורת לוגו+קשר); רחב = כרטיס בצד (ימין), לוגו+קשר בעמודה אחת וטקסט+כפתור בשנייה; פס = לוגו, פרטי קשר וכרטיס, והטקסט נשמט.
+function cardTemplates(sc, W, H) {
+  const hero = sc.units.find(u => u.role === 'hero' && u.kids.length === 1 && u.kids[0].id === 'card');
+  if (!hero || W * H < 6000) return null;
+  const others = sc.units.filter(u => u !== hero); if (!others.length || others.length > 8 || others.some(u => u.cards)) return null;
+  const isBtn = u => u.kids.some(k => k.role === 'button'), isLogo = u => u.kids.every(k => k.role === 'logo' || k.role === 'brand');
+  const btn = others.filter(isBtn).sort((a, b) => b.w * b.h - a.w * a.h)[0] || null, logo = others.filter(u => u !== btn && isLogo(u)).sort((a, b) => b.w * b.h - a.w * a.h)[0] || null;
+  const texts = others.filter(u => u !== btn && u !== logo && u.kids.every(k => k.text));
+  if (texts.length + (btn ? 1 : 0) + (logo ? 1 : 0) !== others.length) return null; // יחידה לא מוכרת (תג, תמונה): נשארים בסידור הרגיל
+  const chars = u => (u.lines || []).join('').replace(/[\d\s.<>«»-]/g, '').length, body = texts.slice().sort((a, b) => chars(b) - chars(a))[0] || null, contact = texts.filter(u => u !== body);
+  const pl = [], add = (u, x, y, w) => { const sf = w / u.w, kf = u.kf || 1; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * sf, y + dy * sf, k.w * sf * kf, k.h * sf * kf]); } };
+  const cu = contact.length ? (contact.length === 1 ? contact[0] : null) : null; if (contact.length > 1) return null;
+  const asp = W / H, m = Math.max(3, Math.min(W, H) * 0.05), gap = Math.max(3, 0.022 * H), fit = (u, maxW, maxH) => Math.min(maxW / u.w, maxH / u.h);
+  const heroBox = (maxW, maxH) => { const f = Math.min(maxW / hero.w, maxH / hero.h); return [hero.w * f, hero.h * f]; };
+  if (asp <= 1.3) { // גבוה / כמעט מרובע: כרטיס למעלה
+    for (const q of [1, 0.88, 0.76, 0.66]) {
+      pl.length = 0; const aw = W - 2 * m; let y = m, items = [];
+      const bodyR = body ? reflowUnit(body, aw * 0.9, H * 0.3) : null;
+      const bf = bodyR ? fit(bodyR, aw * 0.92, 0.2 * H * q) : 0, bh = bodyR ? bodyR.h * bf : 0;
+      const btf = btn ? fit(btn, aw * 0.9, 0.085 * H * q) : 0, bth = btn ? btn.h * btf : 0;
+      const lgf = logo ? fit(logo, aw * 0.4, 0.13 * H * q) : 0, lgh = logo ? logo.h * lgf : 0, lgw = logo ? logo.w * lgf : 0;
+      const cf = cu ? fit(cu, aw - lgw - gap, 0.075 * H * q) : 0, ch = cu ? cu.h * cf : 0, cw = cu ? cu.w * cf : 0;
+      const rowH = Math.max(lgh, ch), fixed = bh + bth + rowH + gap * ((bodyR ? 1 : 0) + (btn ? 1 : 0) + (rowH ? 1 : 0));
+      const Hh = H - 2 * m - fixed; if (Hh < 0.34 * H) continue;
+      const [hw, hh] = heroBox(aw, Hh); add(hero, (W - hw) / 2, y + (Hh - hh) / 2, hw); y += Hh + gap;
+      if (bodyR) { add(bodyR, (W - bodyR.w * bf) / 2, y, bodyR.w * bf); y += bh + gap; }
+      if (btn) { add(btn, (W - btn.w * btf) / 2, y, btn.w * btf); y += bth + gap; }
+      if (rowH) { const tw = lgw + (cu ? cw + gap : 0), x0 = (W - tw) / 2; if (logo) add(logo, x0 + (cu ? cw + gap : 0), y + (rowH - lgh) / 2, lgw); if (cu) add(cu, x0, y + (rowH - ch) / 2, cw); }
+      return pl;
+    }
+    return null;
+  }
+  const hh = H - 2 * m, [hw0] = heroBox(0.42 * W, hh), [hw, hhh] = heroBox(0.42 * W, hh); void hw0;
+  const hx = W - m - hw; add(hero, hx, (H - hhh) / 2, hw);
+  const L = hx - 2 * m; // רוחב האזור של הטקסט (משמאל לכרטיס)
+  if (asp < 4.2) { // רחב: שתי עמודות. A (שמאל) לוגו + קשר, B (ימין, ליד הכרטיס) טקסט + כפתור
+    const wA = L * 0.4, wB = L - wA - m;
+    const bodyR = body ? reflowUnit(body, wB, H * 0.5) : null;
+    const bf = bodyR ? fit(bodyR, wB, 0.5 * H) : 0, bh = bodyR ? bodyR.h * bf : 0;
+    const btf = btn ? fit(btn, wB, 0.15 * H) : 0, bth = btn ? btn.h * btf : 0;
+    const lgf = logo ? fit(logo, wA, 0.5 * H) : 0, lgh = logo ? logo.h * lgf : 0;
+    const cf = cu ? fit(cu, wA, 0.12 * H) : 0, ch = cu ? cu.h * cf : 0;
+    const hB = bh + bth + (bodyR && btn ? gap : 0), hA = lgh + ch + (logo && cu ? gap : 0);
+    const xB = hx - m - wB, xA = m;
+    let y = (H - hB) / 2; if (bodyR) { add(bodyR, xB + (wB - bodyR.w * bf) / 2, y, bodyR.w * bf); y += bh + gap; } if (btn) add(btn, xB + (wB - btn.w * btf) / 2, y, btn.w * btf);
+    y = (H - hA) / 2; if (logo) { add(logo, xA + (wA - logo.w * lgf) / 2, y, logo.w * lgf); y += lgh + gap; } if (cu) add(cu, xA + (wA - cu.w * cf) / 2, y, cu.w * cf);
+    return pl;
+  }
+  { // פס: לוגו, קשר, כפתור (רק אם הכיתוב קריא) לצד הכרטיס. הטקסט הארוך נשמט
+    let x = m; const lgh = logo ? Math.min(0.78 * hh, 0.3 * L / logo.w * logo.h, hh) : 0, lgf = logo ? lgh / logo.h : 0;
+    if (logo) { add(logo, x, (H - lgh) / 2, logo.w * lgf); x += logo.w * lgf + m; }
+    const rest = hx - m - x, btf0 = btn ? Math.min(rest * 0.55 / btn.w, 0.42 * H / btn.h) : 0, btnOk = btn && btn.h * btf0 >= 15 && btn.kids.some(k => k.text) ? true : (btn && btn.h * btf0 >= 15 && btn.w > 0);
+    const labelH = btn ? Math.min(...btn.kids.filter(k => k.text).map(k => k.h / nLinesOf(k)), 1e9) * btf0 : 0;
+    const showBtn = !!btn && btnOk && labelH >= 5.5;
+    const wc = rest - (showBtn ? btn.w * btf0 + m : 0), cf = cu ? Math.min(wc / cu.w, 0.6 * H / cu.h) : 0;
+    if (cu) { add(cu, x, (H - cu.h * cf) / 2, cu.w * cf); x += cu.w * cf + m; }
+    if (showBtn) add(btn, x, (H - btn.h * btf0) / 2, btn.w * btf0);
+    return pl;
+  }
+}
 function autoplace0(sc, W, H, plan) {
   if (!plan) { let b = null; try { b = bandsLayout(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b = null; } if (b) { delete b.badge; b.sort((x, y) => (x[0].role === 'hero' ? 0 : 1) - (y[0].role === 'hero' ? 0 : 1) || (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b; } }
+  if (!plan) { let b2 = null; try { b2 = cardTemplates(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b2 = null; } if (b2) { b2.sort((x, y) => (x[0].role === 'hero' ? 0 : 1) - (y[0].role === 'hero' ? 0 : 1) || (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b2; } }
   const rf = reframeFor(sc, W, H, plan); if (rf) return rf.place.map(e => e.slice()); // REFRAME: רקע צילומי עם גיבור – חלון חיתוך מהמקור ויחידות מעליו
   const base = autoplaceRules(sc, W, H);
   let res = base;
@@ -3184,5 +3247,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.35-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.36-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
