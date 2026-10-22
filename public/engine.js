@@ -2631,6 +2631,8 @@ function cardTemplates(sc, W, H) {
     for (const n of nested) add0(n, x + (n.x - cardL.x - win.x / up0) * sfN, y + (n.y - cardL.y - win.y / up0) * sfN, n.w * sfN);
     return true;
   };
+  const subj = cardSubject(cardL, impL), sm = 0.03 * Math.min(cardL.lw, cardL.lh);
+  const aMin = subj ? (subj[2] - subj[0] + 2 * sm) / cardL.lh : 0, aMax = subj ? cardL.lw / (subj[3] - subj[1] + 2 * sm) : 9; // טווח היחסים שבהם החלון מכיל את כל הנושא בלי להרחיב רקע
   const heroBox = (maxW, maxH) => { const f = Math.min(maxW / hero.w, maxH / hero.h, 1.5); return [hero.w * f, hero.h * f]; };
   if (asp <= 1.3) { // גבוה / כמעט מרובע: כרטיס למעלה
     for (const q of [1, 0.88, 0.76, 0.66]) {
@@ -2642,7 +2644,8 @@ function cardTemplates(sc, W, H) {
       const cf = cu ? fit(cu, aw - lgw - gap, 0.075 * H * q) : 0, ch = cu ? cu.h * cf : 0, cw = cu ? cu.w * cf : 0;
       const rowH = Math.max(lgh, ch), fixed = bh + bth + rowH + gap * ((bodyR ? 1 : 0) + (btn ? 1 : 0) + (rowH ? 1 : 0));
       const Hh = H - 2 * m - fixed; if (Hh < 0.34 * H) continue;
-      if (cardFill(m, y, aw, Hh, { l: false, r: false, t: false, b: false })) y += Hh + gap; else { const [hw, hh] = heroBox(aw, Hh); const lo = Hh - hh; add(hero, (W - hw) / 2, y + lo / 3, hw); y += lo / 3 + hh + lo / 3 + gap; }
+      const a0 = aw / Hh, a2 = clp(a0, aMin, Math.max(aMin, aMax)), hF = Math.min(Hh, aw / a2), loC = Hh - hF; // הכרטיס לא מתכווץ (נושא ופונט) כדי למלא גובה: מצמצמים את הכרטיס ומחלקים את שאר המקום ברווחים
+      if (cardFill(m, y + loC / 3, aw, hF, { l: false, r: false, t: false, b: false })) y += loC / 3 + hF + loC / 3 + gap; else { const [hw, hh] = heroBox(aw, Hh); const lo = Hh - hh; add(hero, (W - hw) / 2, y + lo / 3, hw); y += lo / 3 + hh + lo / 3 + gap; }
       if (bodyR) { add(bodyR, (W - bodyR.w * bf) / 2, y, bodyR.w * bf); y += bh + gap; }
       if (btn) { add(btn, (W - btn.w * btf) / 2, y, btn.w * btf); y += bth + gap; }
       if (rowH) { const tw = lgw + (cu ? cw + gap : 0), x0 = (W - tw) / 2; if (logo) add(logo, x0 + (cu ? cw + gap : 0), y + (rowH - lgh) / 2, lgw); if (cu) add(cu, x0, y + (rowH - ch) / 2, cw); }
@@ -2652,7 +2655,7 @@ function cardTemplates(sc, W, H) {
   }
   const hh = H - 2 * m, [hw0] = heroBox(0.42 * W, hh), [hw, hhh] = heroBox(0.42 * W, hh); void hw0;
   let hx = W - m;
-  { const rw = Math.min(0.4 * W, 1.0 * H); // רחב/פס: התמונה ממלאת את כל הגובה וגולשת לקצה (ימין, למעלה, למטה)
+  { const aW = clp(Math.min(0.4 * W, 1.0 * H) / H, aMin, Math.max(aMin, aMax)), rw = Math.min(0.46 * W, aW * H); // רחב/פס: התמונה ממלאת את כל הגובה וגולשת לקצה (ימין, למעלה, למטה)
     if (cardFill(W - rw, 0, rw, H, { l: false, r: true, t: true, b: true })) hx = W - rw; else { hx = W - m - hw; add(hero, hx, (H - hhh) / 2, hw); } }
   const L = hx - 2 * m; // רוחב האזור של הטקסט (משמאל לכרטיס)
   if (asp < 4.2) { // רחב: שתי עמודות. A (שמאל) לוגו + קשר, B (ימין, ליד הכרטיס) טקסט + כפתור
@@ -3336,5 +3339,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.41-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.42-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
