@@ -1568,7 +1568,7 @@ function cardFix(img, elements) {
     const inside = e => { if (!Array.isArray(e.box)) return false; const [x, y] = cx(e); return x > X0 && x < X0 + cw && y > Y0 && y < Y0 + ch; };
     const ins = elements.filter(inside); if (!ins.length) return elements;
     const out = elements.filter(e => !inside(e));
-    out.unshift({ id: 'card', role: 'hero', shape: 'hero', group: null, box: [X0 / W * 1000, Y0 / H * 1000, (X0 + cw) / W * 1000, (Y0 + ch) / H * 1000], matte: { x0: X0, y0: Y0, w: cw, h: ch, a } });
+    out.unshift({ id: 'card', role: 'hero', shape: 'hero', group: null, box: [X0 / W * 1000, Y0 / H * 1000, (X0 + cw) / W * 1000, (Y0 + ch) / H * 1000], matte: { x0: X0, y0: Y0, w: cw, h: ch, a }, inner: ins.filter(e => e.role !== 'decor' && Array.isArray(e.box)).map(e => e.box.map(Number)).filter(b => (b[2] - b[0]) * (b[3] - b[1]) < 0.5 * (cw / W * 1000) * (ch / H * 1000)) });
     return out;
   } catch (e) { return elements; }
 }
@@ -1590,7 +1590,7 @@ function buildScene(img, elements, onProgress) {
     let isText = TEXT_ROLES.has(role) || (lines.length > 0 && role !== 'button');
     const shape = e.shape || { photo: 'circle', button: 'pill', hero: 'hero', logo: 'free' }[role] || 'free';
     if (role === 'button' && e.style === 'outline') isText = true;
-    els.push({ id: e.id || 'e' + i, role, lines, text: isText, shape, group: role === 'hero' ? null : (e.group || null), px: [x1, y1, x2 - x1, y2 - y1], z: i, bullet: e.bullet || null, phrases: e.phrases || null, matte: e.matte || null });
+    els.push({ id: e.id || 'e' + i, role, lines, text: isText, shape, group: role === 'hero' ? null : (e.group || null), px: [x1, y1, x2 - x1, y2 - y1], z: i, bullet: e.bullet || null, phrases: e.phrases || null, matte: e.matte || null, inner: e.inner || null });
   });
   // תיבות טקסט שחופפות (הזיהוי חתך אותו כיתוב לשני חלקים): מאחדים לתיבה אחת
   for (let i = 0; i < els.length; i++) for (let j = els.length - 1; j > i; j--) {
@@ -2537,6 +2537,33 @@ function bandsLayout(sc, W, H) {
 
 // תבניות הרכבה של מעצב לבאנר עם כרטיס (תמונה ראשית אחת) וסביבו טקסט, לוגו, כפתור ופרטי קשר.
 // במקום לשמור על המיקום היחסי מהמקור: גבוה = כרטיס למעלה ועמודה (טקסט, כפתור, שורת לוגו+קשר); רחב = כרטיס בצד (ימין), לוגו+קשר בעמודה אחת וטקסט+כפתור בשנייה; פס = לוגו, פרטי קשר וכרטיס, והטקסט נשמט.
+
+// כרטיס שמעוצב מחדש: חלון חיתוך (cover) מתוך הכרטיס שמשאיר את האזור החשוב (כותרת + נושא) שלם, בגודל ובפרופורציה של המקום החדש, עם פינות מעוגלות (או חיתוך חד בצד שנוגע בקצה)
+function cardWindow(L, imp, a) {
+  const cw = Math.min(L.lw, Math.floor(L.lh * a)), ch = Math.min(L.lh, Math.floor(cw / a)), cw2 = Math.min(cw, Math.floor(ch * a));
+  if (!imp) { const w = heroWindow(L, a * 100, 100); return w.kept >= 0.4 ? w : null; }
+  const m = 0.02 * Math.min(L.lw, L.lh), ix0 = imp[0] - m, iy0 = imp[1] - m, ix1 = imp[2] + m, iy1 = imp[3] + m;
+  if (ix1 - ix0 > cw2 || iy1 - iy0 > ch) return null; // האזור החשוב לא נכנס בחלון: משאירים את הכרטיס כולו
+  const xlo = Math.max(0, Math.ceil(ix1 - cw2)), xhi = Math.min(L.lw - cw2, Math.floor(ix0)), ylo = Math.max(0, Math.ceil(iy1 - ch)), yhi = Math.min(L.lh - ch, Math.floor(iy0));
+  if (xlo > xhi || ylo > yhi) return null;
+  const { I, w: ew } = heroEnergy(L), sum = (x, y) => I[(y + ch) * (ew + 1) + x + cw2] - I[y * (ew + 1) + x + cw2] - I[(y + ch) * (ew + 1) + x] + I[y * (ew + 1) + x]; // בתוך האפשרויות שמכילות את הכותרת: החלון עם הכי הרבה פרטים (הנושא)
+  let bx = xlo, by = ylo, bv = -1; const sx = Math.max(1, Math.floor((xhi - xlo) / 30)), sy = Math.max(1, Math.floor((yhi - ylo) / 30));
+  for (let yy = ylo; yy <= yhi; yy += sy) for (let xx = xlo; xx <= xhi; xx += sx) { const v = sum(xx, yy); if (v > bv) { bv = v; bx = xx; by = yy; } }
+  if (bv < 0.8 * I[(L.lh) * (ew + 1) + L.lw]) return null; // החלון חותך חלק גדול מהנושא: עדיף כרטיס שלם
+  const x = bx, y = by;
+  const kept = (cw2 * ch) / (L.lw * L.lh); return kept >= 0.4 ? { x, y, w: cw2, h: ch, kept } : null;
+}
+function cardVariant(hero, win, bleed, rad) {
+  const kid = hero.kids[0], L = kid.layer, { x: wx, y: wy, w, h } = win, rgb = new Float32Array(w * h * 3), a = new Float32Array(w * h), r = Math.max(1, rad);
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+    const si = (wy + j) * L.lw + wx + i, di = j * w + i; rgb[di * 3] = L.rgb[si * 3]; rgb[di * 3 + 1] = L.rgb[si * 3 + 1]; rgb[di * 3 + 2] = L.rgb[si * 3 + 2];
+    let v = L.a[si];
+    const left = i < r, right = i >= w - r, top = j < r, bot = j >= h - r;
+    if ((left || right) && (top || bot) && !((left ? bleed.l : bleed.r) || (top ? bleed.t : bleed.b))) { const cx = left ? r : w - r, cy = top ? r : h - r, d = Math.hypot(i + 0.5 - cx, j + 0.5 - cy); v *= clp(r - d + 0.5, 0, 1); }
+    a[di] = v;
+  }
+  return { ...hero, kids: [{ ...kid, layer: { ...L, rgb, a, lw: w, lh: h, w: w / (L.up || 1), h: h / (L.up || 1), x: 0, y: 0, _en: null, _uni: null }, x: 0, y: 0, w: w / (L.up || 1), h: h / (L.up || 1) }], x: 0, y: 0, w: w / (L.up || 1), h: h / (L.up || 1), rel: null };
+}
 function cardTemplates(sc, W, H) {
   const area0 = sc.W * sc.H, isCardU = u => u.kids.length === 1 && !u.cards && (u.kids[0].id === 'card' || (u.kids[0].role === 'photo' && u.kids[0].shape === 'rounded' && u.w * u.h >= 0.25 * area0 && u.w / u.h > 0.5 && u.w / u.h < 1.7));
   const hero = sc.units.filter(isCardU).sort((a, b) => b.w * b.h - a.w * a.h)[0];
@@ -2570,6 +2597,22 @@ function cardTemplates(sc, W, H) {
     }
   }
   const nb0 = pl.length, asp = W / H, m = Math.max(3, Math.min(W, H) * 0.05), gap = Math.max(3, 0.022 * H), fit = (u, maxW, maxH) => Math.min(maxW / u.w, maxH / u.h, 1.0) // לא מגדילים מעל פיקסלי המקור (מפוקסל);
+  const cardL = hero.kids[0].layer, up0 = cardL.up || 1;
+  const impL = (() => { // האזור החשוב בכרטיס (כותרת + נושא), בפיקסלים של שכבת הכרטיס
+    let bs = (hero.kids[0].inner || []).map(b => [b[0] * sc.W / 1000, b[1] * sc.H / 1000, b[2] * sc.W / 1000, b[3] * sc.H / 1000]);
+    for (const n of nested) bs.push([n.x, n.y, n.x + n.w, n.y + n.h]);
+    if (!bs.length) return null;
+    const u = [Math.min(...bs.map(b => b[0])), Math.min(...bs.map(b => b[1])), Math.max(...bs.map(b => b[2])), Math.max(...bs.map(b => b[3]))];
+    return [(u[0] - cardL.x) * up0, (u[1] - cardL.y) * up0, (u[2] - cardL.x) * up0, (u[3] - cardL.y) * up0];
+  })();
+  // מעצבים מחדש את הכרטיס למקום: חלון חיתוך שממלא את כל האזור (x,y,w,h) ושומר את הכותרת והנושא. אם לא נכנס: false
+  const cardFill = (x, y, w, h, bleed) => {
+    const win = cardWindow(cardL, impL, w / h); if (!win) return false;
+    const sfN = w / (win.w / up0), v = cardVariant(hero, win, bleed, 0.06 * Math.min(w, h) * win.w / w);
+    add0(v, x, y, w);
+    for (const n of nested) add0(n, x + (n.x - cardL.x - win.x / up0) * sfN, y + (n.y - cardL.y - win.y / up0) * sfN, n.w * sfN);
+    return true;
+  };
   const heroBox = (maxW, maxH) => { const f = Math.min(maxW / hero.w, maxH / hero.h, 1.5); return [hero.w * f, hero.h * f]; };
   if (asp <= 1.3) { // גבוה / כמעט מרובע: כרטיס למעלה
     for (const q of [1, 0.88, 0.76, 0.66]) {
@@ -2581,7 +2624,7 @@ function cardTemplates(sc, W, H) {
       const cf = cu ? fit(cu, aw - lgw - gap, 0.075 * H * q) : 0, ch = cu ? cu.h * cf : 0, cw = cu ? cu.w * cf : 0;
       const rowH = Math.max(lgh, ch), fixed = bh + bth + rowH + gap * ((bodyR ? 1 : 0) + (btn ? 1 : 0) + (rowH ? 1 : 0));
       const Hh = H - 2 * m - fixed; if (Hh < 0.34 * H) continue;
-      const [hw, hh] = heroBox(aw, Hh); const lo = Hh - hh; add(hero, (W - hw) / 2, y + lo / 3, hw); y += lo / 3 + hh + lo / 3 + gap;
+      if (cardFill(m, y, aw, Hh, { l: false, r: false, t: false, b: false })) y += Hh + gap; else { const [hw, hh] = heroBox(aw, Hh); const lo = Hh - hh; add(hero, (W - hw) / 2, y + lo / 3, hw); y += lo / 3 + hh + lo / 3 + gap; }
       if (bodyR) { add(bodyR, (W - bodyR.w * bf) / 2, y, bodyR.w * bf); y += bh + gap; }
       if (btn) { add(btn, (W - btn.w * btf) / 2, y, btn.w * btf); y += bth + gap; }
       if (rowH) { const tw = lgw + (cu ? cw + gap : 0), x0 = (W - tw) / 2; if (logo) add(logo, x0 + (cu ? cw + gap : 0), y + (rowH - lgh) / 2, lgw); if (cu) add(cu, x0, y + (rowH - ch) / 2, cw); }
@@ -2590,7 +2633,9 @@ function cardTemplates(sc, W, H) {
     return null;
   }
   const hh = H - 2 * m, [hw0] = heroBox(0.42 * W, hh), [hw, hhh] = heroBox(0.42 * W, hh); void hw0;
-  const hx = W - m - hw; add(hero, hx, (H - hhh) / 2, hw);
+  let hx = W - m;
+  { const rw = Math.min(0.4 * W, 1.0 * H); // רחב/פס: התמונה ממלאת את כל הגובה וגולשת לקצה (ימין, למעלה, למטה)
+    if (cardFill(W - rw, 0, rw, H, { l: false, r: true, t: true, b: true })) hx = W - rw; else { hx = W - m - hw; add(hero, hx, (H - hhh) / 2, hw); } }
   const L = hx - 2 * m; // רוחב האזור של הטקסט (משמאל לכרטיס)
   if (asp < 4.2) { // רחב: שתי עמודות. A (שמאל) לוגו + קשר, B (ימין, ליד הכרטיס) טקסט + כפתור
     const wA = L * 0.4, wB = L - wA - m;
@@ -3273,5 +3318,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.38-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.39-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
