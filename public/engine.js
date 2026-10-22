@@ -2571,10 +2571,11 @@ function cardWindow(L, imp, a) {
 }
 function cardVariant(hero, win, bleed, rad) {
   const kid = hero.kids[0], L = kid.layer, { x: wx, y: wy, w, h } = win, rgb = new Float32Array(w * h * 3), a = new Float32Array(w * h), r = Math.max(1, rad);
+  const extL = wx < 0, extR = wx + w > L.lw, extT = wy < 0, extB = wy + h > L.lh;
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
     const sx0 = wx + i, sy0 = wy + j, out = sx0 < 0 || sy0 < 0 || sx0 >= L.lw || sy0 >= L.lh, ri = Math.round(0.06 * Math.min(L.lw, L.lh)); // מחוץ לכרטיס: רקע מורחב (שכפול הקצה הפנימי, בלי הפינות המעוגלות)
-    const sx = out ? clp(sx0, ri, L.lw - 1 - ri) : sx0, sy = out ? clp(sy0, ri, L.lh - 1 - ri) : sy0, si = sy * L.lw + sx, di = j * w + i; rgb[di * 3] = L.rgb[si * 3]; rgb[di * 3 + 1] = L.rgb[si * 3 + 1]; rgb[di * 3 + 2] = L.rgb[si * 3 + 2];
-    let v = out ? 1 : L.a[si];
+    const sx = (out || (extL && sx0 < ri) || (extR && sx0 > L.lw - 1 - ri)) ? clp(sx0, ri, L.lw - 1 - ri) : sx0, sy = (out || (extT && sy0 < ri) || (extB && sy0 > L.lh - 1 - ri)) ? clp(sy0, ri, L.lh - 1 - ri) : sy0, si = sy * L.lw + sx, di = j * w + i; rgb[di * 3] = L.rgb[si * 3]; rgb[di * 3 + 1] = L.rgb[si * 3 + 1]; rgb[di * 3 + 2] = L.rgb[si * 3 + 2];
+    let v = (out || sx !== sx0 || sy !== sy0) ? 1 : L.a[si];
     const left = i < r, right = i >= w - r, top = j < r, bot = j >= h - r;
     if ((left || right) && (top || bot) && !((left ? bleed.l : bleed.r) || (top ? bleed.t : bleed.b))) { const cx = left ? r : w - r, cy = top ? r : h - r, d = Math.hypot(i + 0.5 - cx, j + 0.5 - cy); v *= clp(r - d + 0.5, 0, 1); }
     a[di] = v;
@@ -2680,8 +2681,8 @@ function cardTemplates(sc, W, H) {
   }
 }
 function autoplace0(sc, W, H, plan) {
-  if (!plan) { let b = null; try { b = bandsLayout(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b = null; } if (b) { delete b.badge; b.sort((x, y) => (x[0].role === 'hero' ? 0 : 1) - (y[0].role === 'hero' ? 0 : 1) || (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b; } }
-  if (!plan) { let b2 = null; try { b2 = cardTemplates(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b2 = null; } if (b2) { b2.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b2; } }
+  { let b = null; try { b = bandsLayout(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b = null; } if (b) { delete b.badge; b.sort((x, y) => (x[0].role === 'hero' ? 0 : 1) - (y[0].role === 'hero' ? 0 : 1) || (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b; } }
+  { let b2 = null; try { b2 = cardTemplates(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b2 = null; } if (b2) { b2.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b2; } }
   const rf = reframeFor(sc, W, H, plan); if (rf) return rf.place.map(e => e.slice()); // REFRAME: רקע צילומי עם גיבור – חלון חיתוך מהמקור ויחידות מעליו
   const base = autoplaceRules(sc, W, H);
   let res = base;
@@ -3335,5 +3336,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.40-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.41-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);

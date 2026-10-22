@@ -1110,7 +1110,7 @@
    }
   },
   "verit1@300x600": {
-   "score": 80.4,
+   "score": 80,
    "flags": [
     "cta_order",
     "logo_dominant",
@@ -1125,7 +1125,7 @@
     "sharpness": 100,
     "layout": 50.7,
     "dropped": 100,
-    "fill": 75.1
+    "fill": 72.1
    }
   },
   "verit1@160x600": {
@@ -1215,10 +1215,11 @@
    }
   },
   "verit1@290x350": {
-   "score": 88.9,
+   "score": 89.9,
    "flags": [
     "cta_order",
     "lowcontrast",
+    "tiled",
     "weak_headline"
    ],
    "sub": {
@@ -1226,7 +1227,7 @@
     "sharpness": 100,
     "layout": 77.4,
     "dropped": 100,
-    "fill": 77.6
+    "fill": 84.3
    }
   },
   "verit1@600x1100": {
@@ -3712,7 +3713,7 @@
    }
   },
   "verit2@300x600": {
-   "score": 85.5,
+   "score": 85,
    "flags": [
     "lowcontrast",
     "sparse",
@@ -3724,7 +3725,7 @@
     "sharpness": 100,
     "layout": 84.3,
     "dropped": 100,
-    "fill": 73
+    "fill": 69.5
    }
   },
   "verit2@160x600": {
@@ -3802,7 +3803,7 @@
    }
   },
   "verit2@290x350": {
-   "score": 90.5,
+   "score": 91,
    "flags": [
     "lowcontrast"
    ],
@@ -3811,7 +3812,7 @@
     "sharpness": 100,
     "layout": 93.4,
     "dropped": 100,
-    "fill": 82.9
+    "fill": 86.2
    }
   },
   "verit2@600x1100": {
@@ -3893,7 +3894,7 @@
    }
   },
   "verit4@300x600": {
-   "score": 80.7,
+   "score": 80.4,
    "flags": [
     "cta_order",
     "logo_dominant",
@@ -3908,7 +3909,7 @@
     "sharpness": 100,
     "layout": 52.1,
     "dropped": 100,
-    "fill": 78.4
+    "fill": 76.3
    }
   },
   "verit4@160x600": {

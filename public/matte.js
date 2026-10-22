@@ -50,6 +50,11 @@ const isCutout = (e, all) => {
   for (const o of all || []) { if (o === e || !Array.isArray(o.box)) continue; const ob = o.box.map(Number); if (o.role !== 'hero' && inside(ob, b)) return false; if (o.role !== 'hero' && !(o.lines && o.lines.length) && o.role !== 'logo' && inside(b, ob)) return false; }
   return true;
 };
+function flatRing(img, X0, Y0, w, h) { // טבעת פיקסלים בשולי החלון: אחידה (>=92% קרובים לחציון) = רקע חלק
+  const px = [], D = img.d, W = img.w; for (let x = 0; x < w; x += 2) { px.push((Y0 * W + X0 + x) * 3, ((Y0 + h - 1) * W + X0 + x) * 3); } for (let y = 0; y < h; y += 2) { px.push(((Y0 + y) * W + X0) * 3, ((Y0 + y) * W + X0 + w - 1) * 3); }
+  const md = c => { const a = px.map(q => D[q + c]).sort((p1, q1) => p1 - q1); return a[a.length >> 1]; }, m = [md(0), md(1), md(2)];
+  return px.filter(q => Math.abs(D[q] - m[0]) + Math.abs(D[q + 1] - m[1]) + Math.abs(D[q + 2] - m[2]) < 30).length >= 0.92 * px.length;
+}
 async function attach(img, elements, runModel, opts) {
   const o = Object.assign({ pad: 0.06, minArea: 0.004 }, opts), W = img.w, H = img.h;
   for (const e of elements || []) {
@@ -61,6 +66,7 @@ async function attach(img, elements, runModel, opts) {
     if (e.role === 'hero' && (x1 <= 2 || y1 <= 2 || x2 >= W - 2 || y2 >= H - 2)) continue;
     const pp = e.role === 'hero' ? o.pad : 0.12, px = Math.round((x2 - x1) * pp), py = Math.round((y2 - y1) * pp);
     const X0 = clp(x1 - px, 0, W - 8), Y0 = clp(y1 - py, 0, H - 8), X1 = clp(x2 + px, X0 + 8, W), Y1 = clp(y2 + py, Y0 + 8, H), w = X1 - X0, h = Y1 - Y0;
+    if (e.role !== 'hero' && flatRing(img, X0, Y0, w, h)) continue; // לוגו/תגית על רקע חלק אחיד: חיתוך צבע הרקע מדויק (המודל העצבי מפרק לוגו שטוח לחתיכות)
     let p; try { p = await runModel(preprocess(img, X0, Y0, w, h)); } catch (err) { if (opts && opts.debug) console.error(err); continue; }
     if (!p || p.length !== N * N) continue;
     const a = postprocess(p, w, h);
