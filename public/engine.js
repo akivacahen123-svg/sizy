@@ -2539,25 +2539,42 @@ function bandsLayout(sc, W, H) {
 // במקום לשמור על המיקום היחסי מהמקור: גבוה = כרטיס למעלה ועמודה (טקסט, כפתור, שורת לוגו+קשר); רחב = כרטיס בצד (ימין), לוגו+קשר בעמודה אחת וטקסט+כפתור בשנייה; פס = לוגו, פרטי קשר וכרטיס, והטקסט נשמט.
 
 // כרטיס שמעוצב מחדש: חלון חיתוך (cover) מתוך הכרטיס שמשאיר את האזור החשוב (כותרת + נושא) שלם, בגודל ובפרופורציה של המקום החדש, עם פינות מעוגלות (או חיתוך חד בצד שנוגע בקצה)
+function cardSubject(L, imp) { // תיבת הנושא בכרטיס לפי אנרגיית קצוות (בלי שולי הכרטיס), ביחד עם הכותרת
+  const { I, w, h } = heroEnergy(L), mx = Math.round(0.05 * w), my = Math.round(0.05 * h), at = (y, x) => I[y * (w + 1) + x];
+  const col = i => at(h - my, i + 1) - at(h - my, i) - at(my, i + 1) + at(my, i), row = j => at(j + 1, w - mx) - at(j, w - mx) - at(j + 1, mx) + at(j, mx);
+  let cm = 0, rm = 0; for (let i = mx; i < w - mx; i++) cm = Math.max(cm, col(i)); for (let j = my; j < h - my; j++) rm = Math.max(rm, row(j));
+  let x0 = w, x1 = 0, y0 = h, y1 = 0; for (let i = mx; i < w - mx; i++) if (col(i) > 0.07 * cm) { x0 = Math.min(x0, i); x1 = Math.max(x1, i + 1); } for (let j = my; j < h - my; j++) if (row(j) > 0.07 * rm) { y0 = Math.min(y0, j); y1 = Math.max(y1, j + 1); }
+  if (x1 <= x0 || y1 <= y0) return imp;
+  return imp ? [Math.min(x0, imp[0]), Math.min(y0, imp[1]), Math.max(x1, imp[2]), Math.max(y1, imp[3])] : [x0, y0, x1, y1];
+}
+// חלון בפרופורציה a שמכיל את כל הנושא (100% מהפרטים). אם החלון גדול מהכרטיס מרחיבים את הרקע של הכרטיס (שיפוע) במקום לחתוך; אם ההרחבה גדולה מדי מחזירים null (כרטיס שלם)
 function cardWindow(L, imp, a) {
-  const cw = Math.min(L.lw, Math.floor(L.lh * a)), ch = Math.min(L.lh, Math.floor(cw / a)), cw2 = Math.min(cw, Math.floor(ch * a));
-  if (!imp) { const w = heroWindow(L, a * 100, 100); return w.kept >= 0.4 ? w : null; }
-  const m = 0.02 * Math.min(L.lw, L.lh), ix0 = imp[0] - m, iy0 = imp[1] - m, ix1 = imp[2] + m, iy1 = imp[3] + m;
-  if (ix1 - ix0 > cw2 || iy1 - iy0 > ch) return null; // האזור החשוב לא נכנס בחלון: משאירים את הכרטיס כולו
-  const xlo = Math.max(0, Math.ceil(ix1 - cw2)), xhi = Math.min(L.lw - cw2, Math.floor(ix0)), ylo = Math.max(0, Math.ceil(iy1 - ch)), yhi = Math.min(L.lh - ch, Math.floor(iy0));
-  if (xlo > xhi || ylo > yhi) return null;
-  const { I, w: ew } = heroEnergy(L), sum = (x, y) => I[(y + ch) * (ew + 1) + x + cw2] - I[y * (ew + 1) + x + cw2] - I[(y + ch) * (ew + 1) + x] + I[y * (ew + 1) + x]; // בתוך האפשרויות שמכילות את הכותרת: החלון עם הכי הרבה פרטים (הנושא)
-  let bx = xlo, by = ylo, bv = -1; const sx = Math.max(1, Math.floor((xhi - xlo) / 30)), sy = Math.max(1, Math.floor((yhi - ylo) / 30));
-  for (let yy = ylo; yy <= yhi; yy += sy) for (let xx = xlo; xx <= xhi; xx += sx) { const v = sum(xx, yy); if (v > bv) { bv = v; bx = xx; by = yy; } }
-  if (bv < 0.8 * I[(L.lh) * (ew + 1) + L.lw]) return null; // החלון חותך חלק גדול מהנושא: עדיף כרטיס שלם
-  const x = bx, y = by;
-  const kept = (cw2 * ch) / (L.lw * L.lh); return kept >= 0.4 ? { x, y, w: cw2, h: ch, kept } : null;
+  const S0 = cardSubject(L, imp); if (!S0) return null;
+  const m = 0.03 * Math.min(L.lw, L.lh), S = [S0[0] - m, S0[1] - m, S0[2] + m, S0[3] + m], sw = S[2] - S[0], sh = S[3] - S[1];
+  let cw = Math.min(L.lw, Math.floor(L.lh * a)), ch = Math.min(L.lh, Math.floor(cw / a)); cw = Math.min(cw, Math.floor(ch * a));
+  let x, y;
+  if (sw <= cw && sh <= ch) { // נכנס בתוך הכרטיס: חלון בגודל מקסימלי שמכיל את הנושא, עם הכי הרבה פרטים
+    const xlo = Math.max(0, Math.ceil(S[2] - cw)), xhi = Math.min(L.lw - cw, Math.floor(S[0])), ylo = Math.max(0, Math.ceil(S[3] - ch)), yhi = Math.min(L.lh - ch, Math.floor(S[1]));
+    if (xlo > xhi || ylo > yhi) return null;
+    const { I, w: ew } = heroEnergy(L), sum = (xx, yy) => I[(yy + ch) * (ew + 1) + xx + cw] - I[yy * (ew + 1) + xx + cw] - I[(yy + ch) * (ew + 1) + xx] + I[yy * (ew + 1) + xx];
+    let bv = -1; x = xlo; y = ylo; const sx = Math.max(1, Math.floor((xhi - xlo) / 30)), sy = Math.max(1, Math.floor((yhi - ylo) / 30));
+    for (let yy = ylo; yy <= yhi; yy += sy) for (let xx = xlo; xx <= xhi; xx += sx) { const v = sum(xx, yy); if (v > bv) { bv = v; x = xx; y = yy; } }
+    return { x, y, w: cw, h: ch, kept: (cw * ch) / (L.lw * L.lh) };
+  }
+  let w2 = sw, h2 = sw / a; if (h2 < sh) { h2 = sh; w2 = sh * a; }
+  w2 = Math.round(w2); h2 = Math.round(h2);
+  x = Math.round((S[0] + S[2]) / 2 - w2 / 2); y = Math.round((S[1] + S[3]) / 2 - h2 / 2);
+  if (w2 <= L.lw) x = clp(x, 0, L.lw - w2); if (h2 <= L.lh) y = clp(y, 0, L.lh - h2);
+  const ix = Math.max(0, Math.min(L.lw, x + w2) - Math.max(0, x)), iy = Math.max(0, Math.min(L.lh, y + h2) - Math.max(0, y));
+  if (ix * iy < 0.6 * w2 * h2) return null; // יותר מ-40% מהחלון הוא רקע מורחב: כרטיס שלם
+  return { x, y, w: w2, h: h2, kept: 1 };
 }
 function cardVariant(hero, win, bleed, rad) {
   const kid = hero.kids[0], L = kid.layer, { x: wx, y: wy, w, h } = win, rgb = new Float32Array(w * h * 3), a = new Float32Array(w * h), r = Math.max(1, rad);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
-    const si = (wy + j) * L.lw + wx + i, di = j * w + i; rgb[di * 3] = L.rgb[si * 3]; rgb[di * 3 + 1] = L.rgb[si * 3 + 1]; rgb[di * 3 + 2] = L.rgb[si * 3 + 2];
-    let v = L.a[si];
+    const sx0 = wx + i, sy0 = wy + j, out = sx0 < 0 || sy0 < 0 || sx0 >= L.lw || sy0 >= L.lh, ri = Math.round(0.06 * Math.min(L.lw, L.lh)); // מחוץ לכרטיס: רקע מורחב (שכפול הקצה הפנימי, בלי הפינות המעוגלות)
+    const sx = out ? clp(sx0, ri, L.lw - 1 - ri) : sx0, sy = out ? clp(sy0, ri, L.lh - 1 - ri) : sy0, si = sy * L.lw + sx, di = j * w + i; rgb[di * 3] = L.rgb[si * 3]; rgb[di * 3 + 1] = L.rgb[si * 3 + 1]; rgb[di * 3 + 2] = L.rgb[si * 3 + 2];
+    let v = out ? 1 : L.a[si];
     const left = i < r, right = i >= w - r, top = j < r, bot = j >= h - r;
     if ((left || right) && (top || bot) && !((left ? bleed.l : bleed.r) || (top ? bleed.t : bleed.b))) { const cx = left ? r : w - r, cy = top ? r : h - r, d = Math.hypot(i + 0.5 - cx, j + 0.5 - cy); v *= clp(r - d + 0.5, 0, 1); }
     a[di] = v;
@@ -3318,5 +3335,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.39-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.40-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
