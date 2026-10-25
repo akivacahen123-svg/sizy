@@ -2773,7 +2773,7 @@ function rfAssets(sc, P) {
   const panels = [];
   for (const u of cand) {
     const r = rfPanelRect(img, lum, [u.x, u.y, u.x + u.w, u.y + u.h]); if (!r) continue;
-    { const uy = Math.max(0, Math.floor(Math.min(...u.kids.filter(k => k.text).map(k => k.y))) - Math.max(6, Math.round(0.03 * r.h))); if (uy < r.y) { const ext = Math.min(r.y - uy, Math.round(0.05 * r.h) + 6); r.h += ext; r.y -= ext; } }  // לא יותר מכמה פיקסלים: תיבת הטקסט רחבה מהסרט ואז נכנסת רצועת רקע 
+    { const uy = Math.max(0, Math.floor(Math.min(...u.kids.filter(k => k.text).map(k => k.y))) - Math.max(6, Math.round(0.03 * r.h))); if (uy < r.y) { const ext = Math.min(r.y - uy, Math.round(0.05 * r.h) + 6), top0 = r.y; r.h += ext; r.y -= ext; r.top0 = top0; const rb = u.kids.filter(k => k.text && k.y < top0 && k.y + k.h > r.y && (Math.min(k.y + k.h, top0) - k.y) > 0.1 * k.h); if (rb.length) { const rx0 = Math.min(...rb.map(k => k.x)), rx1 = Math.max(...rb.map(k => k.x + k.w)), pd = 0.1 * (rx1 - rx0); r.rib = [rx0 - pd, rx1 + pd]; } } }  // לא יותר מכמה פיקסלים: תיבת הטקסט רחבה מהסרט ואז נכנסת רצועת רקע 
     const o = panels.find(p => Math.min(p.x + p.w, r.x + r.w) - Math.max(p.x, r.x) > 0.5 * Math.min(p.w, r.w) && Math.min(p.y + p.h, r.y + r.h) - Math.max(p.y, r.y) > 0.5 * Math.min(p.h, r.h));
     if (o) { const x1 = Math.max(o.x + o.w, r.x + r.w), y1 = Math.max(o.y + o.h, r.y + r.h); o.x = Math.min(o.x, r.x); o.y = Math.min(o.y, r.y); o.w = x1 - o.x; o.h = y1 - o.y; } else panels.push({ ...r });
   }
@@ -2798,10 +2798,13 @@ function rfAssets(sc, P) {
       const pos = t => [side === 0 ? p.x + t : side === 1 ? p.x + p.w - 1 - t : p.x + p.w * f, side === 2 ? p.y + t : side === 3 ? p.y + p.h - 1 - t : p.y + p.h * f];
       let kd = -1; for (let t = 0; t < lim; t++) { const [x, y] = pos(t); if (lumA(x, y) < 70) { kd = t; break; } }
       if (kd < 0) { ks.push(0); continue; }
-      ks.push(Math.max(0, kd - cap - 1)); } return med(ks); };
-    const l = sc1(0), r2 = sc1(1), t0 = 0 /* למעלה לא מצמצמים: סרט הכותרת בולט מעל המסגרת */, b0 = sc1(3);
+      { let gs = -1; for (let t = 0; t < kd; t++) { const [x, y] = pos(t), [x2, y2] = pos(t + 1); if (goldA(x, y) && goldA(x2, y2)) { gs = t; break; } } if (gs >= 0) { ks.push(Math.max(0, gs - 1)); continue; } } // תחילת הפס הזהוב עצמו (שני פיקסלים רצופים): מה שמחוץ לו הוא רקע, גם אם יש שם אזור כהה (עיר)
+      let tg = 0; for (let t = kd - 1; t >= 0 && tg < cap; t--) { const [x, y] = pos(t); if (goldA(x, y)) tg++; else break; } // עובי הפס הזהוב בפועל (לא קבוע): בלי שאריות רקע מחוץ למסגרת
+      ks.push(Math.max(0, kd - Math.max(tg, 2) - 1)); } return med(ks); };
+    let l = sc1(0), r2 = sc1(1), t0 = 0 /* למעלה לא מצמצמים: סרט הכותרת בולט מעל המסגרת */, b0 = sc1(3);
+    { const sm = Math.max(l, r2, b0); if (sm > 0) { if (r2 < 0.6 * sm) r2 = sm; if (b0 < 0.6 * sm) b0 = sm; if (l < 0.6 * sm) l = sm; } } // מסגרת סימטרית: צד שהזיהוי החמיץ מקבל את הערך של שאר הצדדים
     const nx = p.x + l, ny = p.y + t0, nx1 = p.x + p.w - r2, ny1 = p.y + p.h - b0;
-    if (nx1 - nx > 0.8 * p.w && ny1 - ny > 0.8 * p.h) { p.x = nx; p.y = ny; p.w = nx1 - nx; p.h = ny1 - ny; }
+    if (nx1 - nx > 0.8 * p.w && ny1 - ny > 0.8 * p.h) p.cut = { l, r: r2, b: b0 }; // לא משנים את מלבן הלוח (הסידור נשאר זהה), רק האלפא נחתכת עד קצה המסגרת
   }
   const absorbed = new Set();
   panels.forEach((p, i) => {
@@ -2815,7 +2818,15 @@ function rfAssets(sc, P) {
       const ds = [scan(p.x, p.y, 1, 1, lim), scan(p.x + p.w - 1, p.y, -1, 1, lim), scan(p.x, p.y + p.h - 1, 1, -1, lim), scan(p.x + p.w - 1, p.y + p.h - 1, -1, -1, lim)].filter(v => v >= 0);
       if (ts.length >= 3 && ds.length >= 3) { const t = ts.reduce((q, v) => q + v, 0) / ts.length, xd = ds.reduce((q, v) => q + v, 0) / ds.length, Rin = Math.max(0, (xd - t) / 0.293), Ro = Rin + t; rr = clp(Ro / Math.min(p.w, p.h), 0.03, 0.2); }
     }
-    const lw = p.w, lh = p.h, rgb = new Float32Array(lw * lh * 3), a = rfRound(lw, lh, rr * Math.min(lw, lh), p.btn ? -1.2 : 0.4);
+    const lw = p.w, lh = p.h, rgb = new Float32Array(lw * lh * 3);
+    let a = rfRound(lw, lh, rr * Math.min(lw, lh), p.btn ? -1.2 : 0.4);
+    if (p.cut && !p.btn) { const c = p.cut, iw = lw - c.l - c.r, ih = lh - c.b, ia = rfRound(iw, ih, rr * Math.min(iw, ih), 1.2); a = new Float32Array(lw * lh); for (let y = 0; y < ih; y++) for (let x = 0; x < iw; x++) a[y * lw + c.l + x] = ia[y * iw + x]; } // אלפא מלבן המסגרת בלבד
+    if (p.top0 != null) { // מעל המסגרת נשאר רק הסרט: זהוב/כהה (לא שמיים כתומים/ורודים), עם סגירה מורפולוגית קטנה
+      const ty = Math.max(0, Math.min(lh, Math.round(p.top0 - p.y))), D = img.d, keep = new Uint8Array(lw * ty);
+      for (let y = 0; y < ty; y++) for (let x = 0; x < lw; x++) { const q = ((p.y + y) * W + p.x + x) * 3, r = D[q], g = D[q + 1], b = D[q + 2], lm = 0.299 * r + 0.587 * g + 0.114 * b; if ((g / Math.max(1, r) > 0.66 && b / Math.max(1, r) < 0.6 && lm > 110) || lm < 85) keep[y * lw + x] = 1; }
+      const cl = new Uint8Array(lw * ty), R = 2; for (let y = 0; y < ty; y++) for (let x = 0; x < lw; x++) { let v = 0; for (let dy = -R; dy <= R && !v; dy++) for (let dx = -R; dx <= R; dx++) { const yy = y + dy, xx = x + dx; if (yy >= 0 && yy < ty && xx >= 0 && xx < lw && keep[yy * lw + xx]) { v = 1; break; } } cl[y * lw + x] = v; }
+      for (let y = 0; y < ty; y++) for (let x = 0; x < lw; x++) if (!cl[y * lw + x]) a[y * lw + x] = 0;
+    }
     for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) { const si = ((p.y + y) * W + p.x + x) * 3, di = (y * lw + x) * 3; rgb[di] = img.d[si]; rgb[di + 1] = img.d[si + 1]; rgb[di + 2] = img.d[si + 2]; }
     const hm = rfRound(lw + 8, lh + 8, rr * Math.min(lw, lh) + 4, 0);
     for (let y = 0; y < lh + 8; y++) for (let x = 0; x < lw + 8; x++) if (hm[y * (lw + 8) + x] > 0.02) { const gx = p.x - 4 + x, gy = p.y - 4 + y; if (gx >= 0 && gy >= 0 && gx < W && gy < H) hole[gy * W + gx] = 1; }
@@ -2878,17 +2889,16 @@ function rfExtend(A, W, H, padT, padB, orig, padL = 0, padR = 0) {
     if (padB > 0 && KB >= 6) { const m = blur(med(H - Math.min(KB, H), H), Math.max(2, Math.round(0.02 * W))); const big = padB >= 0.05 * h2, y0 = big ? padT + H - KB : padT + H; for (let ye = y0; ye < h2; ye++) mix(ye, m, big ? clp((ye - y0) / (padB + KB) * 1.6, 0, 1) : clp(((ye - y0) / padB) * 1.4, 0, 1)); }
   }
   let res = out;
-  if (padL > 0 || padR > 0) { // הרחבה אופקית: שיקוף של קצה התמונה, מטושטש יותר ככל שמתרחקים מהתפר
-    const w2 = W + padL + padR, o2 = { w: w2, h: h2, c: 3, d: new Float32Array(w2 * h2 * 3) };
+  if (padL > 0 || padR > 0) { // הרחבה אופקית: ליד התפר שיקוף קצר של הקצה, ואז מעבר מהיר לצבע חלק (ממוצע פס הקצה, מטושטש אנכית) כדי שלא יופיע שכפול מטושטש של האדם/האובייקט שבקצה
+    const w2 = W + padL + padR, o2 = { w: w2, h: h2, c: 3, d: new Float32Array(w2 * h2 * 3) }, sw = Math.max(2, Math.round(0.02 * W)), rv = Math.max(2, Math.round(0.05 * h2)), fade = Math.max(3, 0.035 * W);
+    const prof = side => { const p = new Float32Array(h2 * 3); for (let y = 0; y < h2; y++) for (let c = 0; c < 3; c++) { let sm = 0; for (let k = 0; k < sw; k++) sm += out.d[(y * W + (side < 0 ? k : W - 1 - k)) * 3 + c]; p[y * 3 + c] = sm / sw; }
+      const q = new Float32Array(h2 * 3); for (let y = 0; y < h2; y++) for (let c = 0; c < 3; c++) { let sm = 0, n = 0; for (let k = -rv; k <= rv; k++) { const yy = clp(y + k, 0, h2 - 1); sm += p[yy * 3 + c]; n++; } q[y * 3 + c] = sm / n; } return q; };
+    const PL = padL > 0 ? prof(-1) : null, PR = padR > 0 ? prof(1) : null;
     for (let y = 0; y < h2; y++) {
       const row = o2.d.subarray(y * w2 * 3, (y + 1) * w2 * 3), src0 = out.d.subarray(y * W * 3, (y + 1) * W * 3);
       row.set(src0, padL * 3);
-      const fillSide = (n, dir) => { // dir -1: שמאל, 1: ימין
-        const tmp = new Float32Array(n * 3);
-        for (let k = 0; k < n; k++) { const sx = Math.min(W - 1, k), si = (dir < 0 ? sx : W - 1 - sx) * 3, di = (dir < 0 ? n - 1 - k : k) * 3; tmp[di] = src0[si]; tmp[di + 1] = src0[si + 1]; tmp[di + 2] = src0[si + 2]; }
-        for (let k = 0; k < n; k++) { const d = k + 1, r = Math.min(Math.round(0.012 * W), Math.round(0.12 * d)), x = dir < 0 ? n - 1 - k : k; for (let c = 0; c < 3; c++) { let sm = 0, nn = 0; for (let t = -r; t <= r; t++) { const xx = x + t; if (xx >= 0 && xx < n) { sm += tmp[xx * 3 + c]; nn++; } } row[((dir < 0 ? x : padL + W + x) * 3) + c] = nn ? sm / nn : tmp[x * 3 + c]; } }
-      };
-      if (padL > 0) fillSide(padL, -1); if (padR > 0) fillSide(padR, 1);
+      const fillSide = (n, dir, P) => { for (let k = 0; k < n; k++) { const d = k, x = dir < 0 ? n - 1 - k : n - 0 - 1 - (n - 1 - k) + 0; const sx = Math.min(W - 1, d), si = (dir < 0 ? sx : W - 1 - sx) * 3, w = clp(d / fade, 0, 1), xo = dir < 0 ? n - 1 - k : padL + W + k; for (let c = 0; c < 3; c++) row[xo * 3 + c] = src0[si + c] * (1 - w) + P[y * 3 + c] * w; void x; } };
+      if (padL > 0) fillSide(padL, -1, PL); if (padR > 0) fillSide(padR, 1, PR);
     }
     res = o2;
   }
@@ -3339,5 +3349,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.42-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.43-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
