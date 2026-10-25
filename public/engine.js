@@ -1575,6 +1575,8 @@ function cardFix(img, elements) {
 function buildScene(img, elements, onProgress) {
   const W = img.w, H = img.h, tell = m => onProgress && onProgress(m);
   if (!G.__NOCARD) elements = cardFix(img, elements);
+  // תיבת "תגית" שרוחבה כמעט כל הבאנר (פס תחתון שלם): זה לא אלמנט שאפשר להזיז (הוא כולל חלק מהגיבור, רצפה, ותמונות שכבר זוהו בנפרד וגורם לכפילות), אז מתעלמים ממנה והפס נשאר ברקע
+  elements = (elements || []).filter(e => !(['badge', 'photo'].includes(e.role) && !(e.lines && e.lines.length) && Array.isArray(e.box) && (Number(e.box[2]) - Number(e.box[0])) >= 900 && (Number(e.box[3]) - Number(e.box[1])) <= 400));
   { // שורה בגוף הטקסט שחוזרת על כיתוב הכפתור/התווית (ג'מיני סופר אותה פעמיים): מוציאים אותה מהגוף, אחרת השורות לא תואמות לפיקסלים ונוצרות אותיות רפאים
     const norm = t => String(t).replace(/[\s.,!?:;"'״׳־-]/g, ''), lab = new Set();
     for (const e of elements || []) if ((e.role === 'label' || e.role === 'button') && Array.isArray(e.lines)) for (const l of e.lines) if (norm(l).length > 3) lab.add(norm(l));
@@ -3349,5 +3351,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.43-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.44-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
