@@ -31,7 +31,7 @@ const needsMatte = (els, W, H, skipHero) => (els || []).some(e => { // אותו 
   const [a, b, c, d] = e.box.map(Number), x1 = a / 1000 * W, y1 = b / 1000 * H, x2 = c / 1000 * W, y2 = d / 1000 * H;
   if (e.role === 'hero') return !skipHero && (x2 - x1) * (y2 - y1) >= 0.004 * W * H && x1 > 2 && y1 > 2 && x2 < W - 2 && y2 < H - 2;
   if (e.role === 'button' || e.role === 'decor' || e.shape === 'pill' || e.shape === 'panel' || (e.lines && e.lines.length) || !['logo', 'badge', 'photo', 'brand', 'sticker', 'icon'].includes(e.role)) return false;
-  const w = c - a, h = d - b; if (!(w > 0 && h > 0) || w > 2.4 * h || h > 2.4 * w || (x2 - x1) * (y2 - y1) < 0.0004 * W * H) return false;
+  const w = x2 - x1, h = y2 - y1; if (!(w > 0 && h > 0) || w > 2.4 * h || h > 2.4 * w || (x2 - x1) * (y2 - y1) < 0.0004 * W * H) return false;
   return !els.some(o => o !== e && Array.isArray(o.box) && o.role !== 'hero' && (mInside(o.box.map(Number), [a, b, c, d]) || (!(o.lines && o.lines.length) && o.role !== 'logo' && mInside([a, b, c, d], o.box.map(Number)))));
 });
 const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('matte timeout')), ms))]);

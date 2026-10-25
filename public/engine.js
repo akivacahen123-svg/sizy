@@ -1265,7 +1265,7 @@ function reflowLeaf(e, bw, bh, lineBias) {
       const lh = lhs.reduce((p, q) => p + q, 0) + (k - 1) * lineGap + extra;
       const mean = lws.reduce((p, q) => p + q, 0) / k, rag = lws.reduce((p, q) => p + Math.abs(q - mean), 0) / (k * lw);
       const cuts = new Set(acc.slice(0, -1).map(([, t]) => t)); let same = cuts.size === brk.size; if (same) for (const c of cuts) if (!brk.has(c)) same = false;
-      const s = Math.min(bw / (lw / up), bh / (lh / up)) * (1 - 0.12 * rag) * (same ? 1.04 : 1) * (lineBias ? 1 - lineBias * (k - 1) : 1);
+      const s = Math.min(bw / (lw / up), bh / (lh / up)) * (1 - 0.12 * rag) * (same ? 1.04 : 1) * ((e.role === 'body' ? Math.max(lineBias || 0, 0.12) : lineBias) ? Math.max(0.1, 1 - (e.role === 'body' ? Math.max(lineBias || 0, 0.12) : lineBias) * (k - 1)) : 1); // גוף טקסט: לא מפרקים לשורות קצרות רק כדי להגדיל גופן
       if (!best || s > best.s * 1.01) best = { s, acc: acc.slice(), lws, lhs, lw, lh, extra };
     }
   };
@@ -1746,7 +1746,7 @@ function buildScene(img, elements, onProgress) {
         if (near / R.length >= 0.85) e.solid = [Math.round(r0), Math.round(g0), Math.round(b0)];
       }
     }
-    let r = 5; if (['pill', 'rounded', 'rect'].includes(e.shape)) r = Math.floor(Math.min(L.w, L.h) * 0.3); else if (e.shape === 'hero') r = 8; else if (e.panel) r = Math.max(8, Math.round(0.05 * Math.min(L.w, L.h))); // הילה/צל של הלוח מחוץ לשפה: חור הרקע גדול יותר
+    let r = 5; if (['pill', 'rounded', 'rect'].includes(e.shape)) r = Math.floor(Math.min(L.w, L.h) * 0.3); else if (e.shape === 'hero') r = 8; else if (e.panel) r = Math.max(8, Math.round(0.05 * Math.min(L.w, L.h))); else if (e.matte && e.role !== 'hero') r = Math.max(5, Math.round(0.26 * Math.min(L.w, L.h))); // לוגו עם הילה/סביבון רך: המט תופס רק את הגוף, החור מורחב כדי שלא יישאר רפאים; הילה/צל של הלוח/צל של הלוח מחוץ לשפה: חור הרקע גדול יותר
     const pad = r + 1, mw = L.w + 2 * pad, mh = L.h + 2 * pad, m = new Uint8Array(mw * mh);
     for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) if (L.a[j * L.w + i] * 255 > 10) m[(j + pad) * mw + i + pad] = 1;
     const dm = dilateDisk(m, mw, mh, r);
@@ -3358,5 +3358,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.45-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.46-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
