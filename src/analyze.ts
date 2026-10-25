@@ -23,6 +23,8 @@ PRIZE / OFFER STRIPS: a horizontal strip made of a label, a picture (e.g. cash, 
 
 COMPLETENESS (important): list EVERY logo, seal or emblem (even a small one in a top corner) as a "logo" element, and EVERY line of small fine print at the bottom as a "body" element (two lines of fine print = one body element covering both). Missing a logo or fine print makes the resized banner cut or smear it.
 
+NEVER return one box that spans (almost) the whole width of the banner and contains other elements (for example the whole bottom band with the prize strip, a winner photo and fine print inside it). Box each item separately and tightly: the prize strip with its exact left and right edges, the winner photo, the fine print.
+
 GROUPS: give the same "group" id to elements that must keep the same arrangement: a headline with its small intro line, a row of photos together with all their captions, a logo with its address line, a button with its label, a bar with its text. Use null for hero and for standalone items.`;
 
 const ROLES = new Set(['headline', 'subheadline', 'body', 'caption', 'label', 'bullets', 'logo', 'photo', 'button', 'badge', 'hero', 'decor', 'brand']);
@@ -95,12 +97,24 @@ function parseJson(text: string): any {
   throw new AnalyzeError(502, 'INVALID', 'ה-AI לא החזיר ניתוח תקין. נסו שוב.', 'תשובה: ' + t.slice(0, 200));
 }
 
+// אלמנט גרפי שרוחבו כמעט כל הבאנר (ולא טקסט/רקע): בדרך כלל מכל תיבה על פס שלם שכוללת אלמנטים אחרים. מבקשים מה-AI תיקון פעם אחת.
+export function wideContainers(els: El[]): El[] {
+  return els.filter(e => ['badge', 'photo'].includes(e.role) && !(e.lines && e.lines.length) && e.box[2] - e.box[0] >= 900 && e.box[3] - e.box[1] <= 400);
+}
 export async function analyzeImage(env: any, imageBase64: string, fetcher: typeof fetch = fetch, userKey = ''): Promise<El[]> {
-  return geminiRun(env, userKey, fetcher, [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }, { text: PROMPT }], reply => {
+  const run = (extra: string) => geminiRun(env, userKey, fetcher, [{ inline_data: { mime_type: 'image/jpeg', data: imageBase64 } }, { text: PROMPT + extra }], reply => {
     const els = cleanElements(parseJson(reply).elements);
     if (!els.length) throw new AnalyzeError(422, 'NONE', 'ה-AI לא זיהה אלמנטים בבאנר. נסו תמונה אחרת.');
     return els;
   }, 16000);
+  const first = await run('');
+  const bad = wideContainers(first);
+  if (!bad.length) return first;
+  try {
+    const fix = `\n\nCORRECTION: your previous answer contained a box spanning the full width of the banner (${bad.map(b => `${b.id} [x ${b.box[0]}-${b.box[2]}, y ${b.box[1]}-${b.box[3]}]`).join(', ')}). Return the full list again, but split that area into separate tight boxes for each item inside it.`;
+    const second = await run(fix);
+    return wideContainers(second).length < bad.length ? second : first;
+  } catch { return first; }
 }
 
 // קריאה כללית ל-Gemini: מנסה דגמים לפי הסדר, ומחזירה את מה ש-parse הוציא מהתשובה.

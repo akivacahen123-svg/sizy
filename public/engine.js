@@ -1575,8 +1575,15 @@ function cardFix(img, elements) {
 function buildScene(img, elements, onProgress) {
   const W = img.w, H = img.h, tell = m => onProgress && onProgress(m);
   if (!G.__NOCARD) elements = cardFix(img, elements);
-  // תיבת "תגית" שרוחבה כמעט כל הבאנר (פס תחתון שלם): זה לא אלמנט שאפשר להזיז (הוא כולל חלק מהגיבור, רצפה, ותמונות שכבר זוהו בנפרד וגורם לכפילות), אז מתעלמים ממנה והפס נשאר ברקע
-  elements = (elements || []).filter(e => !(['badge', 'photo'].includes(e.role) && !(e.lines && e.lines.length) && Array.isArray(e.box) && (Number(e.box[2]) - Number(e.box[0])) >= 900 && (Number(e.box[3]) - Number(e.box[1])) <= 400));
+  // תיבת "תגית" שרוחבה כמעט כל הבאנר (פס תחתון שלם): היא כוללת חלק מהגיבור/רצפה ותמונות שכבר זוהו בנפרד (כפילות). מצמצמים אותה לקטע הרחב ביותר שלא תפוס ע"י אלמנטים גרפיים אחרים; אם לא נשאר קטע סביר מתעלמים ממנה
+  elements = (elements || []).map(e => {
+    if (!(['badge', 'photo'].includes(e.role) && !(e.lines && e.lines.length) && Array.isArray(e.box))) return e;
+    const b = e.box.map(Number); if (!((b[2] - b[0]) >= 900 && (b[3] - b[1]) <= 400)) return e;
+    const occ = (elements || []).filter(o => o !== e && Array.isArray(o.box) && !(o.lines && o.lines.length) && ['hero', 'photo', 'logo', 'badge'].includes(o.role) && Math.min(b[3], Number(o.box[3])) - Math.max(b[1], Number(o.box[1])) > 0).map(o => [Number(o.box[0]) - 8, Number(o.box[2]) + 8]).sort((p, q) => p[0] - q[0]);
+    let best = [b[0], b[0]], cur = b[0]; for (const [x0, x1] of occ) { if (x0 > cur && x0 - cur > best[1] - best[0]) best = [cur, x0]; cur = Math.max(cur, x1); } if (b[2] - cur > best[1] - best[0]) best = [cur, b[2]];
+    if (best[1] - best[0] < 280) return null;
+    return { ...e, box: [best[0], b[1] + 12, best[1], b[3]], shape: 'rect' };
+  }).filter(Boolean);
   { // שורה בגוף הטקסט שחוזרת על כיתוב הכפתור/התווית (ג'מיני סופר אותה פעמיים): מוציאים אותה מהגוף, אחרת השורות לא תואמות לפיקסלים ונוצרות אותיות רפאים
     const norm = t => String(t).replace(/[\s.,!?:;"'״׳־-]/g, ''), lab = new Set();
     for (const e of elements || []) if ((e.role === 'label' || e.role === 'button') && Array.isArray(e.lines)) for (const l of e.lines) if (norm(l).length > 3) lab.add(norm(l));
@@ -3351,5 +3358,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.44-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.45-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
