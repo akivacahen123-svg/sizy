@@ -2711,7 +2711,7 @@ function cardTemplates(sc, W, H) {
 // בלי תמונה ראשית. כל גודל נבנה מחדש כמו מעצב: אזור צבע לטקסט (לוגו+כותרות), אזור צבע שני למוצרים, פס מפריד, כפתור ותג מחיר בשורה תחתונה.
 // עקרונות: הכול נחתך מפיקסלי המקור; שומרים על יחסי הגדלים של המקור; לא מגדילים הרבה מעבר לפיקסלי המקור (מפוקסל); מוצרים נארזים בשורות לפי סדר הקריאה המקורי (ימין לשמאל).
 function catalogTemplate(sc, W, H) {
-  if (!sc.flat || W * H < 6000 || !sc._img) return null;
+  if (W * H < 6000 || !sc._img) return null;
   const U = sc.units, area0 = sc.W * sc.H, kidsOnly = (u, f) => u.kids.every(f);
   const photos = U.filter(u => u.kids.length === 1 && u.kids[0].role === 'photo' && !u.kids[0].text && !u.kids[0].isPlate && u.w * u.h < 0.2 * area0).sort((a, b) => (b.x + b.w / 2) - (a.x + a.w / 2));
   if (photos.length < 2 || photos.length > 8) return null;
@@ -2740,9 +2740,16 @@ function catalogTemplate(sc, W, H) {
   };
   const badges = rest.map(withPlate).filter(Boolean).sort((a, b) => (b.x + b.w / 2) - (a.x + a.w / 2));
   // צבעי האזורים: שולי העליון והתחתון של המקור
-  const rowCol = y => { const med = c => { const a = []; for (let x = Math.round(iw * 0.04); x < iw * 0.96; x += 2) a.push(D[(y * iw + x) * 3 + c]); a.sort((p, q) => p - q); return a[a.length >> 1]; }; return [med(0), med(1), med(2)]; };
-  const cA = rowCol(2), cB = rowCol(ih - 3), dist = (p, q) => Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) + Math.abs(p[2] - q[2]);
+  const cov = new Uint8Array(iw * ih); for (const u of U) { const x0 = Math.max(0, Math.floor(u.x) - 2), y0 = Math.max(0, Math.floor(u.y) - 2), x1 = Math.min(iw, Math.ceil(u.x + u.w) + 2), y1 = Math.min(ih, Math.ceil(u.y + u.h) + 2); for (let y = y0; y < y1; y++) cov.fill(1, y * iw + x0, y * iw + x1); } // פיקסלים שתפוסים ע"י יחידות (כפתור, תמונות...)
+  const bandCol = (ya, yb) => { const med = c => { const a = []; for (let y = ya; y < yb; y += 2) for (let x = Math.round(iw * 0.05); x < iw * 0.95; x += 3) if (!cov[y * iw + x]) a.push(D[(y * iw + x) * 3 + c]); if (a.length < 12) return -1; a.sort((p, q) => p - q); return a[a.length >> 1]; }; return [med(0), med(1), med(2)]; }; // רק רקע פנוי: אחרת כפתור/תג מחיר בשורה התחתונה קובעים את "צבע הרקע" // חציון של פס עליון/תחתון (לא שורה בודדת: מסגרת בהירה בקצה הקובץ לא מבלבלת)
+  const bd0 = Math.max(4, Math.round(ih * 0.015)), cA = bandCol(bd0, Math.max(bd0 + 2, Math.round(ih * 0.12))), cB = bandCol(Math.min(ih - 3, Math.round(ih * 0.88)), ih - bd0), dist = (p, q) => Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) + Math.abs(p[2] - q[2]);
+  if (cA[0] < 0 || cB[0] < 0) return null;
   const two = dist(cA, cB) > 60;
+  if (!sc.flat) { // זיהוי שטוח נכשל (למשל מסגרת בהירה בקצה הקובץ): בודקים בעצמנו שמחוץ ליחידות הרקע הוא בשני הצבעים בלבד
+    let tot = 0, ok = 0;
+    const e0 = Math.max(4, Math.round(Math.min(iw, ih) * 0.015)); for (let y = e0; y < ih - e0; y += 2) for (let x = e0; x < iw - e0; x += 2) { if (cov[y * iw + x]) continue; tot++; const q = (y * iw + x) * 3, c = [D[q], D[q + 1], D[q + 2]]; if (dist(c, cA) < 60 || dist(c, cB) < 60) ok++; }
+    if (tot < 0.15 * iw * ih / 4 || ok < 0.93 * tot) return null;
+  }
   const plateProto = photos[0].kids[0];
   const plate = (x, y, w, h, col, id) => [{ ...plateProto, id, role: 'decor', shape: 'rect', text: false, isPlate: true, solid: col, layer: solidLayer(w, h, col), x: 0, y: 0, w, h, z: -1, reflowed: true, matted: false, matte: null }, x, y, w, h];
   const pl = [], add0 = (u, x, y, w, h) => { const sf = w / u.w, kf = u.kf || 1; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * sf, y + dy * (h ? h / u.h : sf), k.w * sf * kf, k.h * (h ? h / u.h : sf) * kf]); } };
@@ -3495,5 +3502,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.47-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.48-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);

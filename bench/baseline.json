@@ -1,5 +1,5 @@
 {
- "avg": 91.04,
+ "avg": 90.99,
  "cases": {
   "dreams_live@1200x200": {
    "score": 87.7,
@@ -1042,2612 +1042,6 @@
     "layout": 100,
     "dropped": 75.5,
     "fill": 98
-   }
-  },
-  "shaker1@1200x200": {
-   "score": 90.6,
-   "flags": [
-    "blotchy",
-    "smeared"
-   ],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 98.8,
-    "fill": 39.1
-   }
-  },
-  "shaker1@1200x60": {
-   "score": 75.3,
-   "flags": [
-    "smeared",
-    "tiled"
-   ],
-   "sub": {
-    "legibility": 54.7,
-    "sharpness": 100,
-    "layout": 95.7,
-    "dropped": 98.8,
-    "fill": 20
-   }
-  },
-  "shaker1@120x500": {
-   "score": 62.3,
-   "flags": [
-    "dropped",
-    "smeared",
-    "sparse",
-    "tinytext",
-    "weak_headline"
-   ],
-   "sub": {
-    "legibility": 49.8,
-    "sharpness": null,
-    "layout": 75.7,
-    "dropped": 61.7,
-    "fill": 61.3
-   }
-  },
-  "shaker1@300x600": {
-   "score": 90.6,
-   "flags": [
-    "unbalanced"
-   ],
-   "sub": {
-    "legibility": 97.6,
-    "sharpness": 100,
-    "layout": 89,
-    "dropped": 98.8,
-    "fill": 61.5
-   }
-  },
-  "shaker1@160x600": {
-   "score": 84.7,
-   "flags": [
-    "blotchy",
-    "sparse",
-    "unbalanced"
-   ],
-   "sub": {
-    "legibility": 91.8,
-    "sharpness": 100,
-    "layout": 83.9,
-    "dropped": 98.8,
-    "fill": 40.5
-   }
-  },
-  "shaker1@728x90": {
-   "score": 86.6,
-   "flags": [
-    "blotchy",
-    "smeared"
-   ],
-   "sub": {
-    "legibility": 95.2,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 98.8,
-    "fill": 20
-   }
-  },
-  "shaker1@300x250": {
-   "score": 89.6,
-   "flags": [
-    "sparse"
-   ],
-   "sub": {
-    "legibility": 90.8,
-    "sharpness": 100,
-    "layout": 90.5,
-    "dropped": 98.8,
-    "fill": 63.5
-   }
-  },
-  "shaker1@320x70": {
-   "score": 91.5,
-   "flags": [],
-   "sub": {
-    "legibility": 90.8,
-    "sharpness": 100,
-    "layout": 99,
-    "dropped": 98.8,
-    "fill": 61.8
-   }
-  },
-  "shaker1@800x600": {
-   "score": 85.7,
-   "flags": [
-    "blotchy",
-    "smeared",
-    "sparse"
-   ],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 89.1,
-    "dropped": 98.8,
-    "fill": 24.7
-   }
-  },
-  "shaker1@290x350": {
-   "score": 85.9,
-   "flags": [
-    "blotchy",
-    "smeared",
-    "unbalanced"
-   ],
-   "sub": {
-    "legibility": 93.3,
-    "sharpness": 100,
-    "layout": 88,
-    "dropped": 98.8,
-    "fill": 38.4
-   }
-  },
-  "shaker1@600x1100": {
-   "score": 87.8,
-   "flags": [
-    "blotchy",
-    "smeared",
-    "unbalanced"
-   ],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 91.3,
-    "dropped": 98.8,
-    "fill": 34.6
-   }
-  },
-  "shaker1@895x80": {
-   "score": 92.6,
-   "flags": [
-    "smeared"
-   ],
-   "sub": {
-    "legibility": 94,
-    "sharpness": 100,
-    "layout": 98.6,
-    "dropped": 98.8,
-    "fill": 65
-   }
-  },
-  "tzfat@1200x200": {
-   "score": 89.6,
-   "flags": [
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 84.3,
-    "sharpness": 74.8,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 81.7
-   }
-  },
-  "tzfat@1200x60": {
-   "score": 80.6,
-   "flags": [
-    "smeared"
-   ],
-   "sub": {
-    "legibility": 69.8,
-    "sharpness": 60.8,
-    "layout": 100,
-    "dropped": 92.9,
-    "fill": 70
-   }
-  },
-  "tzfat@120x500": {
-   "score": 95.3,
-   "flags": [],
-   "sub": {
-    "legibility": 84,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 96.4,
-    "fill": 100
-   }
-  },
-  "tzfat@300x600": {
-   "score": 99.3,
-   "flags": [],
-   "sub": {
-    "legibility": 97.8,
-    "sharpness": 98.9,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tzfat@160x600": {
-   "score": 97.3,
-   "flags": [],
-   "sub": {
-    "legibility": 89.2,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tzfat@728x90": {
-   "score": 88.6,
-   "flags": [
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 81.2,
-    "sharpness": 74.4,
-    "layout": 100,
-    "dropped": 85.7,
-    "fill": 100
-   }
-  },
-  "tzfat@300x250": {
-   "score": 93.7,
-   "flags": [],
-   "sub": {
-    "legibility": 77.8,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 96.4,
-    "fill": 100
-   }
-  },
-  "tzfat@320x70": {
-   "score": 76.4,
-   "flags": [
-    "blurry",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 74.9,
-    "sharpness": 46.2,
-    "layout": 100,
-    "dropped": 53.6,
-    "fill": 100
-   }
-  },
-  "tzfat@800x600": {
-   "score": 99.4,
-   "flags": [],
-   "sub": {
-    "legibility": 97.6,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tzfat@290x350": {
-   "score": 93.1,
-   "flags": [],
-   "sub": {
-    "legibility": 88.3,
-    "sharpness": 100,
-    "layout": 95.6,
-    "dropped": 85.7,
-    "fill": 100
-   }
-  },
-  "tzfat@600x1100": {
-   "score": 99.8,
-   "flags": [],
-   "sub": {
-    "legibility": 99.1,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tzfat@895x80": {
-   "score": 81.5,
-   "flags": [
-    "smeared"
-   ],
-   "sub": {
-    "legibility": 76.4,
-    "sharpness": 60,
-    "layout": 100,
-    "dropped": 89.3,
-    "fill": 70
-   }
-  },
-  "tzfat@301x601": {
-   "score": 99.3,
-   "flags": [],
-   "sub": {
-    "legibility": 97.8,
-    "sharpness": 99.1,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tzfat@321x71": {
-   "score": 76.7,
-   "flags": [
-    "blurry",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 75.1,
-    "sharpness": 48.2,
-    "layout": 100,
-    "dropped": 53.6,
-    "fill": 100
-   }
-  },
-  "tzfat@361x251": {
-   "score": 93.7,
-   "flags": [],
-   "sub": {
-    "legibility": 77.7,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 96.4,
-    "fill": 100
-   }
-  },
-  "verit2@1200x200": {
-   "score": 86.1,
-   "flags": [
-    "dropped",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 84,
-    "sharpness": 100,
-    "layout": 93.8,
-    "dropped": 58.3,
-    "fill": 100
-   }
-  },
-  "verit2@1200x60": {
-   "score": 77,
-   "flags": [
-    "dropped",
-    "lowcontrast",
-    "sparse",
-    "unbalanced"
-   ],
-   "sub": {
-    "legibility": 68.1,
-    "sharpness": 100,
-    "layout": 73.3,
-    "dropped": 58.3,
-    "fill": 100
-   }
-  },
-  "verit2@120x500": {
-   "score": 83,
-   "flags": [
-    "lowcontrast",
-    "sparse",
-    "tinytext"
-   ],
-   "sub": {
-    "legibility": 52.7,
-    "sharpness": null,
-    "layout": 89.4,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "verit2@300x600": {
-   "score": 90.2,
-   "flags": [
-    "lowcontrast",
-    "unbalanced"
-   ],
-   "sub": {
-    "legibility": 74,
-    "sharpness": 100,
-    "layout": 87,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "verit2@160x600": {
-   "score": 84.7,
-   "flags": [
-    "lowcontrast",
-    "sparse",
-    "tinytext"
-   ],
-   "sub": {
-    "legibility": 50.5,
-    "sharpness": 100,
-    "layout": 88.4,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "verit2@728x90": {
-   "score": 83.8,
-   "flags": [
-    "dropped",
-    "lowcontrast",
-    "sparse",
-    "unbalanced"
-   ],
-   "sub": {
-    "legibility": 82.5,
-    "sharpness": 100,
-    "layout": 86.1,
-    "dropped": 58.3,
-    "fill": 100
-   }
-  },
-  "verit2@300x250": {
-   "score": 91.5,
-   "flags": [
-    "lowcontrast",
-    "tiled"
-   ],
-   "sub": {
-    "legibility": 77.2,
-    "sharpness": 100,
-    "layout": 98,
-    "dropped": 100,
-    "fill": 84.9
-   }
-  },
-  "verit2@320x70": {
-   "score": 81.7,
-   "flags": [
-    "dropped",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 65.7,
-    "sharpness": 100,
-    "layout": 94.3,
-    "dropped": 58.3,
-    "fill": 100
-   }
-  },
-  "verit2@800x600": {
-   "score": 88.1,
-   "flags": [
-    "lowcontrast",
-    "sparse"
-   ],
-   "sub": {
-    "legibility": 67.7,
-    "sharpness": 100,
-    "layout": 84.9,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "verit2@290x350": {
-   "score": 91,
-   "flags": [
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 78.8,
-    "sharpness": 100,
-    "layout": 93.4,
-    "dropped": 100,
-    "fill": 86.2
-   }
-  },
-  "verit2@600x1100": {
-   "score": 93.7,
-   "flags": [
-    "lowcontrast",
-    "sparse",
-    "unbalanced"
-   ],
-   "sub": {
-    "legibility": 89.4,
-    "sharpness": 100,
-    "layout": 85.4,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "verit2@895x80": {
-   "score": 81.1,
-   "flags": [
-    "dropped",
-    "lowcontrast",
-    "sparse",
-    "unbalanced"
-   ],
-   "sub": {
-    "legibility": 77.7,
-    "sharpness": 100,
-    "layout": 80,
-    "dropped": 58.3,
-    "fill": 100
-   }
-  },
-  "verit4@1200x200": {
-   "score": 90.1,
-   "flags": [
-    "dropped",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 92.6,
-    "sharpness": 100,
-    "layout": 93.3,
-    "dropped": 68.1,
-    "fill": 100
-   }
-  },
-  "verit4@1200x60": {
-   "score": 83.3,
-   "flags": [
-    "dropped",
-    "lowcontrast",
-    "sparse",
-    "unbalanced"
-   ],
-   "sub": {
-    "legibility": 85.3,
-    "sharpness": 100,
-    "layout": 73.3,
-    "dropped": 68.1,
-    "fill": 100
-   }
-  },
-  "verit4@120x500": {
-   "score": 66.4,
-   "flags": [
-    "cta_order",
-    "hierarchy",
-    "logo_dominant",
-    "lowcontrast",
-    "sparse",
-    "tinytext",
-    "weak_headline"
-   ],
-   "sub": {
-    "legibility": 49.3,
-    "sharpness": null,
-    "layout": 36.4,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "verit4@300x600": {
-   "score": 84.7,
-   "flags": [
-    "cta_order",
-    "logo_dominant",
-    "lowcontrast",
-    "unbalanced",
-    "weak_headline"
-   ],
-   "sub": {
-    "legibility": 83.9,
-    "sharpness": 100,
-    "layout": 54.8,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "verit4@160x600": {
-   "score": 70.1,
-   "flags": [
-    "cta_order",
-    "hierarchy",
-    "logo_dominant",
-    "lowcontrast",
-    "sparse",
-    "tinytext",
-    "weak_headline"
-   ],
-   "sub": {
-    "legibility": 48.7,
-    "sharpness": 94.1,
-    "layout": 35.4,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "verit4@728x90": {
-   "score": 88,
-   "flags": [
-    "dropped",
-    "lowcontrast",
-    "sparse",
-    "unbalanced"
-   ],
-   "sub": {
-    "legibility": 91.9,
-    "sharpness": 100,
-    "layout": 85.5,
-    "dropped": 68.1,
-    "fill": 100
-   }
-  },
-  "verit4@300x250": {
-   "score": 92.1,
-   "flags": [
-    "cta_order",
-    "lowcontrast",
-    "weak_headline"
-   ],
-   "sub": {
-    "legibility": 87.2,
-    "sharpness": 100,
-    "layout": 81,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "verit4@320x70": {
-   "score": 84.9,
-   "flags": [
-    "dropped",
-    "logo_dominant",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 84.2,
-    "sharpness": 100,
-    "layout": 81.2,
-    "dropped": 68.1,
-    "fill": 100
-   }
-  },
-  "verit4@800x600": {
-   "score": 76.6,
-   "flags": [
-    "cta_order",
-    "hierarchy",
-    "logo_dominant",
-    "lowcontrast",
-    "sparse",
-    "weak_headline"
-   ],
-   "sub": {
-    "legibility": 74.5,
-    "sharpness": 100,
-    "layout": 31.8,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "verit4@290x350": {
-   "score": 91.4,
-   "flags": [
-    "cta_order",
-    "lowcontrast",
-    "weak_headline"
-   ],
-   "sub": {
-    "legibility": 88.1,
-    "sharpness": 100,
-    "layout": 77.4,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "verit4@600x1100": {
-   "score": 87.3,
-   "flags": [
-    "cta_order",
-    "logo_dominant",
-    "lowcontrast",
-    "sparse",
-    "unbalanced",
-    "weak_headline"
-   ],
-   "sub": {
-    "legibility": 94,
-    "sharpness": 100,
-    "layout": 55.3,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "verit4@895x80": {
-   "score": 85.9,
-   "flags": [
-    "dropped",
-    "lowcontrast",
-    "sparse",
-    "unbalanced"
-   ],
-   "sub": {
-    "legibility": 89.7,
-    "sharpness": 100,
-    "layout": 79.6,
-    "dropped": 68.1,
-    "fill": 100
-   }
-  },
-  "leader_107@1200x200": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "leader_107@120x500": {
-   "score": 98.7,
-   "flags": [],
-   "sub": {
-    "legibility": 95.4,
-    "sharpness": 100,
-    "layout": 99.6,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "leader_107@300x600": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "leader_107@728x90": {
-   "score": 99.9,
-   "flags": [],
-   "sub": {
-    "legibility": 99.7,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "leader_107@300x250": {
-   "score": 99.7,
-   "flags": [],
-   "sub": {
-    "legibility": 98.7,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "leader_107@320x70": {
-   "score": 98.6,
-   "flags": [],
-   "sub": {
-    "legibility": 94.4,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "leader_123@1200x200": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "leader_123@120x500": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "leader_123@300x600": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "leader_123@728x90": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "leader_123@300x250": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "leader_123@320x70": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "promo_badge_110@1200x200": {
-   "score": 85.3,
-   "flags": [
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 78.5,
-    "sharpness": 38,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "promo_badge_110@120x500": {
-   "score": 79.5,
-   "flags": [
-    "blurry",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 78,
-    "sharpness": 0.1,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "promo_badge_110@300x600": {
-   "score": 87.7,
-   "flags": [
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 78.1,
-    "sharpness": 54.8,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "promo_badge_110@728x90": {
-   "score": 83,
-   "flags": [
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 75.8,
-    "sharpness": 27.1,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "promo_badge_110@300x250": {
-   "score": 83.1,
-   "flags": [
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 77.7,
-    "sharpness": 24.8,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "promo_badge_110@320x70": {
-   "score": 79.7,
-   "flags": [
-    "blurry",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 76.4,
-    "sharpness": 4.1,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "row_photos_104@1200x200": {
-   "score": 98.8,
-   "flags": [],
-   "sub": {
-    "legibility": 95.1,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "row_photos_104@120x500": {
-   "score": 88,
-   "flags": [
-    "dropped",
-    "sparse"
-   ],
-   "sub": {
-    "legibility": 100,
-    "sharpness": null,
-    "layout": 90.3,
-    "dropped": 61.2,
-    "fill": 100
-   }
-  },
-  "row_photos_104@300x600": {
-   "score": 89.2,
-   "flags": [
-    "dropped"
-   ],
-   "sub": {
-    "legibility": 100,
-    "sharpness": null,
-    "layout": 95.1,
-    "dropped": 61.2,
-    "fill": 98.8
-   }
-  },
-  "row_photos_104@728x90": {
-   "score": 93.7,
-   "flags": [],
-   "sub": {
-    "legibility": 91.3,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 79.6,
-    "fill": 100
-   }
-  },
-  "row_photos_104@300x250": {
-   "score": 90.9,
-   "flags": [
-    "dropped"
-   ],
-   "sub": {
-    "legibility": 100,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 61.2,
-    "fill": 100
-   }
-  },
-  "row_photos_104@320x70": {
-   "score": 90.9,
-   "flags": [
-    "dropped"
-   ],
-   "sub": {
-    "legibility": 100,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 61.2,
-    "fill": 100
-   }
-  },
-  "row_photos_120@1200x200": {
-   "score": 95.4,
-   "flags": [],
-   "sub": {
-    "legibility": 81.6,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "row_photos_120@120x500": {
-   "score": 85.6,
-   "flags": [
-    "dropped"
-   ],
-   "sub": {
-    "legibility": 84.3,
-    "sharpness": null,
-    "layout": 97.6,
-    "dropped": 61.2,
-    "fill": 100
-   }
-  },
-  "row_photos_120@300x600": {
-   "score": 90.4,
-   "flags": [],
-   "sub": {
-    "legibility": 77.8,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 79.6,
-    "fill": 100
-   }
-  },
-  "row_photos_120@728x90": {
-   "score": 88.9,
-   "flags": [],
-   "sub": {
-    "legibility": 71.9,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 79.6,
-    "fill": 100
-   }
-  },
-  "row_photos_120@300x250": {
-   "score": 91.1,
-   "flags": [],
-   "sub": {
-    "legibility": 77.9,
-    "sharpness": 100,
-    "layout": 99.7,
-    "dropped": 83.7,
-    "fill": 100
-   }
-  },
-  "row_photos_120@320x70": {
-   "score": 87.1,
-   "flags": [
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 64.8,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 79.6,
-    "fill": 100
-   }
-  },
-  "split_photo_113@1200x200": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "split_photo_113@120x500": {
-   "score": 96.6,
-   "flags": [],
-   "sub": {
-    "legibility": 91.1,
-    "sharpness": 100,
-    "layout": 95.4,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "split_photo_113@300x600": {
-   "score": 98,
-   "flags": [],
-   "sub": {
-    "legibility": 98.7,
-    "sharpness": 100,
-    "layout": 96.5,
-    "dropped": 100,
-    "fill": 94.6
-   }
-  },
-  "split_photo_113@728x90": {
-   "score": 99.3,
-   "flags": [],
-   "sub": {
-    "legibility": 97.4,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "split_photo_113@300x250": {
-   "score": 92.6,
-   "flags": [
-    "sparse"
-   ],
-   "sub": {
-    "legibility": 85,
-    "sharpness": 100,
-    "layout": 85.4,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "split_photo_113@320x70": {
-   "score": 93.3,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": 92.3,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 68.4
-   }
-  },
-  "square_logo_103@1200x200": {
-   "score": 99.1,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": null,
-    "layout": 97,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "square_logo_103@120x500": {
-   "score": 99.9,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": null,
-    "layout": 99.7,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "square_logo_103@300x600": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "square_logo_103@728x90": {
-   "score": 98.7,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 94.9,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "square_logo_103@300x250": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "square_logo_103@320x70": {
-   "score": 98,
-   "flags": [],
-   "sub": {
-    "legibility": 92,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "square_logo_119@1200x200": {
-   "score": 96.2,
-   "flags": [],
-   "sub": {
-    "legibility": 90,
-    "sharpness": 100,
-    "layout": 94.9,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "square_logo_119@120x500": {
-   "score": 98.3,
-   "flags": [],
-   "sub": {
-    "legibility": 95.7,
-    "sharpness": null,
-    "layout": 98.4,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "square_logo_119@300x600": {
-   "score": 98.6,
-   "flags": [],
-   "sub": {
-    "legibility": 95.4,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "square_logo_119@728x90": {
-   "score": 95.6,
-   "flags": [],
-   "sub": {
-    "legibility": 87.6,
-    "sharpness": 100,
-    "layout": 94.9,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "square_logo_119@300x250": {
-   "score": 99.1,
-   "flags": [],
-   "sub": {
-    "legibility": 96.5,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "square_logo_119@320x70": {
-   "score": 93.2,
-   "flags": [],
-   "sub": {
-    "legibility": 80,
-    "sharpness": null,
-    "layout": 97,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_gallery_109@1200x200": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 99.9,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_gallery_109@120x500": {
-   "score": 94.4,
-   "flags": [],
-   "sub": {
-    "legibility": 87.1,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 88.2,
-    "fill": 100
-   }
-  },
-  "tall_gallery_109@300x600": {
-   "score": 97.3,
-   "flags": [],
-   "sub": {
-    "legibility": 89,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_gallery_109@728x90": {
-   "score": 96.3,
-   "flags": [],
-   "sub": {
-    "legibility": 85.1,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_gallery_109@300x250": {
-   "score": 94.4,
-   "flags": [],
-   "sub": {
-    "legibility": 87.1,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 88.2,
-    "fill": 100
-   }
-  },
-  "tall_gallery_109@320x70": {
-   "score": 89.4,
-   "flags": [],
-   "sub": {
-    "legibility": 95.1,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 52.9,
-    "fill": 100
-   }
-  },
-  "tall_text_106@1200x200": {
-   "score": 97.3,
-   "flags": [
-    "hierarchy"
-   ],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 89.4,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_text_106@120x500": {
-   "score": 98.9,
-   "flags": [],
-   "sub": {
-    "legibility": 95.4,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_text_106@300x600": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_text_106@728x90": {
-   "score": 97.3,
-   "flags": [
-    "hierarchy"
-   ],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 89.4,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_text_106@300x250": {
-   "score": 99,
-   "flags": [],
-   "sub": {
-    "legibility": 95.8,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_text_106@320x70": {
-   "score": 98,
-   "flags": [],
-   "sub": {
-    "legibility": 91.8,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_text_122@1200x200": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_text_122@120x500": {
-   "score": 99.2,
-   "flags": [],
-   "sub": {
-    "legibility": 96.8,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_text_122@300x600": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_text_122@728x90": {
-   "score": 99.5,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 97.9,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_text_122@300x250": {
-   "score": 100,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "tall_text_122@320x70": {
-   "score": 97,
-   "flags": [],
-   "sub": {
-    "legibility": 88.1,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "wide_hero_108@1200x200": {
-   "score": 92.7,
-   "flags": [
-    "hierarchy"
-   ],
-   "sub": {
-    "legibility": 84.2,
-    "sharpness": 100,
-    "layout": 86.7,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "wide_hero_108@120x500": {
-   "score": 93,
-   "flags": [],
-   "sub": {
-    "legibility": 76,
-    "sharpness": 100,
-    "layout": 95.8,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "wide_hero_108@300x600": {
-   "score": 93.1,
-   "flags": [],
-   "sub": {
-    "legibility": 80.4,
-    "sharpness": 100,
-    "layout": 95,
-    "dropped": 100,
-    "fill": 95
-   }
-  },
-  "wide_hero_108@728x90": {
-   "score": 92,
-   "flags": [
-    "hierarchy"
-   ],
-   "sub": {
-    "legibility": 82.9,
-    "sharpness": 100,
-    "layout": 86.7,
-    "dropped": 100,
-    "fill": 97.3
-   }
-  },
-  "wide_hero_108@300x250": {
-   "score": 87.8,
-   "flags": [
-    "sparse"
-   ],
-   "sub": {
-    "legibility": 67.3,
-    "sharpness": 100,
-    "layout": 83.9,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "wide_hero_108@320x70": {
-   "score": 88.6,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": 73,
-    "sharpness": 100,
-    "layout": 98.9,
-    "dropped": 100,
-    "fill": 70.9
-   }
-  },
-  "dreams@1200x200": {
-   "score": 73.9,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": 53.7,
-    "sharpness": 50.9,
-    "layout": 98.3,
-    "dropped": 100,
-    "fill": 55
-   }
-  },
-  "dreams@1200x60": {
-   "score": 88.2,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99.7,
-    "dropped": 67.3,
-    "fill": 97
-   }
-  },
-  "dreams@120x500": {
-   "score": 85.2,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 97.2,
-    "dropped": 88.1,
-    "fill": 61.5
-   }
-  },
-  "dreams@300x600": {
-   "score": 95.4,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99.3,
-    "dropped": 88.1,
-    "fill": 98.6
-   }
-  },
-  "dreams@160x600": {
-   "score": 86.5,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 95.1,
-    "dropped": 88.1,
-    "fill": 70.1
-   }
-  },
-  "dreams@728x90": {
-   "score": 84.1,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 96.9,
-    "dropped": 67.3,
-    "fill": 85.1
-   }
-  },
-  "dreams@300x250": {
-   "score": 83.5,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 88.1,
-    "fill": 50
-   }
-  },
-  "dreams@320x70": {
-   "score": 83.6,
-   "flags": [
-    "dropped"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 96.3,
-    "dropped": 55.4,
-    "fill": 100
-   }
-  },
-  "dreams@800x600": {
-   "score": 94.9,
-   "flags": [
-    "lowcontrast",
-    "ragged",
-    "tightmargin"
-   ],
-   "sub": {
-    "legibility": 84.5,
-    "sharpness": 98.6,
-    "layout": 95.9,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "dreams@290x350": {
-   "score": 93.7,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99.9,
-    "dropped": 88.1,
-    "fill": 90.9
-   }
-  },
-  "dreams@600x1100": {
-   "score": 94.1,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 88.1,
-    "fill": 92.4
-   }
-  },
-  "dreams@895x80": {
-   "score": 85.8,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 97.3,
-    "dropped": 67.3,
-    "fill": 91.3
-   }
-  },
-  "dreams_live10@1200x200": {
-   "score": 76.6,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": 60.3,
-    "sharpness": 52.7,
-    "layout": 99,
-    "dropped": 100,
-    "fill": 58.8
-   }
-  },
-  "dreams_live10@1200x60": {
-   "score": 88.3,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 81.8,
-    "fill": 77.3
-   }
-  },
-  "dreams_live10@120x500": {
-   "score": 85.2,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 94.6,
-    "dropped": 93.2,
-    "fill": 58.9
-   }
-  },
-  "dreams_live10@300x600": {
-   "score": 94.1,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 98.6,
-    "dropped": 84.1,
-    "fill": 100
-   }
-  },
-  "dreams_live10@160x600": {
-   "score": 86.1,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 94.9,
-    "dropped": 93.2,
-    "fill": 61.9
-   }
-  },
-  "dreams_live10@728x90": {
-   "score": 84.5,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99,
-    "dropped": 72.7,
-    "fill": 76
-   }
-  },
-  "dreams_live10@300x250": {
-   "score": 84.8,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 98.9,
-    "dropped": 93.2,
-    "fill": 50
-   }
-  },
-  "dreams_live10@320x70": {
-   "score": 88.8,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 97.4,
-    "dropped": 75,
-    "fill": 93
-   }
-  },
-  "dreams_live10@800x600": {
-   "score": 93.8,
-   "flags": [
-    "tightmargin"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 85,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "dreams_live10@290x350": {
-   "score": 85.2,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 93.2,
-    "fill": 50
-   }
-  },
-  "dreams_live10@600x1100": {
-   "score": 94.3,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99.4,
-    "dropped": 84.1,
-    "fill": 99.3
-   }
-  },
-  "dreams_live10@895x80": {
-   "score": 91.6,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 81.8,
-    "fill": 90.6
-   }
-  },
-  "dreams_live2@1200x200": {
-   "score": 87.1,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99.1,
-    "dropped": 100,
-    "fill": 50
-   }
-  },
-  "dreams_live2@1200x60": {
-   "score": 83.5,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 75.7,
-    "fill": 66.6
-   }
-  },
-  "dreams_live2@120x500": {
-   "score": 84.9,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 93.9,
-    "dropped": 100,
-    "fill": 50
-   }
-  },
-  "dreams_live2@300x600": {
-   "score": 90.4,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 95.8,
-    "dropped": 89.2,
-    "fill": 83.1
-   }
-  },
-  "dreams_live2@160x600": {
-   "score": 85.7,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 95.6,
-    "dropped": 100,
-    "fill": 50
-   }
-  },
-  "dreams_live2@728x90": {
-   "score": 81.3,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 64.9,
-    "fill": 71.9
-   }
-  },
-  "dreams_live2@300x250": {
-   "score": 93.8,
-   "flags": [
-    "tightmargin"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 85,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "dreams_live2@320x70": {
-   "score": 97.5,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 97.6,
-    "dropped": 100,
-    "fill": 94
-   }
-  },
-  "dreams_live2@800x600": {
-   "score": 93.8,
-   "flags": [
-    "tightmargin"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 85,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "dreams_live2@290x350": {
-   "score": 99.1,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 97.8,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "dreams_live2@600x1100": {
-   "score": 94.9,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 97.3,
-    "dropped": 89.2,
-    "fill": 98.7
-   }
-  },
-  "dreams_live2@895x80": {
-   "score": 81.1,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 64.9,
-    "fill": 71.1
-   }
-  },
-  "dreams_live4@1200x200": {
-   "score": 85.5,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": 75.1,
-    "sharpness": 95,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 50
-   }
-  },
-  "dreams_live4@1200x60": {
-   "score": 83.3,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 64.8,
-    "fill": 80
-   }
-  },
-  "dreams_live4@120x500": {
-   "score": 76.4,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 94.7,
-    "dropped": 64.8,
-    "fill": 61.3
-   }
-  },
-  "dreams_live4@300x600": {
-   "score": 88.4,
-   "flags": [],
-   "sub": {
-    "legibility": 63.6,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 91.7,
-    "fill": 94.4
-   }
-  },
-  "dreams_live4@160x600": {
-   "score": 75.5,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 94.1,
-    "dropped": 64.8,
-    "fill": 58.7
-   }
-  },
-  "dreams_live4@728x90": {
-   "score": 78.7,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99,
-    "dropped": 56.5,
-    "fill": 74.4
-   }
-  },
-  "dreams_live4@300x250": {
-   "score": 93.8,
-   "flags": [
-    "tightmargin"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 85,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "dreams_live4@320x70": {
-   "score": 77,
-   "flags": [
-    "dropped"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 96.2,
-    "dropped": 48.2,
-    "fill": 83.4
-   }
-  },
-  "dreams_live4@800x600": {
-   "score": 93.8,
-   "flags": [
-    "tightmargin"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 85,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "dreams_live4@290x350": {
-   "score": 79.5,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": 47.8,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 50
-   }
-  },
-  "dreams_live4@600x1100": {
-   "score": 97.2,
-   "flags": [],
-   "sub": {
-    "legibility": 100,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 91.7,
-    "fill": 92.4
-   }
-  },
-  "dreams_live4@895x80": {
-   "score": 84.3,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 64.8,
-    "fill": 84.2
-   }
-  },
-  "dreams_live6@1200x200": {
-   "score": 75.4,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": 62.4,
-    "sharpness": 50.1,
-    "layout": 99,
-    "dropped": 100,
-    "fill": 50
-   }
-  },
-  "dreams_live6@1200x60": {
-   "score": 84.3,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99.5,
-    "dropped": 67.7,
-    "fill": 81.3
-   }
-  },
-  "dreams_live6@120x500": {
-   "score": 85.2,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 96.6,
-    "dropped": 87.7,
-    "fill": 63
-   }
-  },
-  "dreams_live6@300x600": {
-   "score": 95.3,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 98.6,
-    "dropped": 87.7,
-    "fill": 100
-   }
-  },
-  "dreams_live6@160x600": {
-   "score": 85.3,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 95,
-    "dropped": 87.7,
-    "fill": 65.8
-   }
-  },
-  "dreams_live6@728x90": {
-   "score": 85.7,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99,
-    "dropped": 67.7,
-    "fill": 87.4
-   }
-  },
-  "dreams_live6@300x250": {
-   "score": 83.4,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 87.7,
-    "fill": 50
-   }
-  },
-  "dreams_live6@320x70": {
-   "score": 91.8,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 75.4,
-    "fill": 100
-   }
-  },
-  "dreams_live6@800x600": {
-   "score": 93.8,
-   "flags": [
-    "tightmargin"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 85,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "dreams_live6@290x350": {
-   "score": 92,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 95.6,
-    "dropped": 87.7,
-    "fill": 91.8
-   }
-  },
-  "dreams_live6@600x1100": {
-   "score": 95.3,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99.5,
-    "dropped": 87.7,
-    "fill": 98.5
-   }
-  },
-  "dreams_live6@895x80": {
-   "score": 85.9,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99.4,
-    "dropped": 67.7,
-    "fill": 87.5
-   }
-  },
-  "dreams_live8@1200x200": {
-   "score": 81.3,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": 52.5,
-    "sharpness": 93.2,
-    "layout": 99.2,
-    "dropped": 100,
-    "fill": 62.5
-   }
-  },
-  "dreams_live8@1200x60": {
-   "score": 88.2,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99.4,
-    "dropped": 67.5,
-    "fill": 97
-   }
-  },
-  "dreams_live8@120x500": {
-   "score": 79.6,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 97.1,
-    "dropped": 80,
-    "fill": 50
-   }
-  },
-  "dreams_live8@300x600": {
-   "score": 92.8,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 98.7,
-    "dropped": 80,
-    "fill": 100
-   }
-  },
-  "dreams_live8@160x600": {
-   "score": 79,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 95.5,
-    "dropped": 80,
-    "fill": 50
-   }
-  },
-  "dreams_live8@728x90": {
-   "score": 85.4,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99,
-    "dropped": 67.5,
-    "fill": 86.5
-   }
-  },
-  "dreams_live8@300x250": {
-   "score": 80.8,
-   "flags": [
-    "blotchy"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 80,
-    "fill": 50
-   }
-  },
-  "dreams_live8@320x70": {
-   "score": 86.2,
-   "flags": [
-    "dropped"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 100,
-    "dropped": 60,
-    "fill": 98.2
-   }
-  },
-  "dreams_live8@800x600": {
-   "score": 93.8,
-   "flags": [
-    "tightmargin"
-   ],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 85,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "dreams_live8@290x350": {
-   "score": 87,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 93.4,
-    "dropped": 80,
-    "fill": 85.8
-   }
-  },
-  "dreams_live8@600x1100": {
-   "score": 91,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 98.4,
-    "dropped": 80,
-    "fill": 93.2
-   }
-  },
-  "dreams_live8@895x80": {
-   "score": 86.9,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 99.4,
-    "dropped": 67.5,
-    "fill": 92
-   }
-  },
-  "hora@1200x200": {
-   "score": 96.5,
-   "flags": [
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 86.1,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "hora@1200x60": {
-   "score": 92,
-   "flags": [
-    "lowcontrast",
-    "sparse"
-   ],
-   "sub": {
-    "legibility": 82,
-    "sharpness": 100,
-    "layout": 92.6,
-    "dropped": 91.9,
-    "fill": 100
-   }
-  },
-  "hora@120x500": {
-   "score": 95.7,
-   "flags": [],
-   "sub": {
-    "legibility": 87.5,
-    "sharpness": 100,
-    "layout": 98,
-    "dropped": 96.8,
-    "fill": 100
-   }
-  },
-  "hora@300x600": {
-   "score": 97.5,
-   "flags": [
-    "blurry",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 95.6,
-    "sharpness": 90.9,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "hora@160x600": {
-   "score": 96,
-   "flags": [
-    "blurry",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 90.3,
-    "sharpness": 90.9,
-    "layout": 98.9,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "hora@728x90": {
-   "score": 95.2,
-   "flags": [
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 80.7,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "hora@300x250": {
-   "score": 89.4,
-   "flags": [
-    "blurry",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 78.4,
-    "sharpness": 68.2,
-    "layout": 98.4,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "hora@320x70": {
-   "score": 86.2,
-   "flags": [
-    "blurry",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 68.3,
-    "sharpness": 65,
-    "layout": 100,
-    "dropped": 96.8,
-    "fill": 100
-   }
-  },
-  "hora@800x600": {
-   "score": 92.9,
-   "flags": [
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 86.1,
-    "sharpness": 80.5,
-    "layout": 97.1,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "hora@290x350": {
-   "score": 89.5,
-   "flags": [
-    "blurry",
-    "lowcontrast",
-    "tiled"
-   ],
-   "sub": {
-    "legibility": 93.3,
-    "sharpness": 90.9,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 50
-   }
-  },
-  "hora@600x1100": {
-   "score": 97.6,
-   "flags": [
-    "blurry",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 95.9,
-    "sharpness": 90.9,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "hora@895x80": {
-   "score": 94.8,
-   "flags": [
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 81.6,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 96.8,
-    "fill": 100
-   }
-  },
-  "hora@360x125": {
-   "score": 94.7,
-   "flags": [
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 81.5,
-    "sharpness": 100,
-    "layout": 100,
-    "dropped": 96.8,
-    "fill": 100
    }
   },
   "primor1@1200x200": {
@@ -5337,6 +2731,2785 @@
     "layout": 99.2,
     "dropped": 100,
     "fill": 78
+   }
+  },
+  "dreams@1200x200": {
+   "score": 73.9,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": 53.7,
+    "sharpness": 50.9,
+    "layout": 98.3,
+    "dropped": 100,
+    "fill": 55
+   }
+  },
+  "dreams@1200x60": {
+   "score": 88.2,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99.7,
+    "dropped": 67.3,
+    "fill": 97
+   }
+  },
+  "dreams@120x500": {
+   "score": 85.2,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 97.2,
+    "dropped": 88.1,
+    "fill": 61.5
+   }
+  },
+  "dreams@300x600": {
+   "score": 95.4,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99.3,
+    "dropped": 88.1,
+    "fill": 98.6
+   }
+  },
+  "dreams@160x600": {
+   "score": 86.5,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 95.1,
+    "dropped": 88.1,
+    "fill": 70.1
+   }
+  },
+  "dreams@728x90": {
+   "score": 84.1,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 96.9,
+    "dropped": 67.3,
+    "fill": 85.1
+   }
+  },
+  "dreams@300x250": {
+   "score": 83.5,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 88.1,
+    "fill": 50
+   }
+  },
+  "dreams@320x70": {
+   "score": 83.6,
+   "flags": [
+    "dropped"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 96.3,
+    "dropped": 55.4,
+    "fill": 100
+   }
+  },
+  "dreams@800x600": {
+   "score": 94.9,
+   "flags": [
+    "lowcontrast",
+    "ragged",
+    "tightmargin"
+   ],
+   "sub": {
+    "legibility": 84.5,
+    "sharpness": 98.6,
+    "layout": 95.9,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "dreams@290x350": {
+   "score": 93.7,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99.9,
+    "dropped": 88.1,
+    "fill": 90.9
+   }
+  },
+  "dreams@600x1100": {
+   "score": 94.1,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 88.1,
+    "fill": 92.4
+   }
+  },
+  "dreams@895x80": {
+   "score": 85.8,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 97.3,
+    "dropped": 67.3,
+    "fill": 91.3
+   }
+  },
+  "dreams_live10@1200x200": {
+   "score": 76.6,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": 60.3,
+    "sharpness": 52.7,
+    "layout": 99,
+    "dropped": 100,
+    "fill": 58.8
+   }
+  },
+  "dreams_live10@1200x60": {
+   "score": 88.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 81.8,
+    "fill": 77.3
+   }
+  },
+  "dreams_live10@120x500": {
+   "score": 85.2,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 94.6,
+    "dropped": 93.2,
+    "fill": 58.9
+   }
+  },
+  "dreams_live10@300x600": {
+   "score": 94.1,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 98.6,
+    "dropped": 84.1,
+    "fill": 100
+   }
+  },
+  "dreams_live10@160x600": {
+   "score": 86.1,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 94.9,
+    "dropped": 93.2,
+    "fill": 61.9
+   }
+  },
+  "dreams_live10@728x90": {
+   "score": 84.5,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99,
+    "dropped": 72.7,
+    "fill": 76
+   }
+  },
+  "dreams_live10@300x250": {
+   "score": 84.8,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 98.9,
+    "dropped": 93.2,
+    "fill": 50
+   }
+  },
+  "dreams_live10@320x70": {
+   "score": 88.8,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 97.4,
+    "dropped": 75,
+    "fill": 93
+   }
+  },
+  "dreams_live10@800x600": {
+   "score": 93.8,
+   "flags": [
+    "tightmargin"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 85,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "dreams_live10@290x350": {
+   "score": 85.2,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 93.2,
+    "fill": 50
+   }
+  },
+  "dreams_live10@600x1100": {
+   "score": 94.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99.4,
+    "dropped": 84.1,
+    "fill": 99.3
+   }
+  },
+  "dreams_live10@895x80": {
+   "score": 91.6,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 81.8,
+    "fill": 90.6
+   }
+  },
+  "dreams_live2@1200x200": {
+   "score": 87.1,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99.1,
+    "dropped": 100,
+    "fill": 50
+   }
+  },
+  "dreams_live2@1200x60": {
+   "score": 83.5,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 75.7,
+    "fill": 66.6
+   }
+  },
+  "dreams_live2@120x500": {
+   "score": 84.9,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 93.9,
+    "dropped": 100,
+    "fill": 50
+   }
+  },
+  "dreams_live2@300x600": {
+   "score": 90.4,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 95.8,
+    "dropped": 89.2,
+    "fill": 83.1
+   }
+  },
+  "dreams_live2@160x600": {
+   "score": 85.7,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 95.6,
+    "dropped": 100,
+    "fill": 50
+   }
+  },
+  "dreams_live2@728x90": {
+   "score": 81.3,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 64.9,
+    "fill": 71.9
+   }
+  },
+  "dreams_live2@300x250": {
+   "score": 93.8,
+   "flags": [
+    "tightmargin"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 85,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "dreams_live2@320x70": {
+   "score": 97.5,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 97.6,
+    "dropped": 100,
+    "fill": 94
+   }
+  },
+  "dreams_live2@800x600": {
+   "score": 93.8,
+   "flags": [
+    "tightmargin"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 85,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "dreams_live2@290x350": {
+   "score": 99.1,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 97.8,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "dreams_live2@600x1100": {
+   "score": 94.9,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 97.3,
+    "dropped": 89.2,
+    "fill": 98.7
+   }
+  },
+  "dreams_live2@895x80": {
+   "score": 81.1,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 64.9,
+    "fill": 71.1
+   }
+  },
+  "dreams_live4@1200x200": {
+   "score": 85.5,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": 75.1,
+    "sharpness": 95,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 50
+   }
+  },
+  "dreams_live4@1200x60": {
+   "score": 83.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 64.8,
+    "fill": 80
+   }
+  },
+  "dreams_live4@120x500": {
+   "score": 76.4,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 94.7,
+    "dropped": 64.8,
+    "fill": 61.3
+   }
+  },
+  "dreams_live4@300x600": {
+   "score": 88.4,
+   "flags": [],
+   "sub": {
+    "legibility": 63.6,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 91.7,
+    "fill": 94.4
+   }
+  },
+  "dreams_live4@160x600": {
+   "score": 75.5,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 94.1,
+    "dropped": 64.8,
+    "fill": 58.7
+   }
+  },
+  "dreams_live4@728x90": {
+   "score": 78.7,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99,
+    "dropped": 56.5,
+    "fill": 74.4
+   }
+  },
+  "dreams_live4@300x250": {
+   "score": 93.8,
+   "flags": [
+    "tightmargin"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 85,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "dreams_live4@320x70": {
+   "score": 77,
+   "flags": [
+    "dropped"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 96.2,
+    "dropped": 48.2,
+    "fill": 83.4
+   }
+  },
+  "dreams_live4@800x600": {
+   "score": 93.8,
+   "flags": [
+    "tightmargin"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 85,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "dreams_live4@290x350": {
+   "score": 79.5,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": 47.8,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 50
+   }
+  },
+  "dreams_live4@600x1100": {
+   "score": 97.2,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 91.7,
+    "fill": 92.4
+   }
+  },
+  "dreams_live4@895x80": {
+   "score": 84.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 64.8,
+    "fill": 84.2
+   }
+  },
+  "dreams_live6@1200x200": {
+   "score": 75.4,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": 62.4,
+    "sharpness": 50.1,
+    "layout": 99,
+    "dropped": 100,
+    "fill": 50
+   }
+  },
+  "dreams_live6@1200x60": {
+   "score": 84.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99.5,
+    "dropped": 67.7,
+    "fill": 81.3
+   }
+  },
+  "dreams_live6@120x500": {
+   "score": 85.2,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 96.6,
+    "dropped": 87.7,
+    "fill": 63
+   }
+  },
+  "dreams_live6@300x600": {
+   "score": 95.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 98.6,
+    "dropped": 87.7,
+    "fill": 100
+   }
+  },
+  "dreams_live6@160x600": {
+   "score": 85.3,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 95,
+    "dropped": 87.7,
+    "fill": 65.8
+   }
+  },
+  "dreams_live6@728x90": {
+   "score": 85.7,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99,
+    "dropped": 67.7,
+    "fill": 87.4
+   }
+  },
+  "dreams_live6@300x250": {
+   "score": 83.4,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 87.7,
+    "fill": 50
+   }
+  },
+  "dreams_live6@320x70": {
+   "score": 91.8,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 75.4,
+    "fill": 100
+   }
+  },
+  "dreams_live6@800x600": {
+   "score": 93.8,
+   "flags": [
+    "tightmargin"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 85,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "dreams_live6@290x350": {
+   "score": 92,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 95.6,
+    "dropped": 87.7,
+    "fill": 91.8
+   }
+  },
+  "dreams_live6@600x1100": {
+   "score": 95.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99.5,
+    "dropped": 87.7,
+    "fill": 98.5
+   }
+  },
+  "dreams_live6@895x80": {
+   "score": 85.9,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99.4,
+    "dropped": 67.7,
+    "fill": 87.5
+   }
+  },
+  "dreams_live8@1200x200": {
+   "score": 81.3,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": 52.5,
+    "sharpness": 93.2,
+    "layout": 99.2,
+    "dropped": 100,
+    "fill": 62.5
+   }
+  },
+  "dreams_live8@1200x60": {
+   "score": 88.2,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99.4,
+    "dropped": 67.5,
+    "fill": 97
+   }
+  },
+  "dreams_live8@120x500": {
+   "score": 79.6,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 97.1,
+    "dropped": 80,
+    "fill": 50
+   }
+  },
+  "dreams_live8@300x600": {
+   "score": 92.8,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 98.7,
+    "dropped": 80,
+    "fill": 100
+   }
+  },
+  "dreams_live8@160x600": {
+   "score": 79,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 95.5,
+    "dropped": 80,
+    "fill": 50
+   }
+  },
+  "dreams_live8@728x90": {
+   "score": 85.4,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99,
+    "dropped": 67.5,
+    "fill": 86.5
+   }
+  },
+  "dreams_live8@300x250": {
+   "score": 80.8,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 80,
+    "fill": 50
+   }
+  },
+  "dreams_live8@320x70": {
+   "score": 86.2,
+   "flags": [
+    "dropped"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 60,
+    "fill": 98.2
+   }
+  },
+  "dreams_live8@800x600": {
+   "score": 93.8,
+   "flags": [
+    "tightmargin"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 85,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "dreams_live8@290x350": {
+   "score": 87,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 93.4,
+    "dropped": 80,
+    "fill": 85.8
+   }
+  },
+  "dreams_live8@600x1100": {
+   "score": 91,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 98.4,
+    "dropped": 80,
+    "fill": 93.2
+   }
+  },
+  "dreams_live8@895x80": {
+   "score": 86.9,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 99.4,
+    "dropped": 67.5,
+    "fill": 92
+   }
+  },
+  "hora@1200x200": {
+   "score": 96.5,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 86.1,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "hora@1200x60": {
+   "score": 92,
+   "flags": [
+    "lowcontrast",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 82,
+    "sharpness": 100,
+    "layout": 92.6,
+    "dropped": 91.9,
+    "fill": 100
+   }
+  },
+  "hora@120x500": {
+   "score": 95.7,
+   "flags": [],
+   "sub": {
+    "legibility": 87.5,
+    "sharpness": 100,
+    "layout": 98,
+    "dropped": 96.8,
+    "fill": 100
+   }
+  },
+  "hora@300x600": {
+   "score": 97.5,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 95.6,
+    "sharpness": 90.9,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "hora@160x600": {
+   "score": 96,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 90.3,
+    "sharpness": 90.9,
+    "layout": 98.9,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "hora@728x90": {
+   "score": 95.2,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 80.7,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "hora@300x250": {
+   "score": 89.4,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 78.4,
+    "sharpness": 68.2,
+    "layout": 98.4,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "hora@320x70": {
+   "score": 86.2,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 68.3,
+    "sharpness": 65,
+    "layout": 100,
+    "dropped": 96.8,
+    "fill": 100
+   }
+  },
+  "hora@800x600": {
+   "score": 92.9,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 86.1,
+    "sharpness": 80.5,
+    "layout": 97.1,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "hora@290x350": {
+   "score": 89.5,
+   "flags": [
+    "blurry",
+    "lowcontrast",
+    "tiled"
+   ],
+   "sub": {
+    "legibility": 93.3,
+    "sharpness": 90.9,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 50
+   }
+  },
+  "hora@600x1100": {
+   "score": 97.6,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 95.9,
+    "sharpness": 90.9,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "hora@895x80": {
+   "score": 94.8,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 81.6,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 96.8,
+    "fill": 100
+   }
+  },
+  "hora@360x125": {
+   "score": 94.7,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 81.5,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 96.8,
+    "fill": 100
+   }
+  },
+  "outlet2@1200x200": {
+   "score": 93.5,
+   "flags": [
+    "lowcontrast",
+    "tightmargin"
+   ],
+   "sub": {
+    "legibility": 88.8,
+    "sharpness": 100,
+    "layout": 85,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "outlet2@1200x60": {
+   "score": 93.2,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 86.8,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 82.3,
+    "fill": 100
+   }
+  },
+  "outlet2@120x500": {
+   "score": 85.1,
+   "flags": [
+    "lowcontrast",
+    "tightmargin",
+    "tinytext",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 63.6,
+    "sharpness": 100,
+    "layout": 77,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "outlet2@300x600": {
+   "score": 83.8,
+   "flags": [
+    "lowcontrast",
+    "tightmargin",
+    "tiled",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 88.4,
+    "sharpness": 100,
+    "layout": 77,
+    "dropped": 100,
+    "fill": 50
+   }
+  },
+  "outlet2@160x600": {
+   "score": 88,
+   "flags": [
+    "lowcontrast",
+    "tightmargin",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 74.9,
+    "sharpness": 100,
+    "layout": 77,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "outlet2@728x90": {
+   "score": 91.8,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 86.8,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 75.5,
+    "fill": 100
+   }
+  },
+  "outlet2@300x250": {
+   "score": 80.4,
+   "flags": [
+    "lowcontrast",
+    "tightmargin",
+    "tiled",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 74.7,
+    "sharpness": 100,
+    "layout": 77,
+    "dropped": 100,
+    "fill": 50
+   }
+  },
+  "outlet2@320x70": {
+   "score": 87.5,
+   "flags": [
+    "dropped"
+   ],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 37.7,
+    "fill": 100
+   }
+  },
+  "outlet2@800x600": {
+   "score": 91.5,
+   "flags": [
+    "lowcontrast",
+    "tightmargin",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 88.8,
+    "sharpness": 100,
+    "layout": 77,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "outlet2@290x350": {
+   "score": 93.2,
+   "flags": [
+    "lowcontrast",
+    "tightmargin"
+   ],
+   "sub": {
+    "legibility": 87.8,
+    "sharpness": 100,
+    "layout": 85,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "outlet2@600x1100": {
+   "score": 91.5,
+   "flags": [
+    "lowcontrast",
+    "tightmargin",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 88.8,
+    "sharpness": 100,
+    "layout": 77,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "outlet2@895x80": {
+   "score": 91.8,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 86.8,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 75.5,
+    "fill": 100
+   }
+  },
+  "shaker1@1200x200": {
+   "score": 90.6,
+   "flags": [
+    "blotchy",
+    "smeared"
+   ],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 98.8,
+    "fill": 39.1
+   }
+  },
+  "shaker1@1200x60": {
+   "score": 75.3,
+   "flags": [
+    "smeared",
+    "tiled"
+   ],
+   "sub": {
+    "legibility": 54.7,
+    "sharpness": 100,
+    "layout": 95.7,
+    "dropped": 98.8,
+    "fill": 20
+   }
+  },
+  "shaker1@120x500": {
+   "score": 62.3,
+   "flags": [
+    "dropped",
+    "smeared",
+    "sparse",
+    "tinytext",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 49.8,
+    "sharpness": null,
+    "layout": 75.7,
+    "dropped": 61.7,
+    "fill": 61.3
+   }
+  },
+  "shaker1@300x600": {
+   "score": 90.6,
+   "flags": [
+    "unbalanced"
+   ],
+   "sub": {
+    "legibility": 97.6,
+    "sharpness": 100,
+    "layout": 89,
+    "dropped": 98.8,
+    "fill": 61.5
+   }
+  },
+  "shaker1@160x600": {
+   "score": 84.7,
+   "flags": [
+    "blotchy",
+    "sparse",
+    "unbalanced"
+   ],
+   "sub": {
+    "legibility": 91.8,
+    "sharpness": 100,
+    "layout": 83.9,
+    "dropped": 98.8,
+    "fill": 40.5
+   }
+  },
+  "shaker1@728x90": {
+   "score": 86.6,
+   "flags": [
+    "blotchy",
+    "smeared"
+   ],
+   "sub": {
+    "legibility": 95.2,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 98.8,
+    "fill": 20
+   }
+  },
+  "shaker1@300x250": {
+   "score": 89.6,
+   "flags": [
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 90.8,
+    "sharpness": 100,
+    "layout": 90.5,
+    "dropped": 98.8,
+    "fill": 63.5
+   }
+  },
+  "shaker1@320x70": {
+   "score": 91.5,
+   "flags": [],
+   "sub": {
+    "legibility": 90.8,
+    "sharpness": 100,
+    "layout": 99,
+    "dropped": 98.8,
+    "fill": 61.8
+   }
+  },
+  "shaker1@800x600": {
+   "score": 85.7,
+   "flags": [
+    "blotchy",
+    "smeared",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 89.1,
+    "dropped": 98.8,
+    "fill": 24.7
+   }
+  },
+  "shaker1@290x350": {
+   "score": 85.9,
+   "flags": [
+    "blotchy",
+    "smeared",
+    "unbalanced"
+   ],
+   "sub": {
+    "legibility": 93.3,
+    "sharpness": 100,
+    "layout": 88,
+    "dropped": 98.8,
+    "fill": 38.4
+   }
+  },
+  "shaker1@600x1100": {
+   "score": 87.8,
+   "flags": [
+    "blotchy",
+    "smeared",
+    "unbalanced"
+   ],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 91.3,
+    "dropped": 98.8,
+    "fill": 34.6
+   }
+  },
+  "shaker1@895x80": {
+   "score": 92.6,
+   "flags": [
+    "smeared"
+   ],
+   "sub": {
+    "legibility": 94,
+    "sharpness": 100,
+    "layout": 98.6,
+    "dropped": 98.8,
+    "fill": 65
+   }
+  },
+  "tzfat@1200x200": {
+   "score": 89.6,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 84.3,
+    "sharpness": 74.8,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 81.7
+   }
+  },
+  "tzfat@1200x60": {
+   "score": 80.6,
+   "flags": [
+    "smeared"
+   ],
+   "sub": {
+    "legibility": 69.8,
+    "sharpness": 60.8,
+    "layout": 100,
+    "dropped": 92.9,
+    "fill": 70
+   }
+  },
+  "tzfat@120x500": {
+   "score": 95.3,
+   "flags": [],
+   "sub": {
+    "legibility": 84,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 96.4,
+    "fill": 100
+   }
+  },
+  "tzfat@300x600": {
+   "score": 99.3,
+   "flags": [],
+   "sub": {
+    "legibility": 97.8,
+    "sharpness": 98.9,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tzfat@160x600": {
+   "score": 97.3,
+   "flags": [],
+   "sub": {
+    "legibility": 89.2,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tzfat@728x90": {
+   "score": 88.6,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 81.2,
+    "sharpness": 74.4,
+    "layout": 100,
+    "dropped": 85.7,
+    "fill": 100
+   }
+  },
+  "tzfat@300x250": {
+   "score": 93.7,
+   "flags": [],
+   "sub": {
+    "legibility": 77.8,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 96.4,
+    "fill": 100
+   }
+  },
+  "tzfat@320x70": {
+   "score": 76.4,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 74.9,
+    "sharpness": 46.2,
+    "layout": 100,
+    "dropped": 53.6,
+    "fill": 100
+   }
+  },
+  "tzfat@800x600": {
+   "score": 99.4,
+   "flags": [],
+   "sub": {
+    "legibility": 97.6,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tzfat@290x350": {
+   "score": 93.1,
+   "flags": [],
+   "sub": {
+    "legibility": 88.3,
+    "sharpness": 100,
+    "layout": 95.6,
+    "dropped": 85.7,
+    "fill": 100
+   }
+  },
+  "tzfat@600x1100": {
+   "score": 99.8,
+   "flags": [],
+   "sub": {
+    "legibility": 99.1,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tzfat@895x80": {
+   "score": 81.5,
+   "flags": [
+    "smeared"
+   ],
+   "sub": {
+    "legibility": 76.4,
+    "sharpness": 60,
+    "layout": 100,
+    "dropped": 89.3,
+    "fill": 70
+   }
+  },
+  "tzfat@301x601": {
+   "score": 99.3,
+   "flags": [],
+   "sub": {
+    "legibility": 97.8,
+    "sharpness": 99.1,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tzfat@321x71": {
+   "score": 76.7,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 75.1,
+    "sharpness": 48.2,
+    "layout": 100,
+    "dropped": 53.6,
+    "fill": 100
+   }
+  },
+  "tzfat@361x251": {
+   "score": 93.7,
+   "flags": [],
+   "sub": {
+    "legibility": 77.7,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 96.4,
+    "fill": 100
+   }
+  },
+  "verit2@1200x200": {
+   "score": 86.1,
+   "flags": [
+    "dropped",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 84,
+    "sharpness": 100,
+    "layout": 93.8,
+    "dropped": 58.3,
+    "fill": 100
+   }
+  },
+  "verit2@1200x60": {
+   "score": 77,
+   "flags": [
+    "dropped",
+    "lowcontrast",
+    "sparse",
+    "unbalanced"
+   ],
+   "sub": {
+    "legibility": 68.1,
+    "sharpness": 100,
+    "layout": 73.3,
+    "dropped": 58.3,
+    "fill": 100
+   }
+  },
+  "verit2@120x500": {
+   "score": 83,
+   "flags": [
+    "lowcontrast",
+    "sparse",
+    "tinytext"
+   ],
+   "sub": {
+    "legibility": 52.7,
+    "sharpness": null,
+    "layout": 89.4,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "verit2@300x600": {
+   "score": 90.2,
+   "flags": [
+    "lowcontrast",
+    "unbalanced"
+   ],
+   "sub": {
+    "legibility": 74,
+    "sharpness": 100,
+    "layout": 87,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "verit2@160x600": {
+   "score": 84.7,
+   "flags": [
+    "lowcontrast",
+    "sparse",
+    "tinytext"
+   ],
+   "sub": {
+    "legibility": 50.5,
+    "sharpness": 100,
+    "layout": 88.4,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "verit2@728x90": {
+   "score": 83.8,
+   "flags": [
+    "dropped",
+    "lowcontrast",
+    "sparse",
+    "unbalanced"
+   ],
+   "sub": {
+    "legibility": 82.5,
+    "sharpness": 100,
+    "layout": 86.1,
+    "dropped": 58.3,
+    "fill": 100
+   }
+  },
+  "verit2@300x250": {
+   "score": 91.5,
+   "flags": [
+    "lowcontrast",
+    "tiled"
+   ],
+   "sub": {
+    "legibility": 77.2,
+    "sharpness": 100,
+    "layout": 98,
+    "dropped": 100,
+    "fill": 84.9
+   }
+  },
+  "verit2@320x70": {
+   "score": 81.7,
+   "flags": [
+    "dropped",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 65.7,
+    "sharpness": 100,
+    "layout": 94.3,
+    "dropped": 58.3,
+    "fill": 100
+   }
+  },
+  "verit2@800x600": {
+   "score": 88.1,
+   "flags": [
+    "lowcontrast",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 67.7,
+    "sharpness": 100,
+    "layout": 84.9,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "verit2@290x350": {
+   "score": 91,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 78.8,
+    "sharpness": 100,
+    "layout": 93.4,
+    "dropped": 100,
+    "fill": 86.2
+   }
+  },
+  "verit2@600x1100": {
+   "score": 93.7,
+   "flags": [
+    "lowcontrast",
+    "sparse",
+    "unbalanced"
+   ],
+   "sub": {
+    "legibility": 89.4,
+    "sharpness": 100,
+    "layout": 85.4,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "verit2@895x80": {
+   "score": 81.1,
+   "flags": [
+    "dropped",
+    "lowcontrast",
+    "sparse",
+    "unbalanced"
+   ],
+   "sub": {
+    "legibility": 77.7,
+    "sharpness": 100,
+    "layout": 80,
+    "dropped": 58.3,
+    "fill": 100
+   }
+  },
+  "verit4@1200x200": {
+   "score": 90.1,
+   "flags": [
+    "dropped",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 92.6,
+    "sharpness": 100,
+    "layout": 93.3,
+    "dropped": 68.1,
+    "fill": 100
+   }
+  },
+  "verit4@1200x60": {
+   "score": 83.3,
+   "flags": [
+    "dropped",
+    "lowcontrast",
+    "sparse",
+    "unbalanced"
+   ],
+   "sub": {
+    "legibility": 85.3,
+    "sharpness": 100,
+    "layout": 73.3,
+    "dropped": 68.1,
+    "fill": 100
+   }
+  },
+  "verit4@120x500": {
+   "score": 66.4,
+   "flags": [
+    "cta_order",
+    "hierarchy",
+    "logo_dominant",
+    "lowcontrast",
+    "sparse",
+    "tinytext",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 49.3,
+    "sharpness": null,
+    "layout": 36.4,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "verit4@300x600": {
+   "score": 84.7,
+   "flags": [
+    "cta_order",
+    "logo_dominant",
+    "lowcontrast",
+    "unbalanced",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 83.9,
+    "sharpness": 100,
+    "layout": 54.8,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "verit4@160x600": {
+   "score": 70.1,
+   "flags": [
+    "cta_order",
+    "hierarchy",
+    "logo_dominant",
+    "lowcontrast",
+    "sparse",
+    "tinytext",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 48.7,
+    "sharpness": 94.1,
+    "layout": 35.4,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "verit4@728x90": {
+   "score": 88,
+   "flags": [
+    "dropped",
+    "lowcontrast",
+    "sparse",
+    "unbalanced"
+   ],
+   "sub": {
+    "legibility": 91.9,
+    "sharpness": 100,
+    "layout": 85.5,
+    "dropped": 68.1,
+    "fill": 100
+   }
+  },
+  "verit4@300x250": {
+   "score": 92.1,
+   "flags": [
+    "cta_order",
+    "lowcontrast",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 87.2,
+    "sharpness": 100,
+    "layout": 81,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "verit4@320x70": {
+   "score": 84.9,
+   "flags": [
+    "dropped",
+    "logo_dominant",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 84.2,
+    "sharpness": 100,
+    "layout": 81.2,
+    "dropped": 68.1,
+    "fill": 100
+   }
+  },
+  "verit4@800x600": {
+   "score": 76.6,
+   "flags": [
+    "cta_order",
+    "hierarchy",
+    "logo_dominant",
+    "lowcontrast",
+    "sparse",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 74.5,
+    "sharpness": 100,
+    "layout": 31.8,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "verit4@290x350": {
+   "score": 91.4,
+   "flags": [
+    "cta_order",
+    "lowcontrast",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 88.1,
+    "sharpness": 100,
+    "layout": 77.4,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "verit4@600x1100": {
+   "score": 87.3,
+   "flags": [
+    "cta_order",
+    "logo_dominant",
+    "lowcontrast",
+    "sparse",
+    "unbalanced",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 94,
+    "sharpness": 100,
+    "layout": 55.3,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "verit4@895x80": {
+   "score": 85.9,
+   "flags": [
+    "dropped",
+    "lowcontrast",
+    "sparse",
+    "unbalanced"
+   ],
+   "sub": {
+    "legibility": 89.7,
+    "sharpness": 100,
+    "layout": 79.6,
+    "dropped": 68.1,
+    "fill": 100
+   }
+  },
+  "leader_107@1200x200": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "leader_107@120x500": {
+   "score": 98.7,
+   "flags": [],
+   "sub": {
+    "legibility": 95.4,
+    "sharpness": 100,
+    "layout": 99.6,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "leader_107@300x600": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "leader_107@728x90": {
+   "score": 99.9,
+   "flags": [],
+   "sub": {
+    "legibility": 99.7,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "leader_107@300x250": {
+   "score": 99.7,
+   "flags": [],
+   "sub": {
+    "legibility": 98.7,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "leader_107@320x70": {
+   "score": 98.6,
+   "flags": [],
+   "sub": {
+    "legibility": 94.4,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "leader_123@1200x200": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "leader_123@120x500": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "leader_123@300x600": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "leader_123@728x90": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "leader_123@300x250": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "leader_123@320x70": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "promo_badge_110@1200x200": {
+   "score": 85.3,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 78.5,
+    "sharpness": 38,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "promo_badge_110@120x500": {
+   "score": 79.5,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 78,
+    "sharpness": 0.1,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "promo_badge_110@300x600": {
+   "score": 87.7,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 78.1,
+    "sharpness": 54.8,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "promo_badge_110@728x90": {
+   "score": 83,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 75.8,
+    "sharpness": 27.1,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "promo_badge_110@300x250": {
+   "score": 83.1,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 77.7,
+    "sharpness": 24.8,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "promo_badge_110@320x70": {
+   "score": 79.7,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 76.4,
+    "sharpness": 4.1,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "row_photos_104@1200x200": {
+   "score": 98.8,
+   "flags": [],
+   "sub": {
+    "legibility": 95.1,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "row_photos_104@120x500": {
+   "score": 88,
+   "flags": [
+    "dropped",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 100,
+    "sharpness": null,
+    "layout": 90.3,
+    "dropped": 61.2,
+    "fill": 100
+   }
+  },
+  "row_photos_104@300x600": {
+   "score": 89.2,
+   "flags": [
+    "dropped"
+   ],
+   "sub": {
+    "legibility": 100,
+    "sharpness": null,
+    "layout": 95.1,
+    "dropped": 61.2,
+    "fill": 98.8
+   }
+  },
+  "row_photos_104@728x90": {
+   "score": 93.7,
+   "flags": [],
+   "sub": {
+    "legibility": 91.3,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 79.6,
+    "fill": 100
+   }
+  },
+  "row_photos_104@300x250": {
+   "score": 90.9,
+   "flags": [
+    "dropped"
+   ],
+   "sub": {
+    "legibility": 100,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 61.2,
+    "fill": 100
+   }
+  },
+  "row_photos_104@320x70": {
+   "score": 90.9,
+   "flags": [
+    "dropped"
+   ],
+   "sub": {
+    "legibility": 100,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 61.2,
+    "fill": 100
+   }
+  },
+  "row_photos_120@1200x200": {
+   "score": 95.4,
+   "flags": [],
+   "sub": {
+    "legibility": 81.6,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "row_photos_120@120x500": {
+   "score": 85.6,
+   "flags": [
+    "dropped"
+   ],
+   "sub": {
+    "legibility": 84.3,
+    "sharpness": null,
+    "layout": 97.6,
+    "dropped": 61.2,
+    "fill": 100
+   }
+  },
+  "row_photos_120@300x600": {
+   "score": 90.4,
+   "flags": [],
+   "sub": {
+    "legibility": 77.8,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 79.6,
+    "fill": 100
+   }
+  },
+  "row_photos_120@728x90": {
+   "score": 88.9,
+   "flags": [],
+   "sub": {
+    "legibility": 71.9,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 79.6,
+    "fill": 100
+   }
+  },
+  "row_photos_120@300x250": {
+   "score": 91.1,
+   "flags": [],
+   "sub": {
+    "legibility": 77.9,
+    "sharpness": 100,
+    "layout": 99.7,
+    "dropped": 83.7,
+    "fill": 100
+   }
+  },
+  "row_photos_120@320x70": {
+   "score": 87.1,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 64.8,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 79.6,
+    "fill": 100
+   }
+  },
+  "split_photo_113@1200x200": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "split_photo_113@120x500": {
+   "score": 96.6,
+   "flags": [],
+   "sub": {
+    "legibility": 91.1,
+    "sharpness": 100,
+    "layout": 95.4,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "split_photo_113@300x600": {
+   "score": 98,
+   "flags": [],
+   "sub": {
+    "legibility": 98.7,
+    "sharpness": 100,
+    "layout": 96.5,
+    "dropped": 100,
+    "fill": 94.6
+   }
+  },
+  "split_photo_113@728x90": {
+   "score": 99.3,
+   "flags": [],
+   "sub": {
+    "legibility": 97.4,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "split_photo_113@300x250": {
+   "score": 92.6,
+   "flags": [
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 85,
+    "sharpness": 100,
+    "layout": 85.4,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "split_photo_113@320x70": {
+   "score": 93.3,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": 92.3,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 68.4
+   }
+  },
+  "square_logo_103@1200x200": {
+   "score": 99.1,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": null,
+    "layout": 97,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "square_logo_103@120x500": {
+   "score": 99.9,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": null,
+    "layout": 99.7,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "square_logo_103@300x600": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "square_logo_103@728x90": {
+   "score": 98.7,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 94.9,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "square_logo_103@300x250": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "square_logo_103@320x70": {
+   "score": 98,
+   "flags": [],
+   "sub": {
+    "legibility": 92,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "square_logo_119@1200x200": {
+   "score": 96.2,
+   "flags": [],
+   "sub": {
+    "legibility": 90,
+    "sharpness": 100,
+    "layout": 94.9,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "square_logo_119@120x500": {
+   "score": 98.3,
+   "flags": [],
+   "sub": {
+    "legibility": 95.7,
+    "sharpness": null,
+    "layout": 98.4,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "square_logo_119@300x600": {
+   "score": 98.6,
+   "flags": [],
+   "sub": {
+    "legibility": 95.4,
+    "sharpness": null,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "square_logo_119@728x90": {
+   "score": 95.6,
+   "flags": [],
+   "sub": {
+    "legibility": 87.6,
+    "sharpness": 100,
+    "layout": 94.9,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "square_logo_119@300x250": {
+   "score": 99.1,
+   "flags": [],
+   "sub": {
+    "legibility": 96.5,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "square_logo_119@320x70": {
+   "score": 93.2,
+   "flags": [],
+   "sub": {
+    "legibility": 80,
+    "sharpness": null,
+    "layout": 97,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_gallery_109@1200x200": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 99.9,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_gallery_109@120x500": {
+   "score": 94.4,
+   "flags": [],
+   "sub": {
+    "legibility": 87.1,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 88.2,
+    "fill": 100
+   }
+  },
+  "tall_gallery_109@300x600": {
+   "score": 97.3,
+   "flags": [],
+   "sub": {
+    "legibility": 89,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_gallery_109@728x90": {
+   "score": 96.3,
+   "flags": [],
+   "sub": {
+    "legibility": 85.1,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_gallery_109@300x250": {
+   "score": 94.4,
+   "flags": [],
+   "sub": {
+    "legibility": 87.1,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 88.2,
+    "fill": 100
+   }
+  },
+  "tall_gallery_109@320x70": {
+   "score": 89.4,
+   "flags": [],
+   "sub": {
+    "legibility": 95.1,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 52.9,
+    "fill": 100
+   }
+  },
+  "tall_text_106@1200x200": {
+   "score": 97.3,
+   "flags": [
+    "hierarchy"
+   ],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 89.4,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_text_106@120x500": {
+   "score": 98.9,
+   "flags": [],
+   "sub": {
+    "legibility": 95.4,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_text_106@300x600": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_text_106@728x90": {
+   "score": 97.3,
+   "flags": [
+    "hierarchy"
+   ],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 89.4,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_text_106@300x250": {
+   "score": 99,
+   "flags": [],
+   "sub": {
+    "legibility": 95.8,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_text_106@320x70": {
+   "score": 98,
+   "flags": [],
+   "sub": {
+    "legibility": 91.8,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_text_122@1200x200": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_text_122@120x500": {
+   "score": 99.2,
+   "flags": [],
+   "sub": {
+    "legibility": 96.8,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_text_122@300x600": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_text_122@728x90": {
+   "score": 99.5,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 97.9,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_text_122@300x250": {
+   "score": 100,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "tall_text_122@320x70": {
+   "score": 97,
+   "flags": [],
+   "sub": {
+    "legibility": 88.1,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "wide_hero_108@1200x200": {
+   "score": 92.7,
+   "flags": [
+    "hierarchy"
+   ],
+   "sub": {
+    "legibility": 84.2,
+    "sharpness": 100,
+    "layout": 86.7,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "wide_hero_108@120x500": {
+   "score": 93,
+   "flags": [],
+   "sub": {
+    "legibility": 76,
+    "sharpness": 100,
+    "layout": 95.8,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "wide_hero_108@300x600": {
+   "score": 93.1,
+   "flags": [],
+   "sub": {
+    "legibility": 80.4,
+    "sharpness": 100,
+    "layout": 95,
+    "dropped": 100,
+    "fill": 95
+   }
+  },
+  "wide_hero_108@728x90": {
+   "score": 92,
+   "flags": [
+    "hierarchy"
+   ],
+   "sub": {
+    "legibility": 82.9,
+    "sharpness": 100,
+    "layout": 86.7,
+    "dropped": 100,
+    "fill": 97.3
+   }
+  },
+  "wide_hero_108@300x250": {
+   "score": 87.8,
+   "flags": [
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 67.3,
+    "sharpness": 100,
+    "layout": 83.9,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "wide_hero_108@320x70": {
+   "score": 88.6,
+   "flags": [
+    "blotchy"
+   ],
+   "sub": {
+    "legibility": 73,
+    "sharpness": 100,
+    "layout": 98.9,
+    "dropped": 100,
+    "fill": 70.9
    }
   }
  }
