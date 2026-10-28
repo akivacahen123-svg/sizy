@@ -1584,6 +1584,21 @@ function buildScene(img, elements, onProgress) {
     if (best[1] - best[0] < 280) return null;
     return { ...e, box: [best[0], b[1] + 12, best[1], b[3]], shape: 'rect' };
   }).filter(Boolean);
+  { // סרט/תגית שיושבים על תמונת מוצר (למשל "עד גמר המלאי" על שולחן): הם חלק מהצילום. אחרת התגית נחתכת בנפרד, התמונה נשארת עם חור והכול נראה שבור. מאחדים לתמונה אחת (המלבן המאחד) ומוותרים על התגית
+    const els0 = (elements || []).filter(e => e && Array.isArray(e.box)), area = b => Math.max(0, b[2] - b[0]) * Math.max(0, b[3] - b[1]), drop = new Set();
+    for (const bd of els0) {
+      if (bd.role !== 'badge' || !(bd.lines && bd.lines.length) || drop.has(bd) || bd.matte) continue;
+      const bb = bd.box.map(Number); if (!(area(bb) > 0) || area(bb) > 0.12 * 1e6) continue;
+      let best = null, bi = 0;
+      for (const ph of els0) {
+        if (ph === bd || ph.role !== 'photo' || (ph.lines && ph.lines.length) || drop.has(ph)) continue;
+        const pb = ph.box.map(Number), iw = Math.min(bb[2], pb[2]) - Math.max(bb[0], pb[0]), ih = Math.min(bb[3], pb[3]) - Math.max(bb[1], pb[1]);
+        if (iw > 0 && ih > 0 && iw * ih / area(bb) > bi) { bi = iw * ih / area(bb); best = ph; }
+      }
+      if (best && bi >= 0.3) { const pb = best.box.map(Number); best.box = [Math.min(pb[0], bb[0]), Math.min(pb[1], bb[1]), Math.max(pb[2], bb[2]), Math.max(pb[3], bb[3])]; drop.add(bd); }
+    }
+    if (drop.size) elements = elements.filter(e => !drop.has(e));
+  }
   { // שורה בגוף הטקסט שחוזרת על כיתוב הכפתור/התווית (ג'מיני סופר אותה פעמיים): מוציאים אותה מהגוף, אחרת השורות לא תואמות לפיקסלים ונוצרות אותיות רפאים
     const norm = t => String(t).replace(/[\s.,!?:;"'״׳־-]/g, ''), lab = new Set();
     for (const e of elements || []) if ((e.role === 'label' || e.role === 'button') && Array.isArray(e.lines)) for (const l of e.lines) if (norm(l).length > 3) lab.add(norm(l));
@@ -2692,9 +2707,131 @@ function cardTemplates(sc, W, H) {
     return pl;
   }
 }
+// ---------------------------------------------------------------- תבנית קטלוג: כמה תמונות מוצר על רקע שטוח דו-צבעי (למשל אדום למעלה, קרם למטה)
+// בלי תמונה ראשית. כל גודל נבנה מחדש כמו מעצב: אזור צבע לטקסט (לוגו+כותרות), אזור צבע שני למוצרים, פס מפריד, כפתור ותג מחיר בשורה תחתונה.
+// עקרונות: הכול נחתך מפיקסלי המקור; שומרים על יחסי הגדלים של המקור; לא מגדילים הרבה מעבר לפיקסלי המקור (מפוקסל); מוצרים נארזים בשורות לפי סדר הקריאה המקורי (ימין לשמאל).
+function catalogTemplate(sc, W, H) {
+  if (!sc.flat || W * H < 6000 || !sc._img) return null;
+  const U = sc.units, area0 = sc.W * sc.H, kidsOnly = (u, f) => u.kids.every(f);
+  const photos = U.filter(u => u.kids.length === 1 && u.kids[0].role === 'photo' && !u.kids[0].text && !u.kids[0].isPlate && u.w * u.h < 0.2 * area0).sort((a, b) => (b.x + b.w / 2) - (a.x + a.w / 2));
+  if (photos.length < 2 || photos.length > 8) return null;
+  const stripe = U.find(u => kidsOnly(u, k => k.role === 'decor' && !k.text) && u.w >= 0.8 * sc.W && u.h <= 0.15 * sc.H) || null;
+  const btn = U.filter(u => u.kids.some(k => k.role === 'button')).sort((a, b) => b.w * b.h - a.w * a.h)[0] || null;
+  const logo = U.filter(u => u !== btn && kidsOnly(u, k => k.role === 'logo' || k.role === 'brand')).sort((a, b) => b.w * b.h - a.w * a.h)[0] || null;
+  const texts = U.filter(u => u !== btn && u !== stripe && !photos.includes(u) && u !== logo && u.kids.some(k => k.text) && u.kids.every(k => k.text) && u.kids.some(k => k.role === 'headline' || k.role === 'subheadline')).sort((a, b) => b.w * b.h - a.w * a.h);
+  const tx = texts[0]; if (!tx) return null;
+  const rest = U.filter(u => ![...photos, stripe, btn, logo, tx].includes(u));
+  if (rest.some(u => !u.kids.every(k => k.role === 'badge' || k.role === 'label' || (k.role === 'decor' && !k.text && k.w * k.h < 0.05 * area0)))) return null; // יחידה לא מוכרת: סידור רגיל
+  const img = sc._img, iw = img.w, ih = img.h, D = img.d;
+  const withPlate = u => { // תג עם טקסט על ריבוע צבע (מחיר): שכבת הטקסט שקופה מסביב לאותיות, אז מוסיפים לוח בצבע התג מתחתיה
+    if (u.kids.length !== 1 || !u.kids[0].text || u.kids[0].role !== 'badge') return u;
+    const k = u.kids[0], x0 = Math.max(0, Math.round(u.x)), y0 = Math.max(0, Math.round(u.y)), x1 = Math.min(iw - 1, Math.round(u.x + u.w) - 1), y1 = Math.min(ih - 1, Math.round(u.y + u.h) - 1), ins = Math.max(3, Math.round(0.14 * Math.min(u.w, u.h))), ring = []; // תיבת היחידה רחבה מעט מהתג עצמו: דוגמים טבעת פנימית
+    for (let x = x0 + ins; x < x1 - ins; x += 2) ring.push([x, y0 + ins], [x, y1 - ins]); for (let y = y0 + ins; y < y1 - ins; y += 2) ring.push([x0 + ins, y], [x1 - ins, y]);
+    if (ring.length < 8) return u; const med = c => { const a = ring.map(([x, y]) => D[(y * iw + x) * 3 + c]).sort((p, q) => p - q); return a[a.length >> 1]; }, col = [med(0), med(1), med(2)];
+    const near = (x, y) => Math.abs(D[(y * iw + x) * 3] - col[0]) + Math.abs(D[(y * iw + x) * 3 + 1] - col[1]) + Math.abs(D[(y * iw + x) * 3 + 2] - col[2]) < 45;
+    if (ring.filter(([x, y]) => near(x, y)).length < 0.8 * ring.length) return null; // לא ריבוע צבע אחיד
+    let bx0 = x1, bx1 = x0, by0 = y1, by1 = y0; // גבולות הריבוע: עמודות/שורות שרובן בצבע התג
+    for (let x = x0; x <= x1; x++) { let c = 0; for (let y = y0; y <= y1; y++) if (near(x, y)) c++; if (c >= 0.4 * (y1 - y0 + 1)) { if (x < bx0) bx0 = x; if (x > bx1) bx1 = x; } }
+    for (let y = y0; y <= y1; y++) { let c = 0; for (let x = x0; x <= x1; x++) if (near(x, y)) c++; if (c >= 0.4 * (x1 - x0 + 1)) { if (y < by0) by0 = y; if (y > by1) by1 = y; } }
+    if (bx1 - bx0 < 8 || by1 - by0 < 8) return null;
+    bx0 = Math.max(0, bx0 - 1); by0 = Math.max(0, by0 - 1); bx1 = Math.min(iw - 1, bx1 + 1); by1 = Math.min(ih - 1, by1 + 1);
+    const up = (k.layer && k.layer.up) || 1, pw = bx1 - bx0 + 1, ph = by1 - by0 + 1, pk = { ...k, id: k.id + 'p', role: 'decor', shape: 'rect', text: false, lines: null, isPlate: true, solid: col, layer: Object.assign(solidLayer(pw * up, ph * up, col), { up }), x: bx0, y: by0, w: pw, h: ph, z: (k.z || 0) - 0.5, reflowed: true, matte: null, matted: false };
+    const rel = new Map(); rel.set(pk, [bx0 - u.x, by0 - u.y]); rel.set(k, u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]); return { kids: [pk, k], rel, x: u.x, y: u.y, w: u.w, h: u.h, role: u.role, lines: u.lines };
+  };
+  const badges = rest.map(withPlate).filter(Boolean).sort((a, b) => (b.x + b.w / 2) - (a.x + a.w / 2));
+  // צבעי האזורים: שולי העליון והתחתון של המקור
+  const rowCol = y => { const med = c => { const a = []; for (let x = Math.round(iw * 0.04); x < iw * 0.96; x += 2) a.push(D[(y * iw + x) * 3 + c]); a.sort((p, q) => p - q); return a[a.length >> 1]; }; return [med(0), med(1), med(2)]; };
+  const cA = rowCol(2), cB = rowCol(ih - 3), dist = (p, q) => Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) + Math.abs(p[2] - q[2]);
+  const two = dist(cA, cB) > 60;
+  const plateProto = photos[0].kids[0];
+  const plate = (x, y, w, h, col, id) => [{ ...plateProto, id, role: 'decor', shape: 'rect', text: false, isPlate: true, solid: col, layer: solidLayer(w, h, col), x: 0, y: 0, w, h, z: -1, reflowed: true, matted: false, matte: null }, x, y, w, h];
+  const pl = [], add0 = (u, x, y, w, h) => { const sf = w / u.w, kf = u.kf || 1; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * sf, y + dy * (h ? h / u.h : sf), k.w * sf * kf, k.h * (h ? h / u.h : sf) * kf]); } };
+  const sub = (u, kids) => { const P = k => u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y], x0 = Math.min(...kids.map(k => P(k)[0])), y0 = Math.min(...kids.map(k => P(k)[1])), x1 = Math.max(...kids.map(k => P(k)[0] + k.w)), y1 = Math.max(...kids.map(k => P(k)[1] + k.h)), rel = new Map(); for (const k of kids) rel.set(k, [P(k)[0] - x0, P(k)[1] - y0]); return { kids, rel, x: u.x + x0, y: u.y + y0, w: x1 - x0, h: y1 - y0, role: u.role, lines: u.lines }; };
+  const asp = W / H, m = Math.max(3, Math.min(W, H) * 0.05), g = Math.max(3, 0.03 * Math.min(W, H) * (asp > 1.35 ? 1.4 : 1.6));
+  const CAP_T = 2.4, CAP_P = 1.9, CAP_L = 2.0; // כמה מותר להגדיל מעל פיקסלי המקור
+  // ארוז מוצרים בשורות (ימין לשמאל) בסקאלה s בתוך aw רוחב. מחזיר {rows, h, w}
+  const pack = (s, aw, list) => { const rows = []; let cur = [], cw = 0; for (const u of list) { const w = u.w * s; if (cur.length && cw + g + w > aw + 0.5) { rows.push(cur); cur = []; cw = 0; } cur.push(u); cw += (cur.length > 1 ? g : 0) + w; } if (cur.length) rows.push(cur); let h = 0, wMax = 0; for (const r of rows) { h += Math.max(...r.map(u => u.h * s)); wMax = Math.max(wMax, r.reduce((a, u, i) => a + u.w * s + (i ? g : 0), 0)); } h += (rows.length - 1) * g; return { rows, h, w: wMax }; };
+  const bestPack = (aw, ah, list, cap) => { const sMax = Math.min(cap, aw / Math.max(...list.map(u => u.w))); for (let s = sMax; s >= 0.3; s *= 0.97) { const p = pack(s, aw, list); if (p.h <= ah && p.w <= aw + 0.5) return { s, ...p }; } return null; };
+  const placePack = (p, x0, y0, aw, ah, vAlign) => { // שורות ממורכזות; מוצרים מיושרים לתחתית השורה
+    const slack = Math.max(0, ah - p.h), rg = p.rows.length > 1 ? Math.min(slack / (p.rows.length - 1) * 0.5, g * 2) : 0; let y = y0 + (vAlign === 'top' ? 0 : (slack - rg * (p.rows.length - 1)) / 2);
+    for (const r of p.rows) { const rh = Math.max(...r.map(u => u.h * p.s)), rw = r.reduce((a, u, i) => a + u.w * p.s + (i ? g : 0), 0); let x = x0 + aw - (aw - rw) / 2; for (const u of r) { x -= u.w * p.s; add0(u, x, y + rh - u.h * p.s, u.w * p.s); x -= g; } y += rh + g + rg; }
+  };
+  const ctaRow = (sC, aw) => { // כפתור + תג מחיר בשורה (או נערמים אם לא נכנסים)
+    const items = [btn, ...badges].filter(Boolean); if (!items.length) return null; const sw = items.reduce((a, u, i) => a + u.w * sC + (i ? g : 0), 0);
+    if (sw <= aw) return { items, s: sC, w: sw, h: Math.max(...items.map(u => u.h * sC)), stacked: false };
+    { const sr = sC * (aw - (items.length - 1) * g) / (sw - (items.length - 1) * g); if (sr >= 0.72 * sC) return { items, s: sr, w: aw, h: Math.max(...items.map(u => u.h * sr)), stacked: false }; }
+    const s2 = Math.min(sC, aw / Math.max(...items.map(u => u.w))); return { items, s: s2, w: Math.max(...items.map(u => u.w * s2)), h: items.reduce((a, u, i) => a + u.h * s2 + (i ? g : 0), 0), stacked: true };
+  };
+  const placeCta = (c, x0, y0, aw, spread) => { if (!c) return; if (c.stacked) { let y = y0; for (const u of c.items) { add0(u, x0 + (aw - u.w * c.s) / 2, y, u.w * c.s); y += u.h * c.s + g; } return; }
+    // ימין לשמאל לפי סדר המקור (התג מימין, הכפתור משמאל, כמו במקור)
+    const ord = c.items.slice().sort((a, b) => (b.x + b.w / 2) - (a.x + a.w / 2)); if (spread && ord.length === 2) { add0(ord[0], x0 + aw - ord[0].w * c.s, y0 + (c.h - ord[0].h * c.s) / 2, ord[0].w * c.s); add0(ord[1], x0, y0 + (c.h - ord[1].h * c.s) / 2, ord[1].w * c.s); return; }
+    let x = x0 + aw - (aw - c.w) / 2; for (const u of ord) { x -= u.w * c.s; add0(u, x, y0 + (c.h - u.h * c.s) / 2, u.w * c.s); x -= g; } };
+  const stripeH = (w) => stripe ? stripe.h * Math.min(w / stripe.w, 1.5) : 0;
+  const addStripe = (x, y, w) => { if (!stripe) return; const h = stripeH(w), sf = w / stripe.w; for (const k of stripe.kids) pl.push([k, x, y, w, h]); void sf; };
+  const hk = tx.kids.filter(k => k.text).sort((a, b) => (b.role === 'headline') - (a.role === 'headline') || b.h - a.h)[0];
+  if (asp <= 1.35) { // ---- גבוה / כמעט מרובע: אזור טקסט למעלה, פס, מוצרים, שורת כפתור+מחיר
+    const aw = W - 2 * m;
+    for (let q = 1; q >= 0.4; q -= 0.06) {
+      pl.length = 0;
+      const sT = Math.min(aw / tx.w, CAP_T) * q, sL = logo ? Math.min(sT, 0.62 * W / logo.w, CAP_L) : 0, sC = Math.min(sT * 1.0, CAP_T);
+      const cta = ctaRow(sC, aw), hL = logo ? logo.h * sL : 0, hT = tx.h * sT, hS = stripeH(W), hR = cta ? cta.h : 0;
+      const top = m + hL + (logo ? g : 0) + hT + g, avail = H - top - hS - hR - m - (cta ? 2 * g : g) - g;
+      if (avail < 0.2 * H) continue;
+      const pk = bestPack(aw, avail, photos, CAP_P); if (!pk || pk.s < 0.5 * sT || pk.s < 0.45) continue;
+      const extra = Math.max(0, avail - pk.h), eg = Math.min(extra / 5, 0.04 * H); // שאריות גובה: מרווחים נדיבים קצת, לא מתיחה
+      let y = m + eg * 0.6; if (logo) { add0(logo, (W - logo.w * sL) / 2, y, logo.w * sL); y += hL + g + eg * 0.6; }
+      add0(tx, (W - tx.w * sT) / 2, y, tx.w * sT); y += hT + g + eg;
+      const yS = y; if (two) { pl.push(plate(0, 0, W, yS, cA, 'bgA')); pl.push(plate(0, yS, W, H - yS, cB, 'bgB')); } else pl.push(plate(0, 0, W, H, cA, 'bgA'));
+      addStripe(0, yS, W); y += hS + g + eg * 0.5;
+      const prem = H - m - hR - (cta ? g : 0) - y, ph = Math.min(prem, pk.h + 2 * eg); placePack(pk, m, y, aw, ph, 'mid');
+      if (cta) placeCta(cta, m, H - m - hR, aw, true);
+      return pl;
+    }
+    return null;
+  }
+  // ---- רחב: עמודת טקסט (אדום) בימין, אזור מוצרים (קרם) משמאל. פס: רק לוגו + כותרת
+  const strip = H < 135;
+  if (!strip) {
+    for (let q = 1; q >= 0.4; q -= 0.06) {
+      pl.length = 0;
+      const sCap = Math.min(CAP_T, (0.5 * W - 2 * m) / tx.w, (H - 2 * m) / (tx.h + (logo ? logo.h * 0.9 + g : 0) + stripeH(tx.w)));
+      const sT = sCap * q, sL = logo ? Math.min(sT, CAP_L, (0.5 * W - 2 * m) / logo.w) : 0, Wt = Math.max(tx.w * sT, logo ? logo.w * sL : 0) + 2 * m, Wp = W - Wt;
+      const hL = logo ? logo.h * sL : 0, hT = tx.h * sT, hS = stripeH(Wt); if (hL + (logo ? g : 0) + hT + hS + 2 * m > H) continue;
+      const sC = Math.min(sT, CAP_T), cta = ctaRow(sC, Wp - 2 * m), hR = cta ? cta.h : 0, awp = Wp - 2 * m, ahp = H - 2 * m - hR - (cta ? g : 0);
+      if (ahp < 0.25 * H) continue;
+      const pk = bestPack(awp, ahp, photos, CAP_P); if (!pk || pk.s < 0.55 * sT || pk.s < 0.4) continue;
+      pl.push(plate(0, 0, Wp, H, two ? cB : cA, 'bgB')); pl.push(plate(Wp, 0, Wt, H, cA, 'bgA'));
+      const colH = hL + (logo ? g : 0) + hT, cy = Math.max(m, (H - hS - colH) / 2), cx = Wp + Wt / 2;
+      let y = cy; if (logo) { add0(logo, cx - logo.w * sL / 2, y, logo.w * sL); y += hL + g; } add0(tx, cx - tx.w * sT / 2, y, tx.w * sT);
+      addStripe(Wp, H - hS, Wt);
+      placePack(pk, m, m, awp, ahp, 'mid'); if (cta) placeCta(cta, m, H - m - hR, awp, true);
+      return pl;
+    }
+    return null;
+  }
+  for (const stage of [0, 1, 2, 3]) for (let q = 1; q >= 0.45; q -= 0.05) { // פס: לוגו + כותרת בימין (אדום); משמאל כפתור, מחיר ומוצרים שנכנסים בגובה. אם צפוף: קודם בלי תגי מחיר, אחר כך בלי כפתור
+    const hh = H - 2 * m, lgo = stage >= 3 ? null : logo; pl.length = 0;
+    const sH = Math.min(0.62 * H / hk.h, CAP_T) * q, hkW = hk.w * sH, sL = lgo ? Math.min(0.5 * H / lgo.h, CAP_L, 0.3 * W / lgo.w) * q : 0, lw = lgo ? lgo.w * sL : 0;
+    const Wt = hkW + lw + (lgo ? 3 * m : 2 * m); if (Wt > 0.52 * W) continue;
+    const Wp = W - Wt, aw = Wp - 2 * m, cta = (stage === 0 ? [btn, ...badges] : stage <= 2 && stage === 1 ? [btn] : []).filter(Boolean).sort((a, b) => (b.x + b.w / 2) - (a.x + a.w / 2));
+    const sC = cta.length ? Math.min(0.5 * H / Math.max(...cta.map(u => u.h)), CAP_T, 1.4 * sH) * Math.max(q, 0.7) : 0, fitH = (u, sc) => ({ u, w: u.w * sc, h: u.h * sc });
+    const sP = Math.min(hh / Math.max(...photos.map(u => u.h)), CAP_P);
+    const seq = [...cta.slice().reverse().map(u => fitH(u, sC)), ...photos.slice().reverse().map(u => fitH(u, sP))];
+    let used = 0, cnt = 0, ph = 0, ctaIn = 0; for (const e of seq) { if (used + e.w > aw + 0.5) break; used += e.w + g; cnt++; if (e.u.kids.some(k => k.role === 'photo')) ph++; else ctaIn++; }
+    if (ph < Math.min(3, photos.length - 1) || ctaIn < cta.length) continue;
+    pl.push(plate(0, 0, Wp, H, two ? cB : cA, 'bgB')); pl.push(plate(Wp, 0, Wt, H, cA, 'bgA'));
+    let xr = W - m; if (lgo) { xr -= lw; add0(lgo, xr, (H - lgo.h * sL) / 2, lw); xr -= m * 1.5; } xr -= hkW; add0(sub(tx, [hk]), xr, (H - hk.h * sH) / 2, hkW);
+    let x = m + Math.max(0, (aw - (used - g)) / 2);
+    for (let i = 0; i < cnt; i++) { const e = seq[i]; add0(e.u, x, (H - e.h) / 2, e.w); x += e.w + g; }
+    return pl;
+  }
+  return null;
+}
+
 function autoplace0(sc, W, H, plan) {
   { let b = null; try { b = bandsLayout(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b = null; } if (b) { delete b.badge; b.sort((x, y) => (x[0].role === 'hero' ? 0 : 1) - (y[0].role === 'hero' ? 0 : 1) || (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b; } }
   { let b2 = null; try { b2 = cardTemplates(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b2 = null; } if (b2) { b2.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b2; } }
+  { let b3 = null; try { b3 = catalogTemplate(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b3 = null; } if (b3) { b3.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b3; } }
   const rf = reframeFor(sc, W, H, plan); if (rf) return rf.place.map(e => e.slice()); // REFRAME: רקע צילומי עם גיבור – חלון חיתוך מהמקור ויחידות מעליו
   const base = autoplaceRules(sc, W, H);
   let res = base;
@@ -3358,5 +3495,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.46-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.47-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
