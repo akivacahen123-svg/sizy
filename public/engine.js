@@ -1378,12 +1378,12 @@ function detectPanels(img, els) {
   const clusters = new Map(); cand.forEach((e, i) => { const r = find(i); if (!clusters.has(r)) clusters.set(r, []); clusters.get(r).push(e); });
   const taken = new Set(), dist = (o, c) => Math.max(Math.abs(D[o] - c[0]), Math.abs(D[o + 1] - c[1]), Math.abs(D[o + 2] - c[2]));
   const qk = o => (D[o] >> 5) * 64 + (D[o + 1] >> 5) * 8 + (D[o + 2] >> 5);
-  for (const ms of [...clusters.values()].sort((a, b) => b.length - a.length)) {
-    if (ms.every(m => taken.has(m))) continue;
+  const attempt = (ms, T) => { // T = סף הדמיון לצבע הלוח. לוח לבן על רקע בהיר (בז') דורש סף קטן, אחרת הלוח 'גדל' לכל הקנבס
+    if (ms.every(m => taken.has(m))) return null;
     const big = ms.slice().sort((a, b) => b.px[2] * b.px[3] - a.px[2] * a.px[3])[0];
     const ub = [Math.min(...ms.map(m => m.px[0])), Math.min(...ms.map(m => m.px[1])), Math.max(...ms.map(m => m.px[0] + m.px[2])), Math.max(...ms.map(m => m.px[1] + m.px[3]))];
     const uw = ub[2] - ub[0], uh = ub[3] - ub[1];
-    if (uw < 24 || uh < 12) continue;
+    if (uw < 24 || uh < 12) return null;
     const [bx, by, bw, bh] = big.px, hist = new Map();
     const ring = []; // היקף התיבה (2 פיקסלים משני צדי הקו): הלוח, ולא האותיות שבפנים
     for (let x = bx; x < bx + bw; x++) for (const y of [by - 2, by - 1, by, by + 1, by + bh - 2, by + bh - 1, by + bh, by + bh + 1]) ring.push([x, y]);
@@ -1391,8 +1391,8 @@ function detectPanels(img, els) {
     const rg = ring.filter(([x, y]) => x >= 0 && y >= 0 && x < W && y < H);
     for (const [x, y] of rg) { const k = qk((y * W + x) * 3); hist.set(k, (hist.get(k) || 0) + 1); }
     let bk = -1, bn = 0, tot = 0; for (const [k, n] of hist) { tot += n; if (n > bn) { bn = n; bk = k; } }
-    if (bn < 0.45 * tot) continue; // אין צבע דומיננטי: טקסט על תמונה
-    const P = [0, 0, 0]; let np = 0; const T = 46;
+    if (bn < 0.45 * tot) return null; // אין צבע דומיננטי: טקסט על תמונה
+    const P = [0, 0, 0]; let np = 0;
     for (const [x, y] of rg) { const o = (y * W + x) * 3; if (qk(o) === bk) { P[0] += D[o]; P[1] += D[o + 1]; P[2] += D[o + 2]; np++; } }
     for (let c = 0; c < 3; c++) P[c] /= np;
     const neutral = new Uint8Array(W * H); // בתוך תיבות הטקסט: לא נספר (אותיות, וגם סרט שבולט מהלוח)
@@ -1427,8 +1427,8 @@ function detectPanels(img, els) {
       }
       if (stop.every(v => v === 1)) break;
     }
-    if (!stop.every(v => v === 1)) continue;
-    if (grown.filter(v => v >= 3).length < 2) continue;
+    if (!stop.every(v => v === 1)) return null;
+    if (grown.filter(v => v >= 3).length < 2) return null;
     // שפה/מסגרת: פסים דקים אחידים בצבע אחר, ואחריהם צבע שונה. אם "השפה" לא נגמרת מהר היא בעצם הרקע
     const bmax = Math.max(4, Math.round(0.035 * Math.min(r[2] - r[0], r[3] - r[1]))), thick = [0, 0, 0, 0], bcol = [];
     for (let s = 0; s < 4; s++) {
@@ -1446,24 +1446,25 @@ function detectPanels(img, els) {
       thick[s] = k <= bmax ? k : 0; if (thick[s] > 0) bcol.push(B);
     }
     const R = [r[0] - thick[1], r[1] - thick[0], r[2] + thick[3], r[3] + thick[2]];
-    if (R[0] < 0 || R[1] < 0 || R[2] > W || R[3] > H) continue;
+    if (R[0] < 0 || R[1] < 0 || R[2] > W || R[3] > H) return null;
     const rw = R[2] - R[0], rh = R[3] - R[1];
-    if (rw * rh < 1.08 * uw * uh || rw * rh > 0.65 * W * H || rw > 0.97 * W && rh > 0.5 * H) continue;
+    if (rw * rh < 1.08 * uw * uh || rw * rh > 0.65 * W * H || rw > 0.97 * W && rh > 0.5 * H) return null;
     // הלוח חלק: רוב הפיקסלים (בלי תיבות הטקסט) בצבע הלוח
     let n = 0, g = 0; for (let y = r[1]; y < r[3]; y += 2) for (let x = r[0]; x < r[2]; x += 2) { if (neutral[y * W + x]) continue; n++; if (dist((y * W + x) * 3, P) < T) g++; }
-    if (!n || g < 0.6 * n) continue;
+    if (!n || g < 0.6 * n) return null;
     // ניגוד לרקע שמחוץ ללוח: הצבע שמעבר לשפה שונה מצבע הלוח לפחות בשלוש צלעות
     let far = 0; for (let s = 0; s < 4; s++) { const sv = [...r]; for (let q = 0; q < 4; q++) sv[q] = R[q]; const keep = r.slice(); for (let q = 0; q < 4; q++) r[q] = R[q]; const st = stripe(s, 2); for (let q = 0; q < 4; q++) r[q] = keep[q]; if (st && Math.max(Math.abs(st.mean[0] - P[0]), Math.abs(st.mean[1] - P[1]), Math.abs(st.mean[2] - P[2])) > 30) far++; }
-    if (far < 3) continue;
+    if (far < 3) return null;
     // רדיוס פינות: סריקה באלכסון מכל פינה עד הפיקסל הראשון שהוא לוח/שפה; offset ≈ 0.293·r
     const inP = (x, y) => { const o = (y * W + x) * 3; return dist(o, P) < T + 10 || bcol.some(B => dist(o, B) < 60); };
     const offs = [[R[0], R[1], 1, 1], [R[2] - 1, R[1], -1, 1], [R[0], R[3] - 1, 1, -1], [R[2] - 1, R[3] - 1, -1, -1]].map(([cx, cy, dx, dy]) => { let k = 0; while (k < 0.35 * Math.min(rw, rh) && !inP(cx + dx * k, cy + dy * k)) k++; return k; }).sort((a, b) => a - b);
     const radius = clp(Math.round(((offs[1] + offs[2]) / 2) / 0.293), 0, Math.floor(0.3 * Math.min(rw, rh)));
     const members = cand.filter(e => !taken.has(e) && inside(e, { px: [R[0], R[1], rw, rh] }));
-    if (!members.length) continue;
+    if (!members.length) return null;
     members.forEach(m => taken.add(m));
-    out.push({ rect: [R[0], R[1], rw, rh], inner: r.slice(), radius, members, P });
-  }
+    return { rect: [R[0], R[1], rw, rh], inner: r.slice(), radius, members, P };
+  };
+  for (const ms of [...clusters.values()].sort((a, b) => b.length - a.length)) { const o = attempt(ms, 46) || attempt(ms, 16); if (o) out.push(o); }
   return out;
 }
 // מוסיף אלמנט לוח לכל לוח שזוהה ומקבץ אליו את הטקסטים (לפני חיתוך הטקסט)
@@ -1599,6 +1600,19 @@ function buildScene(img, elements, onProgress) {
     }
     if (drop.size) elements = elements.filter(e => !drop.has(e));
   }
+  { // רצועה/לוח גרפי שכבר כולל לוגו/תמונות בתוכו (למשל רצועה תחתונה עם לוגו ואייקונים): היא נחתכת כיחידה אחת. אלמנט נוסף שיושב כולו בתוכה הוא כפילות (הלוגו מופיע פעמיים)
+    const els1 = (elements || []).filter(e => e && Array.isArray(e.box)), ar = b => Math.max(0, b[2] - b[0]) * Math.max(0, b[3] - b[1]), drop2 = new Set();
+    for (const bd of els1) {
+      if (bd.role !== 'decor' || (bd.lines && bd.lines.length) || bd.shape === 'panel') continue;
+      const bb = bd.box.map(Number); if (ar(bb) < 0.04 * 1e6 || bb[2] - bb[0] < 500) continue;
+      for (const o of els1) {
+        if (o === bd || drop2.has(o) || !['logo', 'photo', 'badge', 'brand', 'icon'].includes(o.role) || (o.lines && o.lines.length)) continue;
+        const ob = o.box.map(Number), iw = Math.min(bb[2], ob[2]) - Math.max(bb[0], ob[0]), ih = Math.min(bb[3], ob[3]) - Math.max(bb[1], ob[1]);
+        if (iw > 0 && ih > 0 && iw * ih >= 0.75 * ar(ob) && ar(ob) < 0.6 * ar(bb)) drop2.add(o);
+      }
+    }
+    if (drop2.size) elements = elements.filter(e => !drop2.has(e));
+  }
   { // שורה בגוף הטקסט שחוזרת על כיתוב הכפתור/התווית (ג'מיני סופר אותה פעמיים): מוציאים אותה מהגוף, אחרת השורות לא תואמות לפיקסלים ונוצרות אותיות רפאים
     const norm = t => String(t).replace(/[\s.,!?:;"'״׳־-]/g, ''), lab = new Set();
     for (const e of elements || []) if ((e.role === 'label' || e.role === 'button') && Array.isArray(e.lines)) for (const l of e.lines) if (norm(l).length > 3) lab.add(norm(l));
@@ -1733,6 +1747,11 @@ function buildScene(img, elements, onProgress) {
     if (e.panelAllow) { L = clipLayerTo(L, e.panelAllow); if (!L) continue; }
     if (['caption', 'body', 'label'].includes(e.role)) { // פס רקע שנחתך במקום אותיות: שורה שכמעט כולה אטומה
       let rm = 0; for (let j = 0; j < L.lh; j++) { let r = 0; for (let i = 0; i < L.lw; i++) { if (L.a[j * L.lw + i] > 0.5) { r++; if (r > rm) rm = r; } else r = 0; } }
+      if (rm > 0.4 * L.lw && L.lw > 6 * L.lh && els.some(o => o !== e && o.role === 'hero' && o.matte && o.px && Math.min(o.px[0] + o.px[2], e.px[0] + e.px[2]) - Math.max(o.px[0], e.px[0]) > 0 && Math.min(o.px[1] + o.px[3], e.px[1] + e.px[3]) - Math.max(o.px[1], e.px[1]) > 0)) { // קו אטום (רק כשהטקסט יושב על גיבור חתוך) ארוך בתוך שכבת טקסט (למשל קצה של בגד/תמונה מתחת לשורה): מנקים אותו ושומרים את האותיות. אם לא נשאר טקסט אמיתי: פס רקע
+        let kept = 0, rowsTxt = 0; const cl = new Float32Array(L.a);
+        for (let j = 0; j < L.lh; j++) { let i = 0, any = 0; while (i < L.lw) { if (cl[j * L.lw + i] > 0.5) { let k = i; while (k < L.lw && cl[j * L.lw + k] > 0.5) k++; if (k - i > 0.4 * L.lw) for (let q = i; q < k; q++) { cl[j * L.lw + q] = 0; const gx = L.x + Math.floor(q * L.w / L.lw), gy = L.y + Math.floor(j * L.h / L.lh); if (gx >= 0 && gy >= 0 && gx < W && gy < H) holes[gy * W + gx] = 0; } else any += k - i; i = k; } else i++; } kept += any; if (any > 0) rowsTxt++; }
+        if (kept > 0.02 * L.lw * L.lh && rowsTxt > 0.5 * L.lh * 0.5) { L.a = cl; rm = 0; }
+      }
       if (rm > 0.4 * L.lw && L.lw > 6 * L.lh) { // נדחה: מחזירים את הפיקסלים שסומנו כחור (אחרת הרקע/כפתור שמאחורי הטקסט נמחק ומתמלא בצבע שגוי, כמו כפתור כתום שהפך ללבן)
         for (let j = 0; j < L.lh; j++) for (let i = 0; i < L.lw; i++) if (L.a[j * L.lw + i] > 0.5) { const gx = L.x + Math.floor(i * L.w / L.lw), gy = L.y + Math.floor(j * L.h / L.lh); if (gx >= 0 && gy >= 0 && gx < W && gy < H) holes[gy * W + gx] = 0; }
         continue;
@@ -1761,7 +1780,7 @@ function buildScene(img, elements, onProgress) {
         if (near / R.length >= 0.85) e.solid = [Math.round(r0), Math.round(g0), Math.round(b0)];
       }
     }
-    let r = 5; if (['pill', 'rounded', 'rect'].includes(e.shape)) r = Math.floor(Math.min(L.w, L.h) * 0.3); else if (e.shape === 'hero') r = 8; else if (e.panel) r = Math.max(8, Math.round(0.05 * Math.min(L.w, L.h))); else if (e.matte && e.role !== 'hero') r = Math.max(5, Math.round(0.26 * Math.min(L.w, L.h))); // לוגו עם הילה/סביבון רך: המט תופס רק את הגוף, החור מורחב כדי שלא יישאר רפאים; הילה/צל של הלוח/צל של הלוח מחוץ לשפה: חור הרקע גדול יותר
+    let r = 5; if (['pill', 'rounded', 'rect'].includes(e.shape)) r = Math.floor(Math.min(L.w, L.h) * 0.3); else if (e.shape === 'hero') r = 8; else if (e.panel) r = Math.max(8, Math.round(0.13 * Math.min(L.w, L.h) + 0.45 * Math.min(e.radius || 0, 0.5 * Math.min(L.w, L.h)))); else if (e.matte && e.role !== 'hero') r = Math.max(5, Math.round(0.26 * Math.min(L.w, L.h))); // לוגו עם הילה/סביבון רך: המט תופס רק את הגוף, החור מורחב כדי שלא יישאר רפאים; הילה/צל של הלוח/צל של הלוח מחוץ לשפה: חור הרקע גדול יותר
     const pad = r + 1, mw = L.w + 2 * pad, mh = L.h + 2 * pad, m = new Uint8Array(mw * mh);
     for (let j = 0; j < L.h; j++) for (let i = 0; i < L.w; i++) if (L.a[j * L.w + i] * 255 > 10) m[(j + pad) * mw + i + pad] = 1;
     const dm = dilateDisk(m, mw, mh, r);
@@ -1774,6 +1793,18 @@ function buildScene(img, elements, onProgress) {
     leaves.push(e);
   }
   tell('משלים את הרקע…');
+  for (const he of leaves) { // תמונה ראשית חתוכה (מט) שהטקסט יושב על החלק התחתון שלה: מתחת לשורת הטקסט נשאר רק מריחה של מילוי. חותכים שם בדהייה רכה (הדמות ממשיכה לקצה הקנבס או נגמרת בעדינות)
+    if (he.role !== 'hero' || !he.layer || !he.layer.matted) continue;
+    const L = he.layer; let cutY = Infinity;
+    for (const te of leaves) {
+      if (!te.text || !te.px || !['body', 'caption', 'label', 'subheadline'].includes(te.role)) continue;
+      const [tx, ty, tw, th] = te.px, ix = Math.min(L.x + L.w, tx + tw) - Math.max(L.x, tx), iy = Math.min(L.y + L.h, ty + th) - Math.max(L.y, ty);
+      if (ix > 0.3 * tw && iy > 0.4 * th && ty > L.y + 0.6 * L.h) cutY = Math.min(cutY, ty);
+    }
+    if (!isFinite(cutY)) continue;
+    const fade = Math.max(4, 0.03 * L.h);
+    for (let j = 0; j < L.lh; j++) { const gy = L.y + (j + 0.5) / (L.up || 1); const f = clp((cutY - gy) / fade, 0, 1); if (f >= 1) continue; for (let i = 0; i < L.lw; i++) L.a[j * L.lw + i] *= f; }
+  }
   let plate = msFill(clean, holes2, { tex: true });
   plate = softenDenseHoles(plate, holes2, plate.tex);
   for (let i = 0; i < plate.d.length; i++) plate.d[i] = clp(plate.d[i], 0, 255);
@@ -2835,10 +2866,41 @@ function catalogTemplate(sc, W, H) {
   return null;
 }
 
+// ---------------------------------------------------------------- הרכבה לבאנר רחב: גיבור בקצה (ימין), טקסט/לוח כותרת ליד הגיבור, שאר הגרפיקה (לוגו, תג, רצועה) מוערמת משמאל
+// נחוץ כשהכללים הכלליים מפזרים לוח כותרת (לוח + טקסט שלו חייבים להישאר יחד) או רצועה רחבה (לוגו+אייקונים) בבאנר ביחס רחב
+function stripCompose(sc, W, H) {
+  const asp = W / H; if (asp < 2.2 || W * H < 6000) return null;
+  const U = sc.units, hero = U.filter(u => u.role === 'hero' && u.kids.length === 1 && u.kids[0].layer && u.kids[0].layer.matted).sort((a, b) => b.w * b.h - a.w * a.h)[0];
+  if (!hero) return null;
+  const hasPanel = u => u.kids.some(k => k.panel), isTxt = u => u.kids.some(k => k.text), band = u => u !== hero && !isTxt(u) && u.kids.every(k => k.role === 'decor') && u.w >= 0.8 * sc.W;
+  const texts = U.filter(u => u !== hero && isTxt(u) && u.kids.every(k => k.text || k.panel || k.role === 'decor')).sort((a, b) => b.w * b.h - a.w * a.h);
+  if (!(texts.some(hasPanel) || U.some(band))) return null; // רק במצבים שהכללים הכלליים נכשלים בהם
+  const main = texts.find(hasPanel) || texts[0]; if (!main) return null;
+  const others = U.filter(u => u !== hero && u !== main && !texts.includes(u)); // לוגו, תגית, רצועה, תמונות. טקסטים קטנים נוספים נשארים בקבוצה השנייה
+  const small = texts.filter(u => u !== main);
+  const pl = [], m = Math.max(3, 0.04 * Math.min(W, H)), gap = Math.max(3, 0.03 * H);
+  const add0 = (u, x, y, w, h) => { const sf = w / u.w, sy = h ? h / u.h : sf, kf = u.kf || 1; for (const k of u.kids) { const [dx, dy] = u.rel ? u.rel.get(k) : [k.x - u.x, k.y - u.y]; pl.push([k, x + dx * sf, y + dy * sy, k.w * sf * kf, k.h * sy * kf]); } };
+  const side = others.concat(small); // העמודה השמאלית
+  for (let q = 1; q >= 0.5; q -= 0.05) {
+    pl.length = 0;
+    const sH = Math.min((H - m) / hero.h, 0.34 * W / hero.w, 2.0) * Math.min(1, q + 0.2), hw = hero.w * sH, hh = hero.h * sH;
+    const sT = Math.min((0.56 * W) / main.w, (0.7 * H) / main.h, 2.2) * q, tw = main.w * sT, th = main.h * sT;
+    const wl = W - hw - tw - 3 * m; if (side.length && wl < 0.1 * W) continue;
+    const maxw = side.length ? Math.max(...side.map(u => u.w)) : 1, sumh = side.reduce((a, u) => a + u.h, 0);
+    const sS = side.length ? Math.min(wl / maxw, (H - 2 * m - gap * (side.length - 1)) / sumh, 1.8) : 0; if (side.length && sS * Math.min(...side.map(u => u.h)) < 6) continue;
+    add0(hero, W - hw, H - hh, hw);
+    const tx = W - hw - m - tw; add0(main, tx, (H - th) / 2, tw);
+    if (side.length) { const tot = sS * sumh + gap * (side.length - 1); let y = (H - tot) / 2; const zx = m, zw = tx - 2 * m + m; for (const u of side.slice().sort((a, b) => a.y - b.y)) { add0(u, zx + (zw - u.w * sS) / 2, y, u.w * sS); y += u.h * sS + gap; } }
+    return pl;
+  }
+  return null;
+}
+
 function autoplace0(sc, W, H, plan) {
   { let b = null; try { b = bandsLayout(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b = null; } if (b) { delete b.badge; b.sort((x, y) => (x[0].role === 'hero' ? 0 : 1) - (y[0].role === 'hero' ? 0 : 1) || (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b; } }
   { let b2 = null; try { b2 = cardTemplates(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b2 = null; } if (b2) { b2.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b2; } }
   { let b3 = null; try { b3 = catalogTemplate(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b3 = null; } if (b3) { b3.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b3; } }
+  { let b4 = null; try { b4 = stripCompose(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b4 = null; } if (b4) { b4.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b4; } }
   const rf = reframeFor(sc, W, H, plan); if (rf) return rf.place.map(e => e.slice()); // REFRAME: רקע צילומי עם גיבור – חלון חיתוך מהמקור ויחידות מעליו
   const base = autoplaceRules(sc, W, H);
   let res = base;
@@ -3502,5 +3564,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.49-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.50-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);

@@ -64,8 +64,19 @@ async function attach(img, elements, runModel, opts) {
     if ((x2 - x1) * (y2 - y1) < (e.role === 'hero' ? o.minArea : 0.0004) * W * H) continue;
     // תמונה שנוגעת בקצה הבאנר נשארת מלבן (תיגרר לקצה בלי הילה); רק אלמנט צף מקבל מט
     if (e.role === 'hero' && (x1 <= 2 || y1 <= 2 || x2 >= W - 2 || y2 >= H - 2)) continue;
-    const pp = e.role === 'hero' ? o.pad : 0.12, px = Math.round((x2 - x1) * pp), py = Math.round((y2 - y1) * pp);
-    const X0 = clp(x1 - px, 0, W - 8), Y0 = clp(y1 - py, 0, H - 8), X1 = clp(x2 + px, X0 + 8, W), Y1 = clp(y2 + py, Y0 + 8, H), w = X1 - X0, h = Y1 - Y0;
+    let pp = e.role === 'hero' ? o.pad : 0.12, px = Math.round((x2 - x1) * pp), py = Math.round((y2 - y1) * pp), pl = px, pr = px, pt = py, pb = py;
+    if (e.role === 'hero') { // צד שנוגע באלמנט גרפי אחר (רצועה תחתונה, לוגו): בלי ריפוד, אחרת המודל תופס אריחי צבע של השכן כחלק מהדמות
+      for (const q of elements || []) {
+        if (q === e || !Array.isArray(q.box) || (q.lines && q.lines.length) || q.role === 'hero') continue;
+        const qb = q.box.map(Number), qx1 = qb[0] / 1000 * W, qy1 = qb[1] / 1000 * H, qx2 = qb[2] / 1000 * W, qy2 = qb[3] / 1000 * H, ox = Math.min(x2, qx2) - Math.max(x1, qx1), oy = Math.min(y2, qy2) - Math.max(y1, qy1);
+        if (ox > 0.15 * (x2 - x1) && qy1 >= y1 + 0.5 * (y2 - y1) && qy1 - y2 < py && qy2 > y2 - 4) pb = 0; // שכן מתחת
+        if (ox > 0.15 * (x2 - x1) && qy2 <= y1 + 0.5 * (y2 - y1) && y1 - qy2 < py && qy1 < y1 + 4) pt = 0; // שכן מעל
+        if (oy > 0.15 * (y2 - y1) && qx1 >= x1 + 0.5 * (x2 - x1) && qx1 - x2 < px && qx2 > x2 - 4) pr = 0;
+        if (oy > 0.15 * (y2 - y1) && qx2 <= x1 + 0.5 * (x2 - x1) && x1 - qx2 < px && qx1 < x1 + 4) pl = 0;
+      }
+    }
+
+    const X0 = clp(x1 - pl, 0, W - 8), Y0 = clp(y1 - pt, 0, H - 8), X1 = clp(x2 + pr, X0 + 8, W), Y1 = clp(y2 + pb, Y0 + 8, H), w = X1 - X0, h = Y1 - Y0;
     if (e.role !== 'hero' && flatRing(img, X0, Y0, w, h)) continue; // לוגו/תגית על רקע חלק אחיד: חיתוך צבע הרקע מדויק (המודל העצבי מפרק לוגו שטוח לחתיכות)
     let p; try { p = await runModel(preprocess(img, X0, Y0, w, h)); } catch (err) { if (opts && opts.debug) console.error(err); continue; }
     if (!p || p.length !== N * N) continue;
