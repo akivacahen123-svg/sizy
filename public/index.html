@@ -142,7 +142,7 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
     </div>
   </aside>
   <section class="results">
-    <div class="rhead"><h2>התוצאות</h2><div id="bulk" hidden><button class="chip" id="selall">בחר הכל</button><button class="chip" id="selnone">נקה בחירה</button><button class="go" id="dlall">הורדת הנבחרים (ZIP)</button></div></div>
+    <div class="rhead"><h2>התוצאות</h2><div id="bulk" hidden><button class="chip" id="selall">בחר הכל</button><button class="chip" id="selnone">נקה בחירה</button><button class="chip" id="savecase" title="מוריד קובץ עם הבאנר המקורי והזיהוי, כדי לשלוח למפתח ולשפר את סייזי">שמור מקרה בדיקה</button><button class="go" id="dlall">הורדת הנבחרים (ZIP)</button></div></div>
     <p class="sub" id="hint" hidden style="margin-bottom:12px">כל באנר נבנה מחדש מהאלמנטים של המקור. לחצו על אלמנט כדי להזיז, להגדיל, למרכז או לערוך אותו. אפשר להוריד כל באנר בנפרד, או לבחור כמה ולהוריד אותם יחד ב-ZIP.</p>
     <details id="settings" style="margin-bottom:14px;padding:12px 14px;border-radius:14px;background:#fff;border:1px solid #dbe3f3">
       <summary style="cursor:pointer;font-weight:700">הגדרות</summary>
@@ -172,9 +172,9 @@ p.sub{color:var(--mut);margin:0;font-size:clamp(14px,2vw,16px)}
 </div>
 <p class="foot"><a href="/logout" style="color:inherit">יציאה</a> · סייזי · Sizes · <span id="bld"></span></p><div id="diag" style="display:none;max-width:900px;margin:12px auto;direction:ltr"><b style="direction:rtl;display:block;text-align:right">אבחון (למנהל): העתיקו ושלחו</b><textarea id="diagtx" readonly style="width:100%;height:140px;font:12px monospace" onclick="this.select()"></textarea></div>
 
-<script>var BUILD='15.48-א';</script>
-<script src="/bgmap.js?v=15.48"></script>
-<script src="/qa.js?v=15.48"></script>
+<script>var BUILD='15.49-א';</script>
+<script src="/bgmap.js?v=15.49"></script>
+<script src="/qa.js?v=15.49"></script>
 <script>
 const $=s=>document.querySelector(s);
 const ROLES={caption:'כיתוב',label:'טקסט כפתור',photo:'תמונה',button:'כפתור',badge:'תגית',decor:'עיטור',headline:'כותרת',subheadline:'תת־כותרת',bullets:'יתרונות',brand:'מותג',body:'טקסט',logo:'לוגו',hero:'ויזואל'};
@@ -642,6 +642,15 @@ $('#dlall').onclick=async()=>{
   finally{updBulk()}
 };
 
+$('#savecase').onclick=async()=>{ // קובץ מקרה בדיקה: הבאנר המקורי + התיבות שהמעצב זיהה + הגדלים. נשלח למפתח כדי להפוך לבדיקה קבועה
+  const b=$('#savecase'),t=b.textContent;b.disabled=true;
+  try{const cvs=srcCanvas;if(!cvs||!window.__diag)throw 0;
+    const png=await new Promise(r=>cvs.toBlob(r,'image/png')),enc=new TextEncoder();
+    const meta={name:(file&&file.name)||'banner',build:BUILD,w:cvs.width,h:cvs.height,sizes:made.map(m=>m.w+'x'+m.h),elements:window.__diag.elements,why:window.__diag.why||null,saved:new Date().toISOString()};
+    dlBlob(makeZip([{name:'case.json',data:enc.encode(JSON.stringify(meta))},{name:'source.png',data:new Uint8Array(await png.arrayBuffer())}]),'sizy-case-'+Date.now().toString(36)+'.zip');b.textContent='נשמר'}
+  catch(e){b.textContent='לא הצלחתי לשמור'}
+  setTimeout(()=>{b.textContent=t;b.disabled=false},2500)
+};
 (()=>{const c=$('#qaInc'),v=LS.get('sizy.qa');if(v)c.checked=v!=='0';c.onchange=()=>LS.set('sizy.qa',c.checked?'1':'0')})();
 function getBans(){try{return JSON.parse(localStorage.getItem('sizy.bans')||'{}')}catch(e){return {}}}
 document.querySelectorAll('#bans [data-ban]').forEach(c=>{const b=getBans();if(c.dataset.ban in b)c.checked=!!b[c.dataset.ban];c.onchange=()=>{const cur=getBans();cur[c.dataset.ban]=c.checked;try{localStorage.setItem('sizy.bans',JSON.stringify(cur))}catch(e){}broadcastBans(cur);}});
