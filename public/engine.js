@@ -1585,12 +1585,13 @@ function splitMixedLines(img, elements) {
       const sm = rows.map((v, i) => (rows[Math.max(0, i - 1)] + v + rows[Math.min(rows.length - 1, i + 1)]) / 3); for (const v of sm) if (v > mx) mx = v;
       const thr = Math.max(2, 0.12 * mx), runs = []; let cur = null;
       for (let i = 0; i < sm.length; i++) { if (sm[i] > thr) { if (cur) cur[1] = i; else cur = [i, i]; } else if (cur) { runs.push(cur); cur = null; } } if (cur) runs.push(cur);
-      const mh = Math.max(1, ...runs.map(r => r[1] - r[0] + 1)), bands = []; for (const r of runs) { const l = bands[bands.length - 1]; if (l && r[0] - l[1] <= 0.2 * mh) l[1] = r[1]; else bands.push([r[0], r[1]]); }
+      const mh = Math.max(1, ...runs.map(r => r[1] - r[0] + 1)); let bands = []; let flatBg = false; { const px = []; for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2) { const o = (y * W + x) * 3; px.push([D[o], D[o + 1], D[o + 2]]); } const med = [0, 1, 2].map(c => px.map(v => v[c]).sort((p, q) => p - q)[px.length >> 1]); flatBg = px.filter(v => Math.max(Math.abs(v[0] - med[0]), Math.abs(v[1] - med[1]), Math.abs(v[2] - med[2])) < 22).length > 0.55 * px.length; }
+      for (const fct of (flatBg ? [0.2, 0.1, 0.03] : [0.2])) { bands = []; for (const r of runs) { const l = bands[bands.length - 1]; if (l && r[0] - l[1] <= fct * mh) l[1] = r[1]; else bands.push([r[0], r[1]]); } if (bands.length === e.lines.length) break; }
       if (bands.length !== e.lines.length) { out.push(e); continue; }
       const hs = bands.map(r => r[1] - r[0] + 1);
       const colOf = r => { const px = []; for (let y = y0 + r[0]; y <= y0 + r[1]; y += 1) for (let x = x0; x < x1; x += 2) { const o = (y * W + x) * 3; px.push([D[o], D[o + 1], D[o + 2]]); } const med = [0, 1, 2].map(c => px.map(v => v[c]).sort((p, q) => p - q)[px.length >> 1]); const far = px.map(v => [Math.max(Math.abs(v[0] - med[0]), Math.abs(v[1] - med[1]), Math.abs(v[2] - med[2])), v]).sort((p, q) => q[0] - p[0]).slice(0, Math.max(3, px.length * 0.1 | 0)); return [0, 1, 2].map(c => far.reduce((a, v) => a + v[1][c], 0) / far.length); };
       const cols = bands.map(colOf), cd = Math.max(...cols.map(c1 => Math.max(...cols.map(c2 => Math.max(Math.abs(c1[0] - c2[0]), Math.abs(c1[1] - c2[1]), Math.abs(c1[2] - c2[2]))))));
-      if (!(cd > 90)) { out.push(e); continue; } // רק כששורות בצבעים שונים בבירור (החילוץ מניח צבע אחד לתיבה)
+      if (!(cd > 90 && Math.max(...hs) > 1.35 * Math.min(...hs))) { out.push(e); continue; } // רק כששורות בצבעים שונים בבירור (החילוץ מניח צבע אחד לתיבה)
       bands.forEach((r, i) => { const top = i === 0 ? y0 : y0 + Math.round((bands[i - 1][1] + r[0]) / 2), bot = i === bands.length - 1 ? y1 : y0 + Math.round((r[1] + bands[i + 1][0]) / 2);
         out.push({ ...e, id: e.id + '_' + i, box: [b[0], top * 1000 / H, b[2], bot * 1000 / H], lines: [e.lines[i]], phrases: null }); });
     } catch (err) { out.push(e); }
@@ -3758,5 +3759,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.52-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.53-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
