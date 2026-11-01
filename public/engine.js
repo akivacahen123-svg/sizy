@@ -1601,7 +1601,37 @@ function splitMixedLines(img, elements) {
 function buildScene(img, elements, onProgress) {
   const W = img.w, H = img.h, tell = m => onProgress && onProgress(m);
   if (!G.__NOCARD) elements = cardFix(img, elements);
-  if (!G.__NOSPLIT) elements = splitMixedLines(img, elements); // תיבת כיתוב עם שורות בגדלים/צבעים שונים (למשל "חותכים" לבן גדול + שורה כחולה קטנה): כל שורה לתיבה נפרדת, אחרת חילוץ האותיות משתבש
+  if (!G.__NOSPLIT) elements = splitMixedLines(img, elements);
+  { // כותרת רב-שורות על לוח כהה מעוטר (מסגרת זהב, "1.3 מיליון דולר"): לא משחזרים אותיות; הלוח כולו עם המסגרת נחתך כתמונה אחת ונשמר בדיוק כמו במקור
+    const D = img.d, Wd = img.w, Hd = img.h, lum = (x, y) => { const o = (y * Wd + x) * 3; return 0.3 * D[o] + 0.59 * D[o + 1] + 0.11 * D[o + 2]; };
+    elements = (elements || []).map(e => {
+      if (!G.__PANELCARD || !e || e.role !== 'headline' || !e.lines || e.lines.length < 3 || !Array.isArray(e.box)) return e;
+      const b = e.box.map(Number); let x0 = Math.round(b[0] * Wd / 1000), x1 = Math.round(b[2] * Wd / 1000), y0 = Math.round(b[1] * Hd / 1000), y1 = Math.round(b[3] * Hd / 1000);
+      const dark = (a0, a1, b0, b1, horiz) => { let t = 0, n = 0; if (horiz) { for (let x = a0; x < a1; x += 3) { t += lum(x, b0); n++; } } else { for (let y = a0; y < a1; y += 3) { t += lum(b0, y); n++; } } return n ? t / n : 255; };
+      // הלוח חייב להיות כהה סביב הכיתוב: דוגמים פס מתחת לשוליים הפנימיים
+      let nd = 0, nt = 0; for (let y = y0; y < y1; y += 4) for (let x = x0; x < x1; x += 4) { nt++; if (lum(x, y) < 90) nd++; } if (nd < 0.4 * nt) return e;
+      const lim = 0.14, step = 2; let mx = 0;
+      while (mx < lim * Hd && y0 > step && dark(x0, x1, y0 - step, 0, true) < 110) { y0 -= step; mx += step; } y0 = Math.max(0, y0 - Math.round(0.03 * Hd));
+      mx = 0; while (mx < lim * Hd && y1 < Hd - step && dark(x0, x1, y1 + step, 0, true) < 110) { y1 += step; mx += step; } y1 = Math.min(Hd - 1, y1 + Math.round(0.03 * Hd));
+      mx = 0; while (mx < lim * Wd && x0 > step && dark(y0 + 6, y1 - 6, x0 - step, 0, false) < 110) { x0 -= step; mx += step; } x0 = Math.max(0, x0 - Math.round(0.02 * Wd));
+      mx = 0; while (mx < lim * Wd && x1 < Wd - step && dark(y0 + 6, y1 - 6, x1 + step, 0, false) < 110) { x1 += step; mx += step; } x1 = Math.min(Wd - 1, x1 + Math.round(0.02 * Wd));
+      return { id: e.id, role: 'badge', box: [x0 * 1000 / Wd, y0 * 1000 / Hd, x1 * 1000 / Wd, y1 * 1000 / Hd], shape: 'rect', group: null, panelCard: true };
+    });
+  }
+  { // כפתור מעוטר (גרדיינט/ברק/אותיות מרקם, כמו "1+1" מוזהב): לא משחזרים את הכיתוב בנפרד, הכפתור נחתך כיחידה עם הכיתוב שעליו, אחרת האותיות נשברות
+    const drop = new Set(), D = img.d, Wd = img.w, Hd = img.h;
+    for (const bt of (elements || [])) {
+      if (!bt || bt.role !== 'button' || !Array.isArray(bt.box)) continue;
+      const kids = elements.filter(l => l && l !== bt && l.lines && l.lines.length && Array.isArray(l.box) && l.box[0] >= bt.box[0] - 20 && l.box[2] <= bt.box[2] + 20 && l.box[1] >= bt.box[1] - 20 && l.box[3] <= bt.box[3] + 20 && ['label', 'button', 'subheadline', 'caption'].includes(l.role));
+      if (!kids.length) continue;
+      const x0 = Math.round(bt.box[0] * Wd / 1000), x1 = Math.round(bt.box[2] * Wd / 1000), y0 = Math.round(bt.box[1] * Hd / 1000), y1 = Math.round(bt.box[3] * Hd / 1000); let n = 0, hi = 0;
+      for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2) { const o = (y * Wd + x) * 3, q = o + 6; if (x + 2 >= Wd) continue; n++; if (Math.max(Math.abs(D[o] - D[q]), Math.abs(D[o + 1] - D[q + 1]), Math.abs(D[o + 2] - D[q + 2])) > 70) hi++; }
+      const sm = []; for (const l of kids) { const lw = (l.box[2] - l.box[0]) * Wd / 1000, lh = (l.box[3] - l.box[1]) * Hd / 1000; sm.push(lw * lh); }
+      const bigLbl = Math.max(...sm) > 0.35 * ((x1 - x0) * (y1 - y0)); // כיתוב שתופס חלק גדול מהכפתור (לא שורה קטנה על רקע חלק)
+      if (n && hi / n > 0.22 && bigLbl) kids.forEach(k => drop.add(k));
+    }
+    if (drop.size) elements = elements.filter(e => !drop.has(e));
+  } // תיבת כיתוב עם שורות בגדלים/צבעים שונים (למשל "חותכים" לבן גדול + שורה כחולה קטנה): כל שורה לתיבה נפרדת, אחרת חילוץ האותיות משתבש
   // תיבת "תגית" שרוחבה כמעט כל הבאנר (פס תחתון שלם): היא כוללת חלק מהגיבור/רצפה ותמונות שכבר זוהו בנפרד (כפילות). מצמצמים אותה לקטע הרחב ביותר שלא תפוס ע"י אלמנטים גרפיים אחרים; אם לא נשאר קטע סביר מתעלמים ממנה
   elements = (elements || []).map(e => {
     if (!(['badge', 'photo'].includes(e.role) && !(e.lines && e.lines.length) && Array.isArray(e.box))) return e;
@@ -3759,5 +3789,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.54-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.55-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
