@@ -1599,9 +1599,27 @@ function splitMixedLines(img, elements) {
   return out;
 }
 function buildScene(img, elements, onProgress) {
+  G.__PANELCARD = false; G.__cardN = 0; const sc = buildScene0(img, elements, onProgress);
+  // כותרת רב-שורות על לוח כהה מעוטר: לבאנרים רחבים בונים סצנה חלופית שבה הלוח כולו נחתך כתמונה (נקי); לשאר הגדלים משחזרים כרגיל
+  try { G.__PANELCARD = true; G.__cardN = 0; const alt = buildScene0(img, elements, () => {}); if (G.__cardN > 0) { alt.leaves.forEach(l => { l.z = (l.z || 0) + 1000; }); sc.alt = alt; } } catch (e) { if (G.__SIZY_DEBUG) throw e; } finally { G.__PANELCARD = false; }
+  return sc;
+}
+function pickScene(sc, W, H) { return sc.alt && W / H >= 2.2 && W / H <= 4.2 && H >= 200 ? sc.alt : sc; }
+function buildScene0(img, elements, onProgress) {
   const W = img.w, H = img.h, tell = m => onProgress && onProgress(m);
   if (!G.__NOCARD) elements = cardFix(img, elements);
   if (!G.__NOSPLIT) elements = splitMixedLines(img, elements);
+  { // לוח עגול/מלבני מעוטר (decor) שמכיל 3+ שורות כותרת: כל הלוח עם הכיתוב נחתך כתמונה אחת (מקור נקי), לא משחזרים אותיות
+    const els2 = (elements || []).filter(e => e && Array.isArray(e.box)), drop3 = new Set(), add3 = [];
+    for (const d of els2) {
+      if (d.role !== 'decor' || (d.lines && d.lines.length) || !['rounded', 'rect', 'pill'].includes(d.shape)) continue;
+      const ins = els2.filter(h => h !== d && h.role === 'headline' && h.lines && h.lines.length && h.box[0] >= d.box[0] - 15 && h.box[2] <= d.box[2] + 15 && h.box[1] >= d.box[1] - 15 && h.box[3] <= d.box[3] + 15);
+      if (ins.length < 3) continue;
+      ins.forEach(h => drop3.add(h)); drop3.add(d);
+      add3.push({ id: d.id, role: 'badge', box: d.box.map(Number), shape: 'rect', group: null, panelCard: true });
+    }
+    if (drop3.size) elements = elements.filter(e => !drop3.has(e)).concat(add3);
+  }
   { // כותרת רב-שורות על לוח כהה מעוטר (מסגרת זהב, "1.3 מיליון דולר"): לא משחזרים אותיות; הלוח כולו עם המסגרת נחתך כתמונה אחת ונשמר בדיוק כמו במקור
     const D = img.d, Wd = img.w, Hd = img.h, lum = (x, y) => { const o = (y * Wd + x) * 3; return 0.3 * D[o] + 0.59 * D[o + 1] + 0.11 * D[o + 2]; };
     elements = (elements || []).map(e => {
@@ -1615,6 +1633,7 @@ function buildScene(img, elements, onProgress) {
       mx = 0; while (mx < lim * Hd && y1 < Hd - step && dark(x0, x1, y1 + step, 0, true) < 110) { y1 += step; mx += step; } y1 = Math.min(Hd - 1, y1 + Math.round(0.03 * Hd));
       mx = 0; while (mx < lim * Wd && x0 > step && dark(y0 + 6, y1 - 6, x0 - step, 0, false) < 110) { x0 -= step; mx += step; } x0 = Math.max(0, x0 - Math.round(0.02 * Wd));
       mx = 0; while (mx < lim * Wd && x1 < Wd - step && dark(y0 + 6, y1 - 6, x1 + step, 0, false) < 110) { x1 += step; mx += step; } x1 = Math.min(Wd - 1, x1 + Math.round(0.02 * Wd));
+      G.__cardN = (G.__cardN || 0) + 1;
       return { id: e.id, role: 'badge', box: [x0 * 1000 / Wd, y0 * 1000 / Hd, x1 * 1000 / Wd, y1 * 1000 / Hd], shape: 'rect', group: null, panelCard: true };
     });
   }
@@ -2593,7 +2612,7 @@ function rfSafe(sc, W, H, plan, pl) {
   const cp = bad || fullBleed ? containPlace(sc, W, H) : null; c.set(key, !!cp);
   return cp || pl;
 }
-function containFor(sc, W, H) { autoplace(sc, W, H); return !!(sc._cont && sc._cont.get(W + 'x' + H)); }
+function containFor(sc, W, H) { sc = pickScene(sc, W, H); autoplace(sc, W, H); return !!(sc._cont && sc._cont.get(W + 'x' + H)); }
 function containBg(sc, Wk, Hk) {
   const img0 = sc._img; if (img0) { // פער קטן: מרחיבים את הקצה החלק (מותחים 3 שורות קצה ומטשטשים לאורך הקצה)
     const s0 = Math.min(Wk / sc.W, Hk / sc.H), w0 = sc.W * s0, h0 = sc.H * s0, g = containGeom(sc, Wk, Hk, w0, h0);
@@ -2612,6 +2631,7 @@ function containBg(sc, Wk, Hk) {
   return blur(cropImg(big, x0, y0, x0 + Wk, y0 + Hk), 0.035 * Math.max(Wk, Hk));
 }
 function autoplace(sc, W, H, plan) {
+  sc = pickScene(sc, W, H);
   const ck = W + 'x' + H + '|' + APGEN + '|' + (plan ? JSON.stringify(plan) : ''), mc = sc._ap || (sc._ap = new Map()), hit = mc.get(ck);
   if (hit) return hit.map(e => e.slice());
   const res = rfSafe(sc, W, H, plan, autoplace0(sc, W, H, plan));
@@ -3649,6 +3669,7 @@ function reframeWhy(sc) {
   return 'REFRAME פעיל (hero ' + (frac * 100).toFixed(0) + '%, tex ' + ph.tex.toFixed(2) + ', flat ' + ph.flat.toFixed(2) + ')';
 }
 function reframeFor(sc, W, H, plan) {
+  sc = pickScene(sc, W, H);
   if (plan || !sc._img) return null;
   const P = rfPrep(sc); if (!P) return null;
   const c = sc._rfc || (sc._rfc = new Map()), key = W + 'x' + H; if (c.has(key)) return c.get(key);
@@ -3666,6 +3687,7 @@ function premul(L) {
   PM.set(L, pm); return pm;
 }
 function render(sc, W, H, K, plan) {
+  sc = pickScene(sc, W, H);
   K = K || 1;
   const Wk = Math.floor(W * K), Hk = Math.floor(H * K);
   const s = Math.max(Wk / sc.W, Hk / sc.H);
@@ -3769,7 +3791,7 @@ function extractFrame(L, rgba) {
 function exportScene(sc) {
   const plate = new Uint8ClampedArray(sc.W * sc.H * 4);
   for (let i = 0; i < sc.W * sc.H; i++) { plate[i * 4] = sc.plate.d[i * 3]; plate[i * 4 + 1] = sc.plate.d[i * 3 + 1]; plate[i * 4 + 2] = sc.plate.d[i * 3 + 2]; plate[i * 4 + 3] = 255; }
-  const leaves = sc.leaves.map(e => {
+  const leaves = sc.leaves.concat(sc.alt ? sc.alt.leaves : []).map(e => {
     const L = e.layer, n = L.lw * L.lh, rgba = new Uint8ClampedArray(n * 4);
     let r = 0, g = 0, b = 0, wsum = 0;
     for (let i = 0; i < n; i++) {
@@ -3782,6 +3804,7 @@ function exportScene(sc) {
   return { W: sc.W, H: sc.H, plate, leaves, holeRows: sc.holeRows };
 }
 function placements(sc, W, H, plan) {
+  sc = pickScene(sc, W, H);
   return autoplace(sc, W, H, plan).map(([k, x, y, w, h]) => {
     const o = { z: k.z, x, y, w, h }; if (k.absorbs) o.absorbs = k.absorbs;
     if (k.reflowed) { const L = k.layer, n = L.lw * L.lh, rgba = new Uint8ClampedArray(n * 4); for (let i = 0; i < n; i++) { rgba[i * 4] = L.rgb[i * 3]; rgba[i * 4 + 1] = L.rgb[i * 3 + 1]; rgba[i * 4 + 2] = L.rgb[i * 3 + 2]; rgba[i * 4 + 3] = L.a[i] * 255; } o.layer = { lw: L.lw, lh: L.lh, rgba }; }
@@ -3789,5 +3812,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.55-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.56-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
