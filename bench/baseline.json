@@ -1,6 +1,355 @@
 {
- "avg": 91.03,
+ "avg": 90.5,
  "cases": {
+  "case_migdal_car2@1200x200": {
+   "score": 90.1,
+   "flags": [
+    "smeared",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 97.3,
+    "sharpness": 100,
+    "layout": 89.1,
+    "dropped": 90.1,
+    "fill": 70
+   }
+  },
+  "case_migdal_car2@1200x60": {
+   "score": 68.3,
+   "flags": [
+    "empty_band",
+    "smeared",
+    "sparse",
+    "tinytext"
+   ],
+   "sub": {
+    "legibility": 45,
+    "sharpness": null,
+    "layout": 85.3,
+    "dropped": 75.1,
+    "fill": 70
+   }
+  },
+  "case_migdal_car2@120x500": {
+   "score": 96.9,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": null,
+    "layout": 94.8,
+    "dropped": 99.1,
+    "fill": 92.2
+   }
+  },
+  "case_migdal_car2@300x600": {
+   "score": 93.3,
+   "flags": [
+    "sparse",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 99.8,
+    "sharpness": null,
+    "layout": 78.3,
+    "dropped": 99.1,
+    "fill": 99.7
+   }
+  },
+  "case_migdal_car2@160x600": {
+   "score": 96.1,
+   "flags": [],
+   "sub": {
+    "legibility": 100,
+    "sharpness": null,
+    "layout": 94.8,
+    "dropped": 99.1,
+    "fill": 88
+   }
+  },
+  "case_migdal_car2@728x90": {
+   "score": 68.9,
+   "flags": [
+    "sparse",
+    "tinytext"
+   ],
+   "sub": {
+    "legibility": 45,
+    "sharpness": null,
+    "layout": 86.8,
+    "dropped": 75.1,
+    "fill": 70.6
+   }
+  },
+  "case_migdal_car2@300x250": {
+   "score": 73.1,
+   "flags": [
+    "sparse",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 55.3,
+    "sharpness": null,
+    "layout": 73,
+    "dropped": 75.1,
+    "fill": 100
+   }
+  },
+  "case_migdal_car2@320x70": {
+   "score": 74.6,
+   "flags": [
+    "sparse",
+    "tinytext"
+   ],
+   "sub": {
+    "legibility": 45.4,
+    "sharpness": null,
+    "layout": 88,
+    "dropped": 75.1,
+    "fill": 100
+   }
+  },
+  "case_migdal_car2@800x600": {
+   "score": 90.7,
+   "flags": [
+    "sparse",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 98.3,
+    "sharpness": 100,
+    "layout": 72.5,
+    "dropped": 90.1,
+    "fill": 100
+   }
+  },
+  "case_migdal_car2@290x350": {
+   "score": 80.3,
+   "flags": [
+    "sparse",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 71,
+    "sharpness": null,
+    "layout": 74.6,
+    "dropped": 84.1,
+    "fill": 100
+   }
+  },
+  "case_migdal_car2@600x1100": {
+   "score": 93.3,
+   "flags": [
+    "sparse",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 100,
+    "sharpness": null,
+    "layout": 78,
+    "dropped": 99.1,
+    "fill": 100
+   }
+  },
+  "case_migdal_car2@895x80": {
+   "score": 68.6,
+   "flags": [
+    "empty_band",
+    "smeared",
+    "sparse",
+    "tinytext"
+   ],
+   "sub": {
+    "legibility": 45,
+    "sharpness": null,
+    "layout": 86.1,
+    "dropped": 75.1,
+    "fill": 70
+   }
+  },
+  "case_migdal_paint@1200x200": {
+   "score": 83.6,
+   "flags": [
+    "blotchy",
+    "smeared"
+   ],
+   "sub": {
+    "legibility": 92.8,
+    "sharpness": 100,
+    "layout": 90.4,
+    "dropped": 99.2,
+    "fill": 20
+   }
+  },
+  "case_migdal_paint@1200x60": {
+   "score": 78.9,
+   "flags": [
+    "blotchy",
+    "empty_band",
+    "smeared",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 69.3,
+    "sharpness": 100,
+    "layout": 89.8,
+    "dropped": 90.7,
+    "fill": 40.3
+   }
+  },
+  "case_migdal_paint@120x500": {
+   "score": 67.3,
+   "flags": [
+    "hierarchy",
+    "smeared",
+    "sparse",
+    "tinytext",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 56,
+    "sharpness": 100,
+    "layout": 54.6,
+    "dropped": 85,
+    "fill": 51
+   }
+  },
+  "case_migdal_paint@300x600": {
+   "score": 83.8,
+   "flags": [
+    "blotchy",
+    "smeared",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 93.5,
+    "sharpness": 100,
+    "layout": 89.7,
+    "dropped": 99.2,
+    "fill": 21.3
+   }
+  },
+  "case_migdal_paint@160x600": {
+   "score": 70.1,
+   "flags": [
+    "hierarchy",
+    "smeared",
+    "sparse",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 68.9,
+    "sharpness": 100,
+    "layout": 54.2,
+    "dropped": 85,
+    "fill": 48.8
+   }
+  },
+  "case_migdal_paint@728x90": {
+   "score": 81.2,
+   "flags": [
+    "blotchy",
+    "smeared",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 87.2,
+    "sharpness": 100,
+    "layout": 93,
+    "dropped": 90.7,
+    "fill": 20
+   }
+  },
+  "case_migdal_paint@300x250": {
+   "score": 82.4,
+   "flags": [
+    "blotchy",
+    "smeared",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 93.5,
+    "sharpness": 100,
+    "layout": 84.6,
+    "dropped": 99.2,
+    "fill": 20
+   }
+  },
+  "case_migdal_paint@320x70": {
+   "score": 75.9,
+   "flags": [
+    "blotchy",
+    "smeared",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 80.7,
+    "sharpness": 100,
+    "layout": 89.8,
+    "dropped": 76.5,
+    "fill": 20
+   }
+  },
+  "case_migdal_paint@800x600": {
+   "score": 82.3,
+   "flags": [
+    "blotchy",
+    "smeared",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 93.5,
+    "sharpness": 100,
+    "layout": 84.2,
+    "dropped": 99.2,
+    "fill": 20
+   }
+  },
+  "case_migdal_paint@290x350": {
+   "score": 83.5,
+   "flags": [
+    "blotchy",
+    "smeared",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 93.5,
+    "sharpness": 100,
+    "layout": 89.1,
+    "dropped": 99.2,
+    "fill": 20
+   }
+  },
+  "case_migdal_paint@600x1100": {
+   "score": 84.1,
+   "flags": [
+    "blotchy",
+    "smeared",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 93.5,
+    "sharpness": 100,
+    "layout": 89.4,
+    "dropped": 99.2,
+    "fill": 23.5
+   }
+  },
+  "case_migdal_paint@895x80": {
+   "score": 79.9,
+   "flags": [
+    "blotchy",
+    "smeared",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 81.4,
+    "sharpness": 100,
+    "layout": 93.8,
+    "dropped": 90.7,
+    "fill": 20
+   }
+  },
   "case_shopping2@1200x200": {
    "score": 84.8,
    "flags": [
@@ -2946,6 +3295,175 @@
     "layout": 98.9,
     "dropped": 100,
     "fill": 70.9
+   }
+  },
+  "case_migdal_cut@1200x200": {
+   "score": 96.3,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 85.2,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "case_migdal_cut@1200x60": {
+   "score": 90.2,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 75.5,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 81.5,
+    "fill": 100
+   }
+  },
+  "case_migdal_cut@120x500": {
+   "score": 77.2,
+   "flags": [
+    "hierarchy",
+    "sparse",
+    "tinytext",
+    "weak_headline"
+   ],
+   "sub": {
+    "legibility": 64.2,
+    "sharpness": 100,
+    "layout": 54.5,
+    "dropped": 87.8,
+    "fill": 100
+   }
+  },
+  "case_migdal_cut@300x600": {
+   "score": 88.7,
+   "flags": [
+    "hierarchy",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 93.5,
+    "sharpness": 100,
+    "layout": 61.7,
+    "dropped": 99.3,
+    "fill": 100
+   }
+  },
+  "case_migdal_cut@160x600": {
+   "score": 77.1,
+   "flags": [
+    "hierarchy",
+    "sparse",
+    "tiled",
+    "tinytext"
+   ],
+   "sub": {
+    "legibility": 74.8,
+    "sharpness": 100,
+    "layout": 63.7,
+    "dropped": 87.8,
+    "fill": 65.8
+   }
+  },
+  "case_migdal_cut@728x90": {
+   "score": 88.7,
+   "flags": [
+    "lowcontrast",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 71.3,
+    "sharpness": 100,
+    "layout": 89.6,
+    "dropped": 92.4,
+    "fill": 100
+   }
+  },
+  "case_migdal_cut@300x250": {
+   "score": 86.5,
+   "flags": [
+    "hierarchy",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 83.6,
+    "sharpness": 100,
+    "layout": 63.1,
+    "dropped": 99.3,
+    "fill": 100
+   }
+  },
+  "case_migdal_cut@320x70": {
+   "score": 86.9,
+   "flags": [
+    "lowcontrast",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 55.6,
+    "sharpness": 100,
+    "layout": 92.6,
+    "dropped": 99.3,
+    "fill": 100
+   }
+  },
+  "case_migdal_cut@800x600": {
+   "score": 97,
+   "flags": [
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 88.5,
+    "dropped": 99.3,
+    "fill": 100
+   }
+  },
+  "case_migdal_cut@290x350": {
+   "score": 86.9,
+   "flags": [
+    "hierarchy",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 87.2,
+    "sharpness": 100,
+    "layout": 60.9,
+    "dropped": 99.3,
+    "fill": 100
+   }
+  },
+  "case_migdal_cut@600x1100": {
+   "score": 93.3,
+   "flags": [
+    "hierarchy",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 100,
+    "sharpness": 100,
+    "layout": 73.9,
+    "dropped": 99.3,
+    "fill": 100
+   }
+  },
+  "case_migdal_cut@895x80": {
+   "score": 90.5,
+   "flags": [
+    "lowcontrast",
+    "sparse"
+   ],
+   "sub": {
+    "legibility": 75.1,
+    "sharpness": 100,
+    "layout": 93.2,
+    "dropped": 92.4,
+    "fill": 100
    }
   },
   "case_shopping1@1200x200": {
