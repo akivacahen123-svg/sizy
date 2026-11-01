@@ -2512,17 +2512,45 @@ function containPlace(sc, W, H) {
   const w = sw * s, h = sh * s, a = new Float32Array(sw * sh).fill(1);
   const ids = (sc.leaves instanceof Map ? [...sc.leaves.values()] : sc.leaves).map(l => l.id);
   const leaf = { id: 'whole', role: 'photo', text: false, shape: 'rect', group: null, z: 0, x: 0, y: 0, w: sw, h: sh, reflowed: true, absorbs: ids, layer: { rgb: img.d, a, lw: sw, lh: sh, up: 1, x: 0, y: 0, w: sw, h: sh } };
-  return [[leaf, (W - w) / 2, (H - h) / 2, w, h]];
+  const g = containGeom(sc, W, H, w, h);
+  return [[leaf, g.x, g.y, w, h]];
+}
+// מיקום התמונה השלמה בקנבס: כשהפער קטן (<18% מהמימד) הריפוד כולו בצד אחד (הצד עם הקצה החלק יותר, למשל קיר) וממלאים בהרחבת הקצה. אחרת באמצע על רקע מטושטש
+function containGeom(sc, W, H, w, h) {
+  const gx = W - w, gy = H - h, img = sc._img;
+  if (!img || sc.W / sc.H >= 0.75 || (gx > 0.5 && gy > 0.5) || Math.max(gx / W, gy / H) > 0.18) return { x: gx / 2, y: gy / 2, ext: 0 };
+  const vert = gy > 0.5, n = vert ? img.w : img.h, E = [0, 0], rd = (i, k) => { const x = vert ? i : k, y = vert ? k : i; return img.d[(y * img.w + x) * 3] * 0.3 + img.d[(y * img.w + x) * 3 + 1] * 0.59 + img.d[(y * img.w + x) * 3 + 2] * 0.11; };
+  const L = vert ? img.h : img.w;
+  for (let side = 0; side < 2; side++) { let sum = 0; for (let k = 0; k < 6; k++) { const kk = side ? L - 1 - k : k; for (let i = 1; i < n; i++) sum += Math.abs(rd(i, kk) - rd(i - 1, kk)); } E[side] = sum; }
+  if (Math.min(E[0], E[1]) / (6 * n) > 3) return { x: gx / 2, y: gy / 2, ext: 0 }; // קצה עמוס (לא קיר חלק): הרחבה תמרח, נשארים עם רקע מטושטש
+  const first = E[0] <= E[1]; // הריפוד בצד הראשון (למעלה/שמאל) אם הקצה שם חלק יותר
+  return vert ? { x: 0, y: first ? gy : 0, ext: first ? 1 : 2 } : { x: first ? gx : 0, y: 0, ext: first ? 1 : 2 };
 }
 function rfSafe(sc, W, H, plan, pl) {
   const c = sc._cont || (sc._cont = new Map()), key = W + 'x' + H;
   if (plan || !G.SizyQA || !sc._img) { c.set(key, false); return pl; }
   let bad = false; try { bad = G.SizyQA.qaCheck(sc, W, H, pl).issues.some(i => SAFE_CODES.has(i.code)); } catch (e) { bad = false; }
-  const cp = bad ? containPlace(sc, W, H) : null; c.set(key, !!cp);
+  const ra = (W / H) / (sc.W / sc.H), s0 = Math.min(W / sc.W, H / sc.H);
+  let fullBleed = false; // באנר גבוה (סטורי) עם צילום שממלא את רוב הקנבס, ליחס קרוב: אם הסידור הרגיל מכווץ את הצילום (פחות מ-85% מההקטנה הנאמנה), מחזירים הקטנה נאמנה של הבאנר השלם (כך מעצב עושה)
+  if (sc.W / sc.H < 0.75 && ra > 0.8 && ra < 1.25 && Math.abs(ra - 1) > 0.03) { const lv = sc.leaves instanceof Map ? [...sc.leaves.values()] : sc.leaves, noBtn = !lv.some(l => l.role === 'button'); const hl = !noBtn ? [] : lv.filter(l => l.role === 'hero' && l.layer && !l.layer.matted && l.w * l.h > 0.45 * sc.W * sc.H); for (const l of hl) { const e = pl.find(q => q[0] === l); if (!e || e[3] < 0.85 * s0 * l.w) fullBleed = true; } }
+ // באנר גבוה (סטורי/פורטרט) לגודל בעל יחס קרוב: הקטנה נאמנה של הבאנר השלם, בלי פירוק (כך מעצב עושה)
+  const cp = bad || fullBleed ? containPlace(sc, W, H) : null; c.set(key, !!cp);
   return cp || pl;
 }
 function containFor(sc, W, H) { autoplace(sc, W, H); return !!(sc._cont && sc._cont.get(W + 'x' + H)); }
 function containBg(sc, Wk, Hk) {
+  const img0 = sc._img; if (img0) { // פער קטן: מרחיבים את הקצה החלק (מותחים 3 שורות קצה ומטשטשים לאורך הקצה)
+    const s0 = Math.min(Wk / sc.W, Hk / sc.H), w0 = sc.W * s0, h0 = sc.H * s0, g = containGeom(sc, Wk, Hk, w0, h0);
+    if (g.ext && Math.abs(Wk / Hk - sc.W / sc.H) >= 0.03) {
+      const sm = resize(img0, Math.max(1, Math.round(w0)), Math.max(1, Math.round(h0)), s0 < 1 ? 'area' : 'cubic'), out = { w: Wk, h: Hk, c: 3, d: new Float32Array(Wk * Hk * 3) }, vert = Hk > h0 + 0.5, ox = Math.round(g.x), oy = Math.round(g.y);
+      for (let y = 0; y < Hk; y++) for (let x = 0; x < Wk; x++) {
+        const sx = Math.min(sm.w - 1, Math.max(0, x - ox)), sy = Math.min(sm.h - 1, Math.max(0, y - oy)); let r = 0, gg = 0, b = 0, cnt = 0;
+        for (let k = 0; k < 3; k++) { const yy = vert ? (y < oy ? Math.min(sm.h - 1, k) : Math.max(0, sm.h - 1 - k)) : sy, xx = vert ? sx : (x < ox ? Math.min(sm.w - 1, k) : Math.max(0, sm.w - 1 - k)), o = (yy * sm.w + xx) * 3; if (x >= ox && x < ox + sm.w && y >= oy && y < oy + sm.h) { const o2 = (sy * sm.w + sx) * 3; r = sm.d[o2]; gg = sm.d[o2 + 1]; b = sm.d[o2 + 2]; cnt = 1; break; } r += sm.d[o]; gg += sm.d[o + 1]; b += sm.d[o + 2]; cnt++; }
+        const o = (y * Wk + x) * 3; out.d[o] = r / cnt; out.d[o + 1] = gg / cnt; out.d[o + 2] = b / cnt;
+      }
+      return blur(out, 0.012 * Math.max(Wk, Hk));
+    }
+  }
   const img = sc._img, s = Math.max(Wk / sc.W, Hk / sc.H), nw = Math.max(Wk, Math.round(sc.W * s)), nh = Math.max(Hk, Math.round(sc.H * s));
   const big = resize(img, nw, nh, s < 1 ? 'area' : 'cubic'), x0 = Math.floor((nw - Wk) / 2), y0 = Math.floor((nh - Hk) / 2);
   return blur(cropImg(big, x0, y0, x0 + Wk, y0 + Hk), 0.035 * Math.max(Wk, Hk));
@@ -3564,5 +3592,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.50-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.51-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
