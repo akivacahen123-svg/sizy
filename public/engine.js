@@ -3035,7 +3035,7 @@ function splitCompose(sc, W, H) {
   const base = Math.min(W, H);
   // ערימה בתוך תיבה [x,y,w,h]: טקסטים וכפתור במרכז, שורת לוגו+גוף בתחתית
   const fillPanel = (pl, bx, by, bw, bh, withBottom = true) => {
-    const m = 0.04 * Math.min(bw, bh) + 2, gap = Math.max(3, 0.03 * bh), iw = bw - 2 * m;
+    const m = !stack && bw > 1.6 * bh ? Math.max(0.07 * bh, 0.025 * bw) + 2 : 0.04 * Math.min(bw, bh) + 2, gap = Math.max(3, 0.03 * bh), iw = bw - 2 * m;
     let rowH = 0, row = null;
     if (withBottom && (logos.length || bodies.length)) { // שורה תחתונה: לוגו משמאל, גוף מימין
       const lg = logos[0], bd = bodies[0]; let sl = 0, sb = 0;
@@ -3759,5 +3759,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.53-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.54-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
