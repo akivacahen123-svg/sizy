@@ -1613,12 +1613,18 @@ function buildScene0(img, elements, onProgress) {
     const els2 = (elements || []).filter(e => e && Array.isArray(e.box)), drop3 = new Set(), add3 = [];
     for (const d of els2) {
       if (d.role !== 'decor' || (d.lines && d.lines.length) || !['rounded', 'rect', 'pill'].includes(d.shape)) continue;
-      const ins = els2.filter(h => h !== d && h.role === 'headline' && h.lines && h.lines.length && h.box[0] >= d.box[0] - 15 && h.box[2] <= d.box[2] + 15 && h.box[1] >= d.box[1] - 15 && h.box[3] <= d.box[3] + 15);
+      const inside = h => h !== d && h.box[0] >= d.box[0] - 15 && h.box[2] <= d.box[2] + 15 && h.box[1] >= d.box[1] - 15 && h.box[3] <= d.box[3] + 15;
+      const ins = els2.filter(h => inside(h) && h.role === 'headline' && h.lines && h.lines.length);
       if (ins.length < 3) continue;
-      ins.forEach(h => drop3.add(h)); drop3.add(d);
+      const big = (d.box[2] - d.box[0]) * (d.box[3] - d.box[1]) > 0.3e6; // כרטיס גדול (כמו כרטיס שובר): כל מה שבתוכו (כפתור, כותרות משנה, סרט) הוא חלק מהכרטיס
+      els2.filter(h => inside(h) && (big ? !['hero', 'logo'].includes(h.role) : (h.role === 'headline' && h.lines && h.lines.length))).forEach(h => drop3.add(h)); drop3.add(d);
       add3.push({ id: d.id, role: 'badge', box: d.box.map(Number), shape: 'rect', group: null, panelCard: true });
     }
-    if (drop3.size) elements = elements.filter(e => !drop3.has(e)).concat(add3);
+    if (drop3.size) {
+      elements = elements.filter(e => !drop3.has(e)).concat(add3);
+      // צילום שמתחת לכרטיס הגדול: החלק שמוסתר מאחורי הכרטיס לא קיים בפועל (נשאר רק פס שמאלי), חותכים את הצילום עד קצה הכרטיס
+      for (const c of add3) elements = elements.map(h => { if (h.role !== 'hero' || !Array.isArray(h.box) || h.matte) return h; const b = h.box.map(Number); if (b[2] > c.box[0] + 10 && b[0] < c.box[0] && (c.box[2] - c.box[0]) * (c.box[3] - c.box[1]) > 0.3e6) return { ...h, box: [b[0], b[1], Math.max(b[0] + 50, c.box[0] - 4), b[3]] }; return h; });
+    }
   }
   { // כותרת רב-שורות על לוח כהה מעוטר (מסגרת זהב, "1.3 מיליון דולר"): לא משחזרים אותיות; הלוח כולו עם המסגרת נחתך כתמונה אחת ונשמר בדיוק כמו במקור
     const D = img.d, Wd = img.w, Hd = img.h, lum = (x, y) => { const o = (y * Wd + x) * 3; return 0.3 * D[o] + 0.59 * D[o + 1] + 0.11 * D[o + 2]; };
