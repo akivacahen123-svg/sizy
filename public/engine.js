@@ -1601,7 +1601,7 @@ function splitMixedLines(img, elements) {
 function buildScene(img, elements, onProgress) {
   G.__PANELCARD = false; G.__cardN = 0; const sc = buildScene0(img, elements, onProgress);
   // כותרת רב-שורות על לוח כהה מעוטר: לבאנרים רחבים בונים סצנה חלופית שבה הלוח כולו נחתך כתמונה (נקי); לשאר הגדלים משחזרים כרגיל
-  try { G.__PANELCARD = true; G.__cardN = 0; const alt = buildScene0(img, elements, () => {}); if (G.__cardN > 0) { alt.leaves.forEach(l => { l.z = (l.z || 0) + 1000; }); sc.alt = alt; } } catch (e) { if (G.__SIZY_DEBUG) throw e; } finally { G.__PANELCARD = false; }
+  try { G.__PANELCARD = true; G.__cardN = 0; const alt = buildScene0(img, elements, () => {}); if (G.__cardN > 0) { alt._isAlt = true; alt.leaves.forEach(l => { l.z = (l.z || 0) + 1000; }); sc.alt = alt; } } catch (e) { if (G.__SIZY_DEBUG) throw e; } finally { G.__PANELCARD = false; }
   return sc;
 }
 function pickScene(sc, W, H) { return sc.alt && W / H >= 2.2 && W / H <= 4.2 && H >= 200 ? sc.alt : sc; }
@@ -1638,18 +1638,19 @@ function buildScene0(img, elements, onProgress) {
     });
   }
   { // כפתור מעוטר (גרדיינט/ברק/אותיות מרקם, כמו "1+1" מוזהב): לא משחזרים את הכיתוב בנפרד, הכפתור נחתך כיחידה עם הכיתוב שעליו, אחרת האותיות נשברות
-    const drop = new Set(), D = img.d, Wd = img.w, Hd = img.h;
+    const drop = new Set(), rep = new Map(), D = img.d, Wd = img.w, Hd = img.h;
     for (const bt of (elements || [])) {
       if (!bt || bt.role !== 'button' || !Array.isArray(bt.box)) continue;
       const kids = elements.filter(l => l && l !== bt && l.lines && l.lines.length && Array.isArray(l.box) && l.box[0] >= bt.box[0] - 20 && l.box[2] <= bt.box[2] + 20 && l.box[1] >= bt.box[1] - 20 && l.box[3] <= bt.box[3] + 20 && ['label', 'button', 'subheadline', 'caption'].includes(l.role));
       if (!kids.length) continue;
       const x0 = Math.round(bt.box[0] * Wd / 1000), x1 = Math.round(bt.box[2] * Wd / 1000), y0 = Math.round(bt.box[1] * Hd / 1000), y1 = Math.round(bt.box[3] * Hd / 1000); let n = 0, hi = 0;
-      for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2) { const o = (y * Wd + x) * 3, q = o + 6; if (x + 2 >= Wd) continue; n++; if (Math.max(Math.abs(D[o] - D[q]), Math.abs(D[o + 1] - D[q + 1]), Math.abs(D[o + 2] - D[q + 2])) > 70) hi++; }
+      const inK = (x, y) => kids.some(l => x >= (l.box[0] - 8) * Wd / 1000 && x <= (l.box[2] + 8) * Wd / 1000 && y >= (l.box[1] - 8) * Hd / 1000 && y <= (l.box[3] + 8) * Hd / 1000);
+      for (let y = y0; y < y1; y += 2) for (let x = x0; x < x1; x += 2) { const o = (y * Wd + x) * 3, q = o + 6; if (x + 2 >= Wd || inK(x, y)) continue; n++; if (Math.max(Math.abs(D[o] - D[q]), Math.abs(D[o + 1] - D[q + 1]), Math.abs(D[o + 2] - D[q + 2])) > 70) hi++; }
       const sm = []; for (const l of kids) { const lw = (l.box[2] - l.box[0]) * Wd / 1000, lh = (l.box[3] - l.box[1]) * Hd / 1000; sm.push(lw * lh); }
-      const bigLbl = Math.max(...sm) > 0.35 * ((x1 - x0) * (y1 - y0)); // כיתוב שתופס חלק גדול מהכפתור (לא שורה קטנה על רקע חלק)
-      if (n && hi / n > 0.22 && bigLbl) kids.forEach(k => drop.add(k));
+      const bigLbl = sm.reduce((q, v) => q + v, 0) > 0.3 * ((x1 - x0) * (y1 - y0)); // כיתוב שתופס חלק גדול מהכפתור (לא שורה קטנה על רקע חלק)
+      if (n && hi / n > 0.085 && bigLbl) { G.__cardN = (G.__cardN || 0) + 1; if (!G.__PANELCARD) continue; kids.forEach(k => drop.add(k)); const gx = 0.012 * (bt.box[2] - bt.box[0]), gy = 0.02 * (bt.box[3] - bt.box[1]); rep.set(bt, { ...bt, box: [bt.box[0] - gx, bt.box[1] - gy, bt.box[2] + gx, bt.box[3] + gy] }); } // ההילה/המסגרת המוזהבת יוצאת מהתיבה: מרחיבים כדי שלא יישארו שאריות
     }
-    if (drop.size) elements = elements.filter(e => !drop.has(e));
+    if (drop.size) elements = elements.filter(e => !drop.has(e)).map(e => rep.get(e) || e);
   } // תיבת כיתוב עם שורות בגדלים/צבעים שונים (למשל "חותכים" לבן גדול + שורה כחולה קטנה): כל שורה לתיבה נפרדת, אחרת חילוץ האותיות משתבש
   // תיבת "תגית" שרוחבה כמעט כל הבאנר (פס תחתון שלם): היא כוללת חלק מהגיבור/רצפה ותמונות שכבר זוהו בנפרד (כפילות). מצמצמים אותה לקטע הרחב ביותר שלא תפוס ע"י אלמנטים גרפיים אחרים; אם לא נשאר קטע סביר מתעלמים ממנה
   elements = (elements || []).map(e => {
@@ -3241,6 +3242,17 @@ function rfAssets(sc, P) {
   for (const u of sc.units) { // כפתור (עם הטקסט שבתוכו) נחתך כתמונה אחת עם פינות מעוגלות: הוצאת אלפא מזהב על מג'נטה שוחקת את הספרות ומשאירה קצוות מנוקדים
     if (u === heroU || !btnU(u)) continue;
     const b = u.kids.filter(k => k.role === 'button'), x0 = Math.max(0, Math.floor(Math.min(...b.map(k => k.x)))), y0 = Math.max(0, Math.floor(Math.min(...b.map(k => k.y)))), x1 = Math.min(W, Math.ceil(Math.max(...b.map(k => k.x + k.w)))), y1 = Math.min(H, Math.ceil(Math.max(...b.map(k => k.y + k.h))));
+    { // כפתור מעוטר: התיבה של ג'מיני יוצאת מעבר לגוף הכפתור וכוללת רקע (אבנים זהובות) שנראה כשאריות. מצמצמים לגבולות צבע הגוף של הכפתור + עובי המסגרת
+      const bw0 = x1 - x0, bh0 = y1 - y0; if (sc._isAlt && bw0 > 40 && bh0 > 20) {
+        const cx0 = x0 + Math.round(0.35 * bw0), cx1 = x0 + Math.round(0.65 * bw0), cy0 = y0 + Math.round(0.35 * bh0), cy1 = y0 + Math.round(0.65 * bh0), cs = [[], [], []];
+        for (let y = cy0; y < cy1; y += 2) for (let x = cx0; x < cx1; x += 2) { const o = (y * W + x) * 3; for (let c = 0; c < 3; c++) cs[c].push(img.d[o + c]); }
+        const C = cs.map(a => { a.sort((u, v) => u - v); return a[a.length >> 1]; }), near = (x, y) => { const o = (y * W + x) * 3; return Math.max(Math.abs(img.d[o] - C[0]), Math.abs(img.d[o + 1] - C[1]), Math.abs(img.d[o + 2] - C[2])) < 50; };
+        const colF = [], rowF = []; for (let x = x0; x < x1; x++) { let n = 0, t = 0; for (let y = y0; y < y1; y += 2) { t++; if (near(x, y)) n++; } colF.push(n / t); } for (let y = y0; y < y1; y++) { let n = 0, t = 0; for (let x = x0; x < x1; x += 2) { t++; if (near(x, y)) n++; } rowF.push(n / t); }
+        const ext = (F, thr) => { let a = 0, b = F.length - 1; while (a < F.length && F[a] < thr) a++; while (b > a && F[b] < thr) b--; return [a, b + 1]; };
+        const [ca, cb] = ext(colF, 0.25), [ra, rb] = ext(rowF, 0.25);
+        if (cb - ca > 0.5 * bw0 && rb - ra > 0.5 * bh0) { const fr = Math.round(0.09 * (rb - ra)) + 1; x1 = Math.min(x1, x0 + cb + fr); y1 = Math.min(y1, y0 + rb + fr); x0 = Math.max(x0, x0 + ca - fr); y0 = Math.max(y0, y0 + ra - fr); }
+      }
+    }
     if (x1 - x0 >= 20 && y1 - y0 >= 12 && !panels.some(q => Math.min(q.x + q.w, x1) - Math.max(q.x, x0) > 0 && Math.min(q.y + q.h, y1) - Math.max(q.y, y0) > 0)) panels.push({ x: x0, y: y0, w: x1 - x0, h: y1 - y0, btn: true });
   }
   const inBox = (k, b) => { const cx = k.x + k.w / 2, cy = k.y + k.h / 2; return cx > b[0] && cx < b[2] && cy > b[1] && cy < b[3]; };
@@ -3812,5 +3824,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.56-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.57-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
