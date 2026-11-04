@@ -3035,6 +3035,47 @@ function splitDetect(sc) {
     else { const xL = tail(colS, W, true); if (xL > 0.15 * W && xL < 0.7 * W && photoFrac(colF, xL, W) > 0.6) res = { dir: 'right', C, cut: xL }; } }
   return sc._split = res;
 }
+
+// תבנית "צילום + כרטיס גדול שלם + לוגו": הכרטיס נשאר תמונה אחת, הצילום (כולל הלוגו שעליו) נחתך לחלון, דהייה לרקע
+function ticketCompose(sc, W, H) {
+  if (W * H < 9000 || W / H > 4.6 || H < 100 || W / H < 0.3) return null;
+  const U = sc.units, SW = sc.W, SH = sc.H;
+  const heroes = U.filter(u => u.role === 'hero'); if (heroes.length !== 1) return null;
+  const hu = heroes[0], hk = hu.kids[0]; if (hu.kids.length !== 1 || hk.text) return null;
+  const rest = U.filter(u => u !== hu), card = rest.filter(u => !u.kids.some(k => k.text) && u.w * u.h > 0.3 * SW * SH)[0];
+  if (!card || card.kids.length !== 1 || card.kids[0].role !== 'badge') return null;
+  const logos = rest.filter(u => u !== card); if (!logos.every(u => u.kids.length === 1 && u.kids[0].role === 'logo' && u.x >= hu.x - 6 && u.x + u.w <= hu.x + hu.w + 6)) return null;
+  if (hu.x > 4 || hu.w > 0.5 * SW || hu.h < 0.8 * SH) return null; // צילום צר בצד שמאל, כרטיס מימין לו
+  const d = sc._img.d, px = (x, y) => { const o = (clp(Math.round(y), 0, SH - 1) * SW + clp(Math.round(x), 0, SW - 1)) * 3; return [d[o], d[o + 1], d[o + 2]]; };
+  const C0 = px(hu.x + hu.w + 0.02 * SW, 0.5 * SH), C1 = px(0.97 * SW, 0.95 * SH), asp = W / H, stack = asp <= 1.25, m = Math.max(3, 0.03 * Math.min(W, H));
+  const mix = (a, b, t) => [0, 1, 2].map(i => a[i] * (1 - t) + b[i] * t);
+  const plane = (w, h, grad) => { // רקע: מעבר צבע בין צבע ליד הצילום לצבע הרחוק (כמו המקור)
+    const lw = Math.max(2, Math.round(w)), lh = Math.max(2, Math.round(h)), a = new Float32Array(lw * lh).fill(1), rgb = new Float32Array(lw * lh * 3);
+    for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) { const t = grad === 'v' ? y / lh : x / lw, c = mix(C0, C1, t); for (let k = 0; k < 3; k++) rgb[(y * lw + x) * 3 + k] = c[k]; }
+    return { id: 'tkbg', role: 'decor', text: false, shape: 'rect', group: null, z: 0, x: 0, y: 0, w, h, reflowed: true, isPlate: true, layer: { rgb, a, lw, lh, up: 1, x: 0, y: 0, w, h } };
+  };
+  const photo = (bx, by, bw, bh, fade) => { // fade: 'b' תחתית, 'r' ימין
+    const s = Math.max(bw / hu.w, bh / hu.h); if (s > 2.4) return null;
+    const ww = bw / s, wh = bh / s, wx = clp(hu.x + (hu.w - ww) / 2, 0, SW - ww), wy = clp(hu.y + (fade === 'b' ? 0.06 * hu.h : 0), 0, SH - wh);
+    const up = Math.max(1, Math.min(2, 1 / s)), lw = Math.max(2, Math.round(bw * up)), lh = Math.max(2, Math.round(bh * up));
+    const rs = resize(cropImg(sc._img, Math.round(wx), Math.round(wy), Math.round(wx + ww), Math.round(wy + wh)), lw, lh, s < 1 ? 'area' : 'cubic');
+    const F = fade === 'b' ? Math.round(0.3 * lh) : Math.round(0.4 * lw);
+    for (let y = 0; y < lh; y++) for (let x = 0; x < lw; x++) { const t = fade === 'b' ? (y - (lh - F)) / F : (x - (lw - F)) / F; if (t <= 0) continue; const tt = Math.min(1, t) ** 1.3, c = mix(C0, C1, fade === 'b' ? (by + y / up) / H : (bx + x / up) / W); for (let k = 0; k < 3; k++) { const o = (y * lw + x) * 3 + k; rs.d[o] = rs.d[o] * (1 - tt) + c[k] * tt; } }
+    return [{ id: 'tkphoto', role: 'photo', text: false, shape: 'rect', group: null, z: 1, x: 0, y: 0, w: bw, h: bh, reflowed: true, isPlate: true, absorbs: [hk.id, ...logos.map(u => u.kids[0].id)], layer: { rgb: rs.d, a: new Float32Array(lw * lh).fill(1), lw, lh, up, x: 0, y: 0, w: bw, h: bh } }, bx, by, bw, bh];
+  };
+  const place = (pl, x, y, w) => { const sf = w / card.w; for (const k of card.kids) pl.push([k, x + (k.x - card.x) * sf, y + (k.y - card.y) * sf, k.w * sf, k.h * sf]); return card.h * sf; };
+  const pl = [];
+  if (stack) {
+    let w = Math.min(W - 2 * m, (0.66 * H) * card.w / card.h); const h = card.h * w / card.w, ty = H - m - h; if (w < 0.5 * W) return null;
+    const ph = photo(0, 0, W, Math.round(ty + 0.12 * h), 'b'); if (!ph) return null;
+    pl.push([plane(W, H, 'v'), 0, 0, W, H], ph); place(pl, (W - w) / 2, ty, w); return pl.map(a => a.length === 5 && a[0] && a[0].isPlate ? a : a);
+  }
+  const Wp = Math.round((asp > 2.2 ? 0.34 : 0.3) * W), room = W - Wp * 0.75 - m;
+  const w = Math.min(room, (H - 2 * m) * card.w / card.h), h = card.h * w / card.w; if (h < 0.5 * H) return null;
+  const ph = photo(0, 0, Wp, H, 'r'); if (!ph) return null;
+  const x0 = Wp * 0.75 + (room - w) / 2 + (W - Wp * 0.75 - m - room) * 0 ;
+  pl.push([plane(W, H, 'h'), 0, 0, W, H], ph); place(pl, Math.max(Wp * 0.75, W - m - w - (room - w) / 2), (H - h) / 2, w); return pl;
+}
 function splitCompose(sc, W, H) {
   if (W * H < 9000 || W / H > 4.5 || H < 100 || W / H < 0.4) return null;
   const sp = splitDetect(sc); if (!sp || sp.dir === "right") return null;
@@ -3151,6 +3192,7 @@ function autoplace0(sc, W, H, plan) {
   { let b = null; try { b = bandsLayout(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b = null; } if (b) { delete b.badge; b.sort((x, y) => (x[0].role === 'hero' ? 0 : 1) - (y[0].role === 'hero' ? 0 : 1) || (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b; } }
   { let b2 = null; try { b2 = cardTemplates(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b2 = null; } if (b2) { b2.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b2; } }
   { let b3 = null; try { b3 = catalogTemplate(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b3 = null; } if (b3) { b3.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b3; } }
+  { let b6 = null; try { b6 = ticketCompose(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b6 = null; } if (b6) return b6; }
   { let b5 = null; try { b5 = splitCompose(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b5 = null; } if (b5) { b5.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b5; } }
   { let b4 = null; try { b4 = stripCompose(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b4 = null; } if (b4) { b4.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b4; } }
   const rf = reframeFor(sc, W, H, plan); if (rf) return rf.place.map(e => e.slice()); // REFRAME: רקע צילומי עם גיבור – חלון חיתוך מהמקור ויחידות מעליו
@@ -3830,5 +3872,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.57-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.58-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
