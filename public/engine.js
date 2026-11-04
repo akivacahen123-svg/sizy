@@ -3040,7 +3040,7 @@ function splitDetect(sc) {
 // תבנית "גושים": באנר כהה + פס בהיר בתחתית (לוגואים/כתובת). הגושים נמצאים לפי הפיקסלים (רכיבים קשורים), לא לפי תיבות ה-AI:
 // כל גוש (עגלה + כותרות, בועה + כפתור) נשאר תמונה שלמה; שורת לוגואים ארוכה בפס התחתון מתפצלת לשתי שורות; הפס נשמר כולו (גם לוגואים שה-AI פספס).
 function blocksCompose(sc, W, H) {
-  if (!sc.flat || !sc._img || W * H < 9000 || W / H > 2.2 || W < 140) return null; const side = W / H > 1.15;
+  if (!sc.flat || !sc._img || W * H < 9000 || W / H > 5 || W < 140 || H < 90) return null; const wide = W / H > 2.2, side = !wide && W / H > 1.15;
   const SW = sc.W, SH = sc.H, d = sc._img.d, pd = sc.plate.d;
   const px = (a, x, y) => { const o = (clp(Math.round(y), 0, SH - 1) * SW + clp(Math.round(x), 0, SW - 1)) * 3; return [a[o], a[o + 1], a[o + 2]]; };
   const df = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2]));
@@ -3063,10 +3063,34 @@ function blocksCompose(sc, W, H) {
   if (!big.length) return null;
   for (const c of small) { let b = null, bd = 1e9; for (const g of big) { const dx = Math.max(0, g.x - (c.x + c.w), c.x - (g.x + g.w)), dy = Math.max(0, g.y - (c.y + c.h), c.y - (g.y + g.h)), dd = Math.hypot(dx, dy); if (dd < bd) { bd = dd; b = g; } } const x1 = Math.max(b.x + b.w, c.x + c.w), y1 = Math.max(b.y + b.h, c.y + c.h); b.x = Math.min(b.x, c.x); b.y = Math.min(b.y, c.y); b.w = x1 - b.x; b.h = y1 - b.y; }
   const blocks = big.sort((a, b) => Math.abs(a.y + a.h / 2 - (b.y + b.h / 2)) < 0.25 * yb ? b.w * b.h - a.w * a.h : a.y + a.h / 2 - (b.y + b.h / 2)); // אותו גובה: הגדול (הכותרת) קודם
-  if (blocks.length > 4 || blocks.length < 2 || (side && blocks.length !== 2)) return null;
+  if (blocks.length > 4 || blocks.length < 2 || (side && blocks.length !== 2) || (wide && blocks.length > 3)) return null;
   // לפחות גוש אחד עם צורה גרפית (עגלה/איור): אחרת הסידור הרגיל מספיק
   const U = sc.units.filter(u => !u.kids.some(k => k.isPlate));
   if (!blocks.some(b => U.some(u => u.kids.every(k => !k.text && (k.role === 'decor' || k.role === 'badge')) && u.x >= b.x - 4 && u.x + u.w <= b.x + b.w + 4 && u.y >= b.y - 4 && u.y + u.h <= b.y + b.h + 4))) return null;
+  if (wide) { // רחב ורזה: הגוש הראשי (כותרת) משמאל בגובה מלא; בטור הימני הגושים האחרים וכרטיס הפס התחתון (נשמר כולו)
+    const m = Math.max(4, 0.045 * H), gx = 0.03 * W, b0 = blocks[0], rest = blocks.slice(1), hb = SH - yb, gp2 = Math.max(4, 0.03 * H);
+    const pcs = [...blocks.map(b => ({ b, ids: [] })), { b: { x: 0, y: yb, w: SW, h: hb }, ids: [] }];
+    for (const u of sc.units) { const cx = u.x + u.w / 2, cy = u.y + u.h / 2; let bp = null, bd = 1e9; for (const p of pcs) { const dx = Math.max(0, p.b.x - cx, cx - (p.b.x + p.b.w)), dy = Math.max(0, p.b.y - cy, cy - (p.b.y + p.b.h)), dd = Math.hypot(dx, dy); if (dd < bd) { bd = dd; bp = p; } } for (const k of u.kids) bp.ids.push(k.id); }
+    let nb2 = 0; const pad2 = 0.012 * SH, leaf2 = (x0, y0, x1, y1, ids, bx, by, bw, bh, fe) => {
+      x0 = Math.floor(clp(x0, 0, SW - 2)); y0 = Math.floor(clp(y0, 0, SH - 2)); x1 = Math.ceil(clp(x1, x0 + 2, SW)); y1 = Math.ceil(clp(y1, y0 + 2, SH));
+      const sc2 = bw / (x1 - x0), up = Math.max(1, Math.min(2, 1 / sc2)), lw = Math.max(2, Math.round(bw * up)), lh = Math.max(2, Math.round(bh * up)), rs = resize(cropImg(sc._img, x0, y0, x1, y1), lw, lh, sc2 < 1 ? 'area' : 'cubic');
+      const al = new Float32Array(lw * lh).fill(1), F = Math.max(1, Math.round(0.8 * (fe || 3) * sc2 * up));
+      for (let yy = 0; yy < lh; yy++) for (let xx = 0; xx < lw; xx++) { const q = Math.min(xx, yy, lw - 1 - xx, lh - 1 - yy); if (q < F) al[yy * lw + xx] = (q + 0.5) / F; }
+      return [{ id: 'blkw' + (nb2++), role: 'photo', text: false, shape: 'rect', group: null, z: 1, x: 0, y: 0, w: bw, h: bh, reflowed: true, isPlate: true, absorbs: ids, layer: { rgb: rs.d, a: al, lw, lh, up, x: 0, y: 0, w: bw, h: bh } }, bx, by, bw, bh];
+    };
+    for (const f1 of [1, 0.92, 0.84, 0.76, 0.68]) {
+      const s1 = f1 * (H - 2 * m) / (b0.h + 2 * pad2), w1 = (b0.w + 2 * pad2) * s1, Wc = W - 2 * m - w1 - gx; if (Wc < 0.3 * W) continue;
+      const sf = Math.min(Wc / SW, 0.8), hf = hb * sf, mw = Math.max(...rest.map(b => b.w + 2 * pad2)), sh = rest.reduce((q, b) => q + b.h + 2 * pad2, 0);
+      const sr = Math.min(Wc / mw, (H - 2 * m - hf - gp2 * rest.length) / Math.max(1, sh)); if (sr < 0.42 || sf < 0.42) continue;
+      const lwp = Math.max(2, W), lhp = Math.max(2, Math.round(H)), rgbp = new Float32Array(lwp * lhp * 3); for (let i = 0; i < lwp * lhp; i++) { rgbp[i * 3] = Cd[0]; rgbp[i * 3 + 1] = Cd[1]; rgbp[i * 3 + 2] = Cd[2]; } const pl2 = [[{ id: 'blkwbg', role: 'decor', text: false, shape: 'rect', group: null, z: 0, x: 0, y: 0, w: W, h: H, reflowed: true, isPlate: true, layer: { rgb: rgbp, a: new Float32Array(lwp * lhp).fill(1), lw: lwp, lh: lhp, up: 1, x: 0, y: 0, w: W, h: H } }, 0, 0, W, H]]; const tw = w1 + gx + Math.max(rest.length ? Math.max(...rest.map(b => (b.w + 2 * pad2) * sr)) : 0, hb ? SW * sf : 0), x0 = (W - tw) / 2;
+      const colH = rest.reduce((q, b) => q + (b.h + 2 * pad2) * sr + gp2, 0) + hf, y0c = (H - colH) / 2, hL = (b0.h + 2 * pad2) * s1;
+      pl2.push(leaf2(b0.x - pad2, b0.y - pad2, b0.x + b0.w + pad2, Math.min(yb - 2, b0.y + b0.h + pad2), pcs[0].ids, x0, (H - hL) / 2, w1, hL));
+      let yy = y0c; const cx0 = x0 + w1 + gx;
+      rest.forEach((b, i) => { const bw = (b.w + 2 * pad2) * sr, bh = (b.h + 2 * pad2) * sr; pl2.push(leaf2(b.x - pad2, b.y - pad2, b.x + b.w + pad2, Math.min(yb - 2, b.y + b.h + pad2), pcs[i + 1].ids, cx0 + (Math.max(...rest.map(q => (q.w + 2 * pad2) * sr), SW * sf) - bw) / 2, yy, bw, bh)); yy += bh + gp2; });
+      pl2.push(leaf2(0, yb, SW, SH, pcs[pcs.length - 1].ids, cx0, yy, SW * sf, hf, 1)); return pl2;
+    }
+    return null;
+  }
   // פס תחתון: שורות לפי הפיקסלים; שורה ארוכה ודקה מתפצלת לשתי שורות
   const rowOn = new Float32Array(SH), colOnRow = (ya, yz) => { const c = new Float32Array(SW); for (let y = ya; y < yz; y++) for (let x = 0; x < SW; x++) { const o = (y * SW + x) * 3; if (Math.max(Math.abs(d[o] - Cl[0]), Math.abs(d[o + 1] - Cl[1]), Math.abs(d[o + 2] - Cl[2])) > 30) c[x]++; } return c; };
   for (let y = yb + 2; y < SH; y++) { let n = 0; for (let x = 0; x < SW; x++) { const o = (y * SW + x) * 3; if (Math.max(Math.abs(d[o] - Cl[0]), Math.abs(d[o + 1] - Cl[1]), Math.abs(d[o + 2] - Cl[2])) > 30) n++; } rowOn[y] = n; }
@@ -3953,5 +3977,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.60-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.61-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
