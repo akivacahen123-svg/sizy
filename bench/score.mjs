@@ -323,7 +323,7 @@ export function scoreScene(sc, pl, rgba, W, H, orig) {
   }
   const content = items.filter(i => i.role !== 'hero' && !i.isPlate);
   const placedIds = new Set(content.map(i => i.id));
-  for (const i of content) for (const id of (i.absorbs || [])) placedIds.add(id); // לוח כותרת שנחתך יחד עם הטקסט שלו
+  for (const i of items) for (const id of (i.absorbs || [])) placedIds.add(id); // לוח כותרת שנחתך יחד עם הטקסט שלו
   // תוויות על כפתור/תג מוחלפות לעיתים ב"יחידה": מזהים לפי מזהה העלה בלבד
   const orphan = sc.leaves.filter(l => l.role !== 'hero');
   const sub = {
@@ -331,7 +331,7 @@ export function scoreScene(sc, pl, rgba, W, H, orig) {
     sharpness: sharpnessScene(content, g, W, H, og, orig.w, orig.h, flags),
     layout: layoutHealth(items, W, H, flags, true),
     dropped: droppedScore(orphan, placedIds, flags),
-    fill: fillArtifacts(g, W, H, items.filter(i => !i.isPlate && i.role !== 'hero').map(i => i.box), og, orig.w, orig.h, sc.leaves.filter(l => l.role !== 'hero').map(l => [l.x, l.y, l.w, l.h]), flags),
+    fill: fillArtifacts(g, W, H, items.filter(i => (!i.isPlate || /^blk\d/.test(i.id)) && i.role !== 'hero').map(i => i.box), og, orig.w, orig.h, sc.leaves.filter(l => l.role !== 'hero').map(l => [l.x, l.y, l.w, l.h]), flags),
   };
   pixelFlags(rgba, W, H, pl.filter(e => e[3] >= 1 && e[4] >= 1), flags);
   const r = finish(sub, flags, 'scene');

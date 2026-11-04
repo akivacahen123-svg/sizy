@@ -27,7 +27,7 @@ for (const n of names) {
       const o = ov(a, b); if (o > 0.1 * Math.min(a[3] * a[4], b[3] * b[4])) { flags.push(`overlap:${a[0].id}/${b[0].id}`); i = 1e9; break; }
     }
     const heads = sc.leaves.filter(l => l.role === 'headline');
-    for (const h of heads) if (!content.some(e => e[0].id === h.id)) flags.push('headline-missing');
+    for (const h of heads) if (!pl.some(e => e && e[0] && (e[0].id === h.id || (e[0].absorbs || []).includes(h.id)))) flags.push('headline-missing');
     const placedLeaves = content.filter(e => e[0].role !== 'decor').length;
     if (placedLeaves < 0.6 * origLeaves && W * H > 20000) flags.push(`dropped:${placedLeaves}/${origLeaves}`);
     if (content.length) {

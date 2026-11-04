@@ -1,6 +1,156 @@
 {
- "avg": 90.55,
+ "avg": 90.33,
  "cases": {
+  "case_bank@1200x200": {
+   "score": 86.4,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 65.6,
+    "sharpness": 66.7,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "case_bank@1200x60": {
+   "score": 85.9,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 55.9,
+    "sharpness": 83.3,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 96.3
+   }
+  },
+  "case_bank@120x500": {
+   "score": 83.9,
+   "flags": [
+    "dropped",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 65.1,
+    "sharpness": 97.6,
+    "layout": 100,
+    "dropped": 64.8,
+    "fill": 100
+   }
+  },
+  "case_bank@300x600": {
+   "score": 58.1,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 99.2
+   }
+  },
+  "case_bank@160x600": {
+   "score": 58.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "case_bank@728x90": {
+   "score": 79.1,
+   "flags": [
+    "blotchy",
+    "empty_band",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 54.4,
+    "sharpness": 88.9,
+    "layout": 100,
+    "dropped": 95.9,
+    "fill": 53.2
+   }
+  },
+  "case_bank@300x250": {
+   "score": 57.2,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 95.4
+   }
+  },
+  "case_bank@320x70": {
+   "score": 90.3,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 64.8,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 95.7,
+    "fill": 100
+   }
+  },
+  "case_bank@800x600": {
+   "score": 58.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "case_bank@290x350": {
+   "score": 58.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "case_bank@600x1100": {
+   "score": 56.9,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 94.4
+   }
+  },
+  "case_bank@895x80": {
+   "score": 85.5,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 53.9,
+    "sharpness": 83.3,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 97
+   }
+  },
   "case_dreams_user2@1200x200": {
    "score": 74.3,
    "flags": [
@@ -360,17 +510,16 @@
    }
   },
   "case_nofk@300x600": {
-   "score": 66.2,
+   "score": 86.7,
    "flags": [
     "blotchy",
-    "dropped",
     "unbalanced"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
     "layout": 90.9,
-    "dropped": 38.5,
+    "dropped": 100,
     "fill": 62.1
    }
   },
@@ -405,16 +554,15 @@
    }
   },
   "case_nofk@300x250": {
-   "score": 68,
+   "score": 88.6,
    "flags": [
-    "blotchy",
-    "dropped"
+    "blotchy"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
     "layout": 100,
-    "dropped": 38.5,
+    "dropped": 100,
     "fill": 54.2
    }
   },
@@ -432,45 +580,42 @@
    }
   },
   "case_nofk@800x600": {
-   "score": 69.1,
+   "score": 89.6,
    "flags": [
-    "blotchy",
-    "dropped"
+    "blotchy"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
     "layout": 100,
-    "dropped": 38.5,
+    "dropped": 100,
     "fill": 58.5
    }
   },
   "case_nofk@290x350": {
-   "score": 66.5,
+   "score": 87,
    "flags": [
-    "blotchy",
-    "dropped"
+    "blotchy"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
     "layout": 98.8,
-    "dropped": 38.5,
+    "dropped": 100,
     "fill": 50
    }
   },
   "case_nofk@600x1100": {
-   "score": 64.4,
+   "score": 84.9,
    "flags": [
     "blotchy",
-    "dropped",
     "unbalanced"
    ],
    "sub": {
     "legibility": null,
     "sharpness": null,
     "layout": 92,
-    "dropped": 38.5,
+    "dropped": 100,
     "fill": 52.8
    }
   },

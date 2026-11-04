@@ -3036,6 +3036,72 @@ function splitDetect(sc) {
   return sc._split = res;
 }
 
+
+// תבנית "גושים": באנר כהה + פס בהיר בתחתית (לוגואים/כתובת). יחידות חופפות מקובצות לגוש שלם, הגושים נערמים,
+// שורת לוגואים ארוכה מתפצלת לשתי שורות. הרקע: שני צבעים לפי הקו שבמקור.
+function blocksCompose(sc, W, H) { if (G.__DBGB) console.log('blocksCompose', W, H);
+  if (!sc.flat || W * H < 9000 || W / H > 2.2 || W < 140) return null; const side = W / H > 1.15; 
+  const SW = sc.W, SH = sc.H, d = sc.plate.d, px = (x, y) => { const o = (clp(Math.round(y), 0, SH - 1) * SW + clp(Math.round(x), 0, SW - 1)) * 3; return [d[o], d[o + 1], d[o + 2]]; };
+  const df = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2]));
+  const col = x => { let yb = -1; for (let y = Math.round(0.45 * SH); y < Math.round(0.92 * SH); y++) if (df(px(x, y), px(x, y + 2)) > 40) { yb = y + 1; break; } return yb; };
+  const yb = col(3); if (yb < 0 || Math.abs(col(SW - 4) - yb) > 3) return null;
+  const Cd = px(3, 0.1 * yb), Cl = px(3, yb + 0.5 * (SH - yb)); if (df(Cd, Cl) < 40) return null;
+  const U = sc.units.filter(u => !u.kids.some(k => k.isPlate));
+  if (U.some(u => u.role === 'hero')) return null;
+  const top = U.filter(u => u.y + u.h / 2 < yb), foot = U.filter(u => u.y + u.h / 2 >= yb);
+  if (!foot.some(u => u.kids.length >= 7 && u.kids.every(k => k.role === 'logo'))) return null; // רק כשיש שורת לוגואים ארוכה שצריך לפצל (אחרת הסידור הרגיל טוב)
+  if (top.length < 2 || !foot.length || foot.some(u => u.y < yb - 0.02 * SH)) return null;
+  // גושים עליונים: חפיפה
+  const tol = 0.012 * SH, par = top.map((_, i) => i), fd = i => par[i] === i ? i : (par[i] = fd(par[i]));
+  for (let i = 0; i < top.length; i++) for (let j = i + 1; j < top.length; j++) { const a = top[i], b = top[j]; if (a.x < b.x + b.w + tol && b.x < a.x + a.w + tol && a.y < b.y + b.h + tol && b.y < a.y + a.h + tol) par[fd(i)] = fd(j); }
+  const groups = new Map(); top.forEach((u, i) => { const r = fd(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(u); });
+  const mkb = us => { const x0 = Math.min(...us.map(u => u.x)), y0 = Math.min(...us.map(u => u.y)), x1 = Math.max(...us.map(u => u.x + u.w)), y1 = Math.max(...us.map(u => u.y + u.h)); return { us, x: x0, y: y0, w: x1 - x0, h: y1 - y0 }; };
+  const blocks = [...groups.values()].map(mkb).sort((a, b) => a.y + a.h / 2 - (b.y + b.h / 2) || b.w * b.h - a.w * a.h);
+  if (blocks.length > 4 || (side && blocks.length !== 2)) return null;
+  // פס תחתון: שורת לוגואים → שתי שורות
+  const rows = [];
+  for (const u of foot.slice().sort((a, b) => a.y - b.y)) {
+    if (u.kids.length >= 6 && u.kids.every(k => k.role === 'logo')) {
+      const ks = u.kids.slice().sort((a, b) => a.x - b.x); let bi = -1, bg = -1; const mid = ks.length / 2;
+      for (let i = Math.max(1, Math.floor(mid) - 1); i <= Math.min(ks.length - 1, Math.ceil(mid) + 1); i++) { const g = ks[i].x - (ks[i - 1].x + ks[i - 1].w); if (g > bg) { bg = g; bi = i; } }
+      for (const grp of [ks.slice(bi), ks.slice(0, bi)]) { const x0 = Math.min(...grp.map(k => k.x)), y0 = Math.min(...grp.map(k => k.y)), x1 = Math.max(...grp.map(k => k.x + k.w)), y1 = Math.max(...grp.map(k => k.y + k.h)); rows.push({ ps: { kids: grp, x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, x: x0, w: x1 - x0, h: y1 - y0, logos: true }); }
+    } else rows.push({ ps: u, x: u.x, w: u.w, h: u.h, logos: false });
+  }
+  const m = Math.max(4, 0.05 * W), iw = W - 2 * m, gap = 0.03 * H;
+  const frows = rows.map(r => { const s = r.logos ? Math.min(iw / Math.max(...rows.filter(q => q.logos).map(q => q.w)), 0.55) : Math.min(iw / r.w, r.ps.role === 'logo' ? 0.5 : 1.3); return { ...r, s }; });
+  if (frows.some(r => r.h * r.s < 5)) { if (G.__DBGB) console.log('frows small'); return null; }
+  const fg = Math.max(3, 0.012 * H), fH = frows.reduce((a, r) => a + r.h * r.s, 0) + fg * (frows.length - 1) + 2 * Math.max(8, 0.03 * H);
+  const Ht = H - fH; if (Ht < 0.45 * H) { if (G.__DBGB) console.log('Ht', Ht, fH); return null; }
+  let tb = blocks.map(b => ({ ...b, s: iw / Math.max(b.w, 0.4 * SW) })), need = tb.reduce((a, b) => a + b.h * b.s, 0) + gap * (tb.length - 1) + 2 * m;
+  const sh0 = tb.reduce((q, b) => q + b.h * b.s, 0), f = Math.min(1, (Ht - 2 * m - gap * (tb.length - 1)) / Math.max(1, sh0)); tb = tb.map(b => ({ ...b, s: b.s * f })); need = tb.reduce((a, b) => a + b.h * b.s, 0) + gap * (tb.length - 1);
+  const th = tb.reduce((a, b) => a + b.h * b.s, 0); if (!side && tb.some(b => b.s * Math.min(...b.us.flatMap(u => u.kids.filter(k => k.text).map(k => k.h / (k.lines ? k.lines.length : 1)))) < 5)) return null;
+  const gp = Math.min(gap * 1.6, Math.max(0, (Ht - th - 2 * m) / Math.max(1, tb.length - 1))), tot = th + gp * (tb.length - 1);
+  const pl = [], plane = (y, h, c) => { const lw = Math.max(2, W), lh = Math.max(2, Math.round(h)), rgb = new Float32Array(lw * lh * 3); for (let i = 0; i < lw * lh; i++) { rgb[i * 3] = c[0]; rgb[i * 3 + 1] = c[1]; rgb[i * 3 + 2] = c[2]; } return [{ id: 'blkbg' + Math.round(y), role: 'decor', text: false, shape: 'rect', group: null, z: 0, x: 0, y: 0, w: W, h, reflowed: true, isPlate: true, layer: { rgb, a: new Float32Array(lw * lh).fill(1), lw, lh, up: 1, x: 0, y: 0, w: W, h } }, 0, y, W, h]; };
+  pl.push(plane(0, Ht, Cd), plane(Ht, H - Ht, Cl));
+  let nb = 0; const leafOf = (x0, y0, x1, y1, ids, bx, by, bw, bh, fe) => { // גוש כתמונה אחת מהפיקסלים המקוריים (בלי לשחזר אותיות)
+    x0 = Math.floor(clp(x0, 0, SW - 2)); y0 = Math.floor(clp(y0, 0, SH - 2)); x1 = Math.ceil(clp(x1, x0 + 2, SW)); y1 = Math.ceil(clp(y1, y0 + 2, SH));
+    const sc2 = bw / (x1 - x0), up = Math.max(1, Math.min(2, 1 / sc2)), lw = Math.max(2, Math.round(bw * up)), lh = Math.max(2, Math.round(bh * up)), rs = resize(cropImg(sc._img, x0, y0, x1, y1), lw, lh, sc2 < 1 ? 'area' : 'cubic');
+    const al = new Float32Array(lw * lh).fill(1), F = Math.max(1, Math.round(0.8 * (fe || 3) * sc2 * up)); // שוליים מתעמעמים: התפר בין הגוש לרקע החלק נעלם
+    for (let yy = 0; yy < lh; yy++) for (let xx = 0; xx < lw; xx++) { const q = Math.min(xx, yy, lw - 1 - xx, lh - 1 - yy); if (q < F) al[yy * lw + xx] = (q + 0.5) / F; }
+    return [{ id: 'blk' + (nb++), role: 'photo', text: false, shape: 'rect', group: null, z: 1, x: 0, y: 0, w: bw, h: bh, reflowed: true, isPlate: true, absorbs: ids, layer: { rgb: rs.d, a: al, lw, lh, up, x: 0, y: 0, w: bw, h: bh } }, bx, by, bw, bh];
+  };
+  const pad = 0.012 * SH, idsOf = us => us.flatMap(u => u.kids.map(k => k.id));
+  const footPlace = () => {
+  let y = Ht + Math.max(8, 0.03 * H);
+  for (const r of frows) { const ps = r.ps, k0 = ps.kids ? ps.kids : null, bw = r.w * r.s, bh = r.h * r.s, p2 = 3; pl.push(leafOf(r.x - p2, ps.y - p2, r.x + r.w + p2, Math.max(ps.y + 1, ps.y + r.h + p2), ps.kids.map(k => k.id), (W - bw) / 2 - p2 * r.s, y - p2 * r.s, bw + 2 * p2 * r.s, bh + 2 * p2 * r.s)); y += bh + fg; }
+    return pl;
+  };
+  if (side) { // רחב-יחסית: שני הגושים זה לצד זה (סדר המקור), הפס התחתון מתחתיהם
+    const gx = 0.04 * W, sb = Math.min((iw - gx) / (blocks[0].w + blocks[1].w), (Ht - 2 * m) / Math.max(blocks[0].h, blocks[1].h)); if (sb < 0.12) return null;
+    const ord = blocks.slice().sort((p, q) => p.x - q.x), tw = (ord[0].w + ord[1].w) * sb + gx; let xx = (W - tw) / 2;
+        for (const b of ord) { const bw = b.w * sb, bh = b.h * sb; pl.push(leafOf(b.x - pad, b.y - pad, b.x + b.w + pad, Math.min(yb - 2, b.y + b.h + pad), idsOf(b.us), xx - pad * sb, (Ht - bh) / 2 - pad * sb, bw + 2 * pad * sb, bh + 2 * pad * sb)); xx += bw + gx; }
+    return footPlace();
+  }
+  let y = Math.max(m, (Ht - tot) / 2);
+  for (const b of tb) { const bw = b.w * b.s, bh = b.h * b.s; pl.push(leafOf(b.x - pad, b.y - pad, b.x + b.w + pad, Math.min(yb - 2, b.y + b.h + pad), idsOf(b.us), (W - bw) / 2 - pad * b.s, y - pad * b.s, bw + 2 * pad * b.s, bh + 2 * pad * b.s)); y += bh + gp; }
+  if (G.__DBGB) console.log('blk', JSON.stringify(pl.map(a => [a[0].id, ...a.slice(1).map(Math.round)])), 'Ht', Ht, 'tb', JSON.stringify(tb.map(b=>[b.s,b.w,b.h])));
+  return footPlace();
+}
 // תבנית "צילום + כרטיס גדול שלם + לוגו": הכרטיס נשאר תמונה אחת, הצילום (כולל הלוגו שעליו) נחתך לחלון, דהייה לרקע
 function ticketCompose(sc, W, H) {
   if (W * H < 9000 || W / H > 4.6 || H < 100 || W / H < 0.3) return null;
@@ -3192,6 +3258,7 @@ function autoplace0(sc, W, H, plan) {
   { let b = null; try { b = bandsLayout(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b = null; } if (b) { delete b.badge; b.sort((x, y) => (x[0].role === 'hero' ? 0 : 1) - (y[0].role === 'hero' ? 0 : 1) || (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b; } }
   { let b2 = null; try { b2 = cardTemplates(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b2 = null; } if (b2) { b2.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b2; } }
   { let b3 = null; try { b3 = catalogTemplate(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b3 = null; } if (b3) { b3.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b3; } }
+  { let b7 = null; try { b7 = blocksCompose(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b7 = null; } if (b7) return b7; }
   { let b6 = null; try { b6 = ticketCompose(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b6 = null; } if (b6) return b6; }
   { let b5 = null; try { b5 = splitCompose(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b5 = null; } if (b5) { b5.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b5; } }
   { let b4 = null; try { b4 = stripCompose(sc, W, H); } catch (e) { if (G.__SIZY_DEBUG) throw e; b4 = null; } if (b4) { b4.sort((x, y) => (x[0].isPlate ? 0 : 1) - (y[0].isPlate ? 0 : 1) || (x[0].z || 0) - (y[0].z || 0)); return b4; } }
@@ -3872,5 +3939,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.58-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.59-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
