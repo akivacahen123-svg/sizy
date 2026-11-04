@@ -1,110 +1,52 @@
 {
- "avg": 90.33,
+ "avg": 89.84,
  "cases": {
-  "case_bank@1200x200": {
-   "score": 86.4,
+  "case_bank2@1200x200": {
+   "score": 86.7,
    "flags": [
     "blurry",
+    "hierarchy",
     "lowcontrast"
    ],
    "sub": {
-    "legibility": 65.6,
-    "sharpness": 66.7,
-    "layout": 100,
+    "legibility": 72.8,
+    "sharpness": 70,
+    "layout": 92,
     "dropped": 100,
     "fill": 100
    }
   },
-  "case_bank@1200x60": {
-   "score": 85.9,
-   "flags": [
-    "blurry",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 55.9,
-    "sharpness": 83.3,
-    "layout": 100,
-    "dropped": 100,
-    "fill": 96.3
-   }
-  },
-  "case_bank@120x500": {
-   "score": 83.9,
-   "flags": [
-    "dropped",
-    "lowcontrast"
-   ],
-   "sub": {
-    "legibility": 65.1,
-    "sharpness": 97.6,
-    "layout": 100,
-    "dropped": 64.8,
-    "fill": 100
-   }
-  },
-  "case_bank@300x600": {
-   "score": 58.1,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 0,
-    "dropped": 100,
-    "fill": 99.2
-   }
-  },
-  "case_bank@160x600": {
-   "score": 58.3,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 0,
-    "dropped": 100,
-    "fill": 100
-   }
-  },
-  "case_bank@728x90": {
-   "score": 79.1,
+  "case_bank2@1200x60": {
+   "score": 67.9,
    "flags": [
     "blotchy",
     "empty_band",
-    "lowcontrast"
+    "lowcontrast",
+    "overlap",
+    "tinytext"
    ],
    "sub": {
-    "legibility": 54.4,
-    "sharpness": 88.9,
-    "layout": 100,
-    "dropped": 95.9,
-    "fill": 53.2
-   }
-  },
-  "case_bank@300x250": {
-   "score": 57.2,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 0,
+    "legibility": 31.4,
+    "sharpness": 100,
+    "layout": 70.2,
     "dropped": 100,
-    "fill": 95.4
+    "fill": 50
    }
   },
-  "case_bank@320x70": {
-   "score": 90.3,
+  "case_bank2@120x500": {
+   "score": 88.3,
    "flags": [
     "lowcontrast"
    ],
    "sub": {
-    "legibility": 64.8,
+    "legibility": 59.3,
     "sharpness": 100,
     "layout": 100,
-    "dropped": 95.7,
+    "dropped": 92.6,
     "fill": 100
    }
   },
-  "case_bank@800x600": {
+  "case_bank2@300x600": {
    "score": 58.3,
    "flags": [],
    "sub": {
@@ -115,40 +57,115 @@
     "fill": 100
    }
   },
-  "case_bank@290x350": {
-   "score": 58.3,
-   "flags": [],
+  "case_bank2@160x600": {
+   "score": 82,
+   "flags": [
+    "blurry",
+    "lowcontrast",
+    "weak_headline"
+   ],
    "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 0,
+    "legibility": 61.8,
+    "sharpness": 57.1,
+    "layout": 92,
     "dropped": 100,
     "fill": 100
    }
   },
-  "case_bank@600x1100": {
-   "score": 56.9,
-   "flags": [],
-   "sub": {
-    "legibility": null,
-    "sharpness": null,
-    "layout": 0,
-    "dropped": 100,
-    "fill": 94.4
-   }
-  },
-  "case_bank@895x80": {
-   "score": 85.5,
+  "case_bank2@728x90": {
+   "score": 78,
    "flags": [
     "blurry",
     "lowcontrast"
    ],
    "sub": {
-    "legibility": 53.9,
-    "sharpness": 83.3,
+    "legibility": 51.1,
+    "sharpness": 35,
     "layout": 100,
     "dropped": 100,
-    "fill": 97
+    "fill": 100
+   }
+  },
+  "case_bank2@300x250": {
+   "score": 45.8,
+   "flags": [
+    "tiled"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 50
+   }
+  },
+  "case_bank2@320x70": {
+   "score": 73,
+   "flags": [
+    "blurry",
+    "hierarchy",
+    "tinytext"
+   ],
+   "sub": {
+    "legibility": 47.4,
+    "sharpness": 57.1,
+    "layout": 76.2,
+    "dropped": 92.6,
+    "fill": 100
+   }
+  },
+  "case_bank2@800x600": {
+   "score": 45.8,
+   "flags": [
+    "tiled"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 50
+   }
+  },
+  "case_bank2@290x350": {
+   "score": 45.8,
+   "flags": [
+    "tiled"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 50
+   }
+  },
+  "case_bank2@600x1100": {
+   "score": 45.8,
+   "flags": [
+    "tiled"
+   ],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 50
+   }
+  },
+  "case_bank2@895x80": {
+   "score": 69.8,
+   "flags": [
+    "blotchy",
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 48.3,
+    "sharpness": 35,
+    "layout": 94.6,
+    "dropped": 100,
+    "fill": 59
    }
   },
   "case_dreams_user2@1200x200": {
@@ -3744,6 +3761,156 @@
     "layout": 98.9,
     "dropped": 100,
     "fill": 70.9
+   }
+  },
+  "case_bank@1200x200": {
+   "score": 86.4,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 65.6,
+    "sharpness": 66.7,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "case_bank@1200x60": {
+   "score": 85.9,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 55.9,
+    "sharpness": 83.3,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 96.3
+   }
+  },
+  "case_bank@120x500": {
+   "score": 83.9,
+   "flags": [
+    "dropped",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 65.1,
+    "sharpness": 97.6,
+    "layout": 100,
+    "dropped": 64.8,
+    "fill": 100
+   }
+  },
+  "case_bank@300x600": {
+   "score": 58.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "case_bank@160x600": {
+   "score": 58.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "case_bank@728x90": {
+   "score": 79.1,
+   "flags": [
+    "blotchy",
+    "empty_band",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 54.4,
+    "sharpness": 88.9,
+    "layout": 100,
+    "dropped": 95.9,
+    "fill": 53.2
+   }
+  },
+  "case_bank@300x250": {
+   "score": 58.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "case_bank@320x70": {
+   "score": 90.3,
+   "flags": [
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 64.8,
+    "sharpness": 100,
+    "layout": 100,
+    "dropped": 95.7,
+    "fill": 100
+   }
+  },
+  "case_bank@800x600": {
+   "score": 58.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "case_bank@290x350": {
+   "score": 58.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "case_bank@600x1100": {
+   "score": 58.3,
+   "flags": [],
+   "sub": {
+    "legibility": null,
+    "sharpness": null,
+    "layout": 0,
+    "dropped": 100,
+    "fill": 100
+   }
+  },
+  "case_bank@895x80": {
+   "score": 85.5,
+   "flags": [
+    "blurry",
+    "lowcontrast"
+   ],
+   "sub": {
+    "legibility": 53.9,
+    "sharpness": 83.3,
+    "layout": 100,
+    "dropped": 100,
+    "fill": 97
    }
   },
   "case_dreams_user@1200x200": {

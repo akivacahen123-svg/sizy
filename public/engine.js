@@ -3037,69 +3037,83 @@ function splitDetect(sc) {
 }
 
 
-// תבנית "גושים": באנר כהה + פס בהיר בתחתית (לוגואים/כתובת). יחידות חופפות מקובצות לגוש שלם, הגושים נערמים,
-// שורת לוגואים ארוכה מתפצלת לשתי שורות. הרקע: שני צבעים לפי הקו שבמקור.
-function blocksCompose(sc, W, H) { if (G.__DBGB) console.log('blocksCompose', W, H);
-  if (!sc.flat || W * H < 9000 || W / H > 2.2 || W < 140) return null; const side = W / H > 1.15; 
-  const SW = sc.W, SH = sc.H, d = sc.plate.d, px = (x, y) => { const o = (clp(Math.round(y), 0, SH - 1) * SW + clp(Math.round(x), 0, SW - 1)) * 3; return [d[o], d[o + 1], d[o + 2]]; };
+// תבנית "גושים": באנר כהה + פס בהיר בתחתית (לוגואים/כתובת). הגושים נמצאים לפי הפיקסלים (רכיבים קשורים), לא לפי תיבות ה-AI:
+// כל גוש (עגלה + כותרות, בועה + כפתור) נשאר תמונה שלמה; שורת לוגואים ארוכה בפס התחתון מתפצלת לשתי שורות; הפס נשמר כולו (גם לוגואים שה-AI פספס).
+function blocksCompose(sc, W, H) {
+  if (!sc.flat || !sc._img || W * H < 9000 || W / H > 2.2 || W < 140) return null; const side = W / H > 1.15;
+  const SW = sc.W, SH = sc.H, d = sc._img.d, pd = sc.plate.d;
+  const px = (a, x, y) => { const o = (clp(Math.round(y), 0, SH - 1) * SW + clp(Math.round(x), 0, SW - 1)) * 3; return [a[o], a[o + 1], a[o + 2]]; };
   const df = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]), Math.abs(a[2] - b[2]));
-  const col = x => { let yb = -1; for (let y = Math.round(0.45 * SH); y < Math.round(0.92 * SH); y++) if (df(px(x, y), px(x, y + 2)) > 40) { yb = y + 1; break; } return yb; };
+  const col = x => { let yb = -1; for (let y = Math.round(0.45 * SH); y < Math.round(0.92 * SH); y++) if (df(px(pd, x, y), px(pd, x, y + 2)) > 40) { yb = y + 1; break; } return yb; };
   const yb = col(3); if (yb < 0 || Math.abs(col(SW - 4) - yb) > 3) return null;
-  const Cd = px(3, 0.1 * yb), Cl = px(3, yb + 0.5 * (SH - yb)); if (df(Cd, Cl) < 40) return null;
+  const Cd = px(pd, 3, 0.1 * yb), Cl = px(pd, 3, yb + 0.5 * (SH - yb)); if (df(Cd, Cl) < 40) return null;
+  if (sc.units.some(u => u.role === 'hero')) return null;
+  // מסכת "לא רקע" לכל פס, ורכיבים קשורים בפס העליון
+  const cs = 4, GX = Math.ceil(SW / cs), GY = Math.ceil(SH / cs), on = new Uint8Array(GX * GY);
+  for (let y = 0; y < SH; y++) { const C = y < yb ? Cd : Cl; for (let x = 0; x < SW; x++) { const o = (y * SW + x) * 3; if (Math.max(Math.abs(d[o] - C[0]), Math.abs(d[o + 1] - C[1]), Math.abs(d[o + 2] - C[2])) > 30) on[((y / cs) | 0) * GX + ((x / cs) | 0)]++; } }
+  const cyb = Math.floor(yb / cs), on1 = c => c >= 2;
+  const dr = Math.max(2, Math.round(0.02 * SH / cs)), seen = new Uint8Array(GX * GY), comps = [];
+  for (let sy = 0; sy < cyb; sy++) for (let sx = 0; sx < GX; sx++) { if (seen[sy * GX + sx] || !on1(on[sy * GX + sx])) continue;
+    const q = [[sx, sy]]; seen[sy * GX + sx] = 1; let x0 = sx, x1 = sx, y0 = sy, y1 = sy, n = 0;
+    while (q.length) { const [cx, cy] = q.pop(); n++; x0 = Math.min(x0, cx); x1 = Math.max(x1, cx); y0 = Math.min(y0, cy); y1 = Math.max(y1, cy);
+      for (let yy = Math.max(0, cy - dr); yy <= Math.min(cyb - 1, cy + dr); yy++) for (let xx = Math.max(0, cx - dr); xx <= Math.min(GX - 1, cx + dr); xx++) { const k = yy * GX + xx; if (!seen[k] && on1(on[k])) { seen[k] = 1; q.push([xx, yy]); } } }
+    comps.push({ x: x0 * cs, y: y0 * cs, w: (x1 + 1 - x0) * cs, h: (y1 + 1 - y0) * cs, n }); }
+  if (!comps.length) return null;
+  const big = comps.filter(c => c.w * c.h >= 0.004 * SW * SH), small = comps.filter(c => c.w * c.h < 0.004 * SW * SH);
+  if (!big.length) return null;
+  for (const c of small) { let b = null, bd = 1e9; for (const g of big) { const dx = Math.max(0, g.x - (c.x + c.w), c.x - (g.x + g.w)), dy = Math.max(0, g.y - (c.y + c.h), c.y - (g.y + g.h)), dd = Math.hypot(dx, dy); if (dd < bd) { bd = dd; b = g; } } const x1 = Math.max(b.x + b.w, c.x + c.w), y1 = Math.max(b.y + b.h, c.y + c.h); b.x = Math.min(b.x, c.x); b.y = Math.min(b.y, c.y); b.w = x1 - b.x; b.h = y1 - b.y; }
+  const blocks = big.sort((a, b) => Math.abs(a.y + a.h / 2 - (b.y + b.h / 2)) < 0.25 * yb ? b.w * b.h - a.w * a.h : a.y + a.h / 2 - (b.y + b.h / 2)); // אותו גובה: הגדול (הכותרת) קודם
+  if (blocks.length > 4 || blocks.length < 2 || (side && blocks.length !== 2)) return null;
+  // לפחות גוש אחד עם צורה גרפית (עגלה/איור): אחרת הסידור הרגיל מספיק
   const U = sc.units.filter(u => !u.kids.some(k => k.isPlate));
-  if (U.some(u => u.role === 'hero')) return null;
-  const top = U.filter(u => u.y + u.h / 2 < yb), foot = U.filter(u => u.y + u.h / 2 >= yb);
-  if (!foot.some(u => u.kids.length >= 7 && u.kids.every(k => k.role === 'logo'))) return null; // רק כשיש שורת לוגואים ארוכה שצריך לפצל (אחרת הסידור הרגיל טוב)
-  if (top.length < 2 || !foot.length || foot.some(u => u.y < yb - 0.02 * SH)) return null;
-  // גושים עליונים: חפיפה
-  const tol = 0.012 * SH, par = top.map((_, i) => i), fd = i => par[i] === i ? i : (par[i] = fd(par[i]));
-  for (let i = 0; i < top.length; i++) for (let j = i + 1; j < top.length; j++) { const a = top[i], b = top[j]; if (a.x < b.x + b.w + tol && b.x < a.x + a.w + tol && a.y < b.y + b.h + tol && b.y < a.y + a.h + tol) par[fd(i)] = fd(j); }
-  const groups = new Map(); top.forEach((u, i) => { const r = fd(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(u); });
-  const mkb = us => { const x0 = Math.min(...us.map(u => u.x)), y0 = Math.min(...us.map(u => u.y)), x1 = Math.max(...us.map(u => u.x + u.w)), y1 = Math.max(...us.map(u => u.y + u.h)); return { us, x: x0, y: y0, w: x1 - x0, h: y1 - y0 }; };
-  const blocks = [...groups.values()].map(mkb).sort((a, b) => a.y + a.h / 2 - (b.y + b.h / 2) || b.w * b.h - a.w * a.h);
-  if (blocks.length > 4 || (side && blocks.length !== 2)) return null;
-  // פס תחתון: שורת לוגואים → שתי שורות
-  const rows = [];
-  for (const u of foot.slice().sort((a, b) => a.y - b.y)) {
-    if (u.kids.length >= 6 && u.kids.every(k => k.role === 'logo')) {
-      const ks = u.kids.slice().sort((a, b) => a.x - b.x); let bi = -1, bg = -1; const mid = ks.length / 2;
-      for (let i = Math.max(1, Math.floor(mid) - 1); i <= Math.min(ks.length - 1, Math.ceil(mid) + 1); i++) { const g = ks[i].x - (ks[i - 1].x + ks[i - 1].w); if (g > bg) { bg = g; bi = i; } }
-      for (const grp of [ks.slice(bi), ks.slice(0, bi)]) { const x0 = Math.min(...grp.map(k => k.x)), y0 = Math.min(...grp.map(k => k.y)), x1 = Math.max(...grp.map(k => k.x + k.w)), y1 = Math.max(...grp.map(k => k.y + k.h)); rows.push({ ps: { kids: grp, x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, x: x0, w: x1 - x0, h: y1 - y0, logos: true }); }
-    } else rows.push({ ps: u, x: u.x, w: u.w, h: u.h, logos: false });
+  if (!blocks.some(b => U.some(u => u.kids.every(k => !k.text && (k.role === 'decor' || k.role === 'badge')) && u.x >= b.x - 4 && u.x + u.w <= b.x + b.w + 4 && u.y >= b.y - 4 && u.y + u.h <= b.y + b.h + 4))) return null;
+  // פס תחתון: שורות לפי הפיקסלים; שורה ארוכה ודקה מתפצלת לשתי שורות
+  const rowOn = new Float32Array(SH), colOnRow = (ya, yz) => { const c = new Float32Array(SW); for (let y = ya; y < yz; y++) for (let x = 0; x < SW; x++) { const o = (y * SW + x) * 3; if (Math.max(Math.abs(d[o] - Cl[0]), Math.abs(d[o + 1] - Cl[1]), Math.abs(d[o + 2] - Cl[2])) > 30) c[x]++; } return c; };
+  for (let y = yb + 2; y < SH; y++) { let n = 0; for (let x = 0; x < SW; x++) { const o = (y * SW + x) * 3; if (Math.max(Math.abs(d[o] - Cl[0]), Math.abs(d[o + 1] - Cl[1]), Math.abs(d[o + 2] - Cl[2])) > 30) n++; } rowOn[y] = n; }
+  const runs = []; { let a = -1, last = -1; const mg = Math.round(0.012 * SH); for (let y = yb + 2; y < SH; y++) if (rowOn[y] > 0) { if (a < 0) a = y; else if (y - last > mg) { runs.push([a, last + 1]); a = y; } last = y; } if (a >= 0) runs.push([a, last + 1]); }
+  if (!runs.length) return null;
+  const m = Math.max(4, 0.05 * W), iw = W - 2 * m, gap = 0.03 * H, rows = [];
+  for (const [ya, yz] of runs) {
+    const cc = colOnRow(ya, yz); let xa = 0, xz = SW; while (xa < SW && cc[xa] === 0) xa++; while (xz > 0 && cc[xz - 1] === 0) xz--; if (xz - xa < 4) continue;
+    const w = xz - xa, h = yz - ya, sMax = iw / w;
+    if (w > 0.6 * SW && h * sMax < 20) { // פיצול בפער העמודות הקרוב לאמצע הדיו
+      let tot = 0; for (let x = xa; x < xz; x++) tot += cc[x]; let acc = 0, mid = xa; for (let x = xa; x < xz; x++) { acc += cc[x]; if (acc >= tot / 2) { mid = x; break; } }
+      let best = -1, bd = 1e9; { let x = xa; while (x < xz) { if (cc[x] === 0) { let z = x; while (z < xz && cc[z] === 0) z++; if (z - x >= 0.01 * SW) { const c0 = (x + z) / 2, dd = Math.abs(c0 - mid); if (dd < bd) { bd = dd; best = c0; } } x = z; } else x++; } }
+      if (best > 0) { for (const [a, b] of [[Math.round(best), xz], [xa, Math.round(best)]]) { let a2 = a, b2 = b; while (a2 < b2 && cc[a2] === 0) a2++; while (b2 > a2 && cc[b2 - 1] === 0) b2--; rows.push({ x: a2, y: ya, w: b2 - a2, h, ya, yz, split: true }); } continue; }
+    }
+    rows.push({ x: xa, y: ya, w, h, ya, yz, split: false });
   }
-  const m = Math.max(4, 0.05 * W), iw = W - 2 * m, gap = 0.03 * H;
-  const frows = rows.map(r => { const s = r.logos ? Math.min(iw / Math.max(...rows.filter(q => q.logos).map(q => q.w)), 0.55) : Math.min(iw / r.w, r.ps.role === 'logo' ? 0.5 : 1.3); return { ...r, s }; });
-  if (frows.some(r => r.h * r.s < 5)) { if (G.__DBGB) console.log('frows small'); return null; }
+  const sp = rows.filter(r => r.split), spW = sp.length ? Math.max(...sp.map(r => r.w)) : 1;
+  const frows = rows.map(r => ({ ...r, s: r.split ? Math.min(iw / spW, 0.6) : Math.min(iw / r.w, r.w < 0.45 * SW ? 0.5 : 1.3) }));
+  if (frows.some(r => r.h * r.s < 5)) return null;
   const fg = Math.max(3, 0.012 * H), fH = frows.reduce((a, r) => a + r.h * r.s, 0) + fg * (frows.length - 1) + 2 * Math.max(8, 0.03 * H);
-  const Ht = H - fH; if (Ht < 0.45 * H) { if (G.__DBGB) console.log('Ht', Ht, fH); return null; }
-  let tb = blocks.map(b => ({ ...b, s: iw / Math.max(b.w, 0.4 * SW) })), need = tb.reduce((a, b) => a + b.h * b.s, 0) + gap * (tb.length - 1) + 2 * m;
-  const sh0 = tb.reduce((q, b) => q + b.h * b.s, 0), f = Math.min(1, (Ht - 2 * m - gap * (tb.length - 1)) / Math.max(1, sh0)); tb = tb.map(b => ({ ...b, s: b.s * f })); need = tb.reduce((a, b) => a + b.h * b.s, 0) + gap * (tb.length - 1);
-  const th = tb.reduce((a, b) => a + b.h * b.s, 0); if (!side && tb.some(b => b.s * Math.min(...b.us.flatMap(u => u.kids.filter(k => k.text).map(k => k.h / (k.lines ? k.lines.length : 1)))) < 5)) return null;
-  const gp = Math.min(gap * 1.6, Math.max(0, (Ht - th - 2 * m) / Math.max(1, tb.length - 1))), tot = th + gp * (tb.length - 1);
+  const Ht = H - fH; if (Ht < 0.45 * H) return null;
   const pl = [], plane = (y, h, c) => { const lw = Math.max(2, W), lh = Math.max(2, Math.round(h)), rgb = new Float32Array(lw * lh * 3); for (let i = 0; i < lw * lh; i++) { rgb[i * 3] = c[0]; rgb[i * 3 + 1] = c[1]; rgb[i * 3 + 2] = c[2]; } return [{ id: 'blkbg' + Math.round(y), role: 'decor', text: false, shape: 'rect', group: null, z: 0, x: 0, y: 0, w: W, h, reflowed: true, isPlate: true, layer: { rgb, a: new Float32Array(lw * lh).fill(1), lw, lh, up: 1, x: 0, y: 0, w: W, h } }, 0, y, W, h]; };
   pl.push(plane(0, Ht, Cd), plane(Ht, H - Ht, Cl));
-  let nb = 0; const leafOf = (x0, y0, x1, y1, ids, bx, by, bw, bh, fe) => { // גוש כתמונה אחת מהפיקסלים המקוריים (בלי לשחזר אותיות)
+  // כל יחידה נבלעת בגוש/שורה שמכילה את מרכזה (או הקרובה ביותר)
+  const pieces = [...blocks.map(b => ({ b, ids: [] })), ...frows.map(r => ({ b: { x: r.x, y: r.ya, w: r.w, h: r.yz - r.ya }, ids: [] }))];
+  for (const u of sc.units) { const cx = u.x + u.w / 2, cy = u.y + u.h / 2; let bp = null, bd = 1e9; for (const p of pieces) { const dx = Math.max(0, p.b.x - cx, cx - (p.b.x + p.b.w)), dy = Math.max(0, p.b.y - cy, cy - (p.b.y + p.b.h)), dd = Math.hypot(dx, dy); if (dd < bd) { bd = dd; bp = p; } } for (const k of u.kids) bp.ids.push(k.id); }
+  let nb = 0; const leafOf = (x0, y0, x1, y1, ids, bx, by, bw, bh, fe) => {
     x0 = Math.floor(clp(x0, 0, SW - 2)); y0 = Math.floor(clp(y0, 0, SH - 2)); x1 = Math.ceil(clp(x1, x0 + 2, SW)); y1 = Math.ceil(clp(y1, y0 + 2, SH));
     const sc2 = bw / (x1 - x0), up = Math.max(1, Math.min(2, 1 / sc2)), lw = Math.max(2, Math.round(bw * up)), lh = Math.max(2, Math.round(bh * up)), rs = resize(cropImg(sc._img, x0, y0, x1, y1), lw, lh, sc2 < 1 ? 'area' : 'cubic');
-    const al = new Float32Array(lw * lh).fill(1), F = Math.max(1, Math.round(0.8 * (fe || 3) * sc2 * up)); // שוליים מתעמעמים: התפר בין הגוש לרקע החלק נעלם
+    const al = new Float32Array(lw * lh).fill(1), F = Math.max(1, Math.round(0.8 * (fe || 3) * sc2 * up));
     for (let yy = 0; yy < lh; yy++) for (let xx = 0; xx < lw; xx++) { const q = Math.min(xx, yy, lw - 1 - xx, lh - 1 - yy); if (q < F) al[yy * lw + xx] = (q + 0.5) / F; }
     return [{ id: 'blk' + (nb++), role: 'photo', text: false, shape: 'rect', group: null, z: 1, x: 0, y: 0, w: bw, h: bh, reflowed: true, isPlate: true, absorbs: ids, layer: { rgb: rs.d, a: al, lw, lh, up, x: 0, y: 0, w: bw, h: bh } }, bx, by, bw, bh];
   };
-  const pad = 0.012 * SH, idsOf = us => us.flatMap(u => u.kids.map(k => k.id));
-  const footPlace = () => {
-  let y = Ht + Math.max(8, 0.03 * H);
-  for (const r of frows) { const ps = r.ps, k0 = ps.kids ? ps.kids : null, bw = r.w * r.s, bh = r.h * r.s, p2 = 3; pl.push(leafOf(r.x - p2, ps.y - p2, r.x + r.w + p2, Math.max(ps.y + 1, ps.y + r.h + p2), ps.kids.map(k => k.id), (W - bw) / 2 - p2 * r.s, y - p2 * r.s, bw + 2 * p2 * r.s, bh + 2 * p2 * r.s)); y += bh + fg; }
-    return pl;
-  };
-  if (side) { // רחב-יחסית: שני הגושים זה לצד זה (סדר המקור), הפס התחתון מתחתיהם
+  const pad = 0.012 * SH;
+  const footPlace = () => { let y = Ht + Math.max(8, 0.03 * H); frows.forEach((r, i) => { const bw = r.w * r.s, bh = (r.yz - r.ya) * r.s, p2 = 3; pl.push(leafOf(r.x - p2, r.ya - p2, r.x + r.w + p2, r.yz + p2, pieces[blocks.length + i].ids, (W - bw) / 2 - p2 * r.s, y - p2 * r.s, bw + 2 * p2 * r.s, bh + 2 * p2 * r.s)); y += bh + fg; }); return pl; };
+  const ids = i => pieces[i].ids;
+  if (side) {
     const gx = 0.04 * W, sb = Math.min((iw - gx) / (blocks[0].w + blocks[1].w), (Ht - 2 * m) / Math.max(blocks[0].h, blocks[1].h)); if (sb < 0.12) return null;
-    const ord = blocks.slice().sort((p, q) => p.x - q.x), tw = (ord[0].w + ord[1].w) * sb + gx; let xx = (W - tw) / 2;
-        for (const b of ord) { const bw = b.w * sb, bh = b.h * sb; pl.push(leafOf(b.x - pad, b.y - pad, b.x + b.w + pad, Math.min(yb - 2, b.y + b.h + pad), idsOf(b.us), xx - pad * sb, (Ht - bh) / 2 - pad * sb, bw + 2 * pad * sb, bh + 2 * pad * sb)); xx += bw + gx; }
+    const ord = blocks.map((b, i) => ({ b, i })).sort((p, q) => p.b.x - q.b.x), tw = (ord[0].b.w + ord[1].b.w) * sb + gx; let xx = (W - tw) / 2;
+    for (const { b, i } of ord) { const bw = b.w * sb, bh = b.h * sb; pl.push(leafOf(b.x - pad, b.y - pad, b.x + b.w + pad, Math.min(yb - 2, b.y + b.h + pad), ids(i), xx - pad * sb, (Ht - bh) / 2 - pad * sb, bw + 2 * pad * sb, bh + 2 * pad * sb)); xx += bw + gx; }
     return footPlace();
   }
+  let tb = blocks.map((b, i) => ({ b, i, s: iw / Math.max(b.w, 0.4 * SW) }));
+  const sh0 = tb.reduce((q, t) => q + t.b.h * t.s, 0), f = Math.min(1, (Ht - 2 * m - gap * (tb.length - 1)) / Math.max(1, sh0)); tb = tb.map(t => ({ ...t, s: t.s * f }));
+  const th = tb.reduce((a, t) => a + t.b.h * t.s, 0), gp = Math.min(gap * 1.6, Math.max(0, (Ht - th - 2 * m) / Math.max(1, tb.length - 1))), tot = th + gp * (tb.length - 1);
   let y = Math.max(m, (Ht - tot) / 2);
-  for (const b of tb) { const bw = b.w * b.s, bh = b.h * b.s; pl.push(leafOf(b.x - pad, b.y - pad, b.x + b.w + pad, Math.min(yb - 2, b.y + b.h + pad), idsOf(b.us), (W - bw) / 2 - pad * b.s, y - pad * b.s, bw + 2 * pad * b.s, bh + 2 * pad * b.s)); y += bh + gp; }
-  if (G.__DBGB) console.log('blk', JSON.stringify(pl.map(a => [a[0].id, ...a.slice(1).map(Math.round)])), 'Ht', Ht, 'tb', JSON.stringify(tb.map(b=>[b.s,b.w,b.h])));
+  for (const t of tb) { const b = t.b, bw = b.w * t.s, bh = b.h * t.s; pl.push(leafOf(b.x - pad, b.y - pad, b.x + b.w + pad, Math.min(yb - 2, b.y + b.h + pad), ids(t.i), (W - bw) / 2 - pad * t.s, y - pad * t.s, bw + 2 * pad * t.s, bh + 2 * pad * t.s)); y += bh + gp; }
   return footPlace();
 }
 // תבנית "צילום + כרטיס גדול שלם + לוגו": הכרטיס נשאר תמונה אחת, הצילום (כולל הלוגו שעליו) נחתך לחלון, דהייה לרקע
@@ -3939,5 +3953,5 @@ function placements(sc, W, H, plan) {
   });
 }
 
-G.SizyEngine = { BUILD: '15.59-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
+G.SizyEngine = { BUILD: '15.60-א', reframeWhy, willReframe: sc => !!rfPrep(sc), reframeFor, reframeBg, containFor, containBg, setBans, describeUnits, planValid, buildScene, render, fromRGBA, layout, autoplace, exportScene, placements, resize, blur, _t: { resampleLayer, flatPalette, flatArtUp, resizeLim, usmLum, usmLim, edgeSmooth, wordsOf, reflowLeaf, textLayer, msFill, dilateDisk, medianBg, kmeans2, labelCC, percentile } };
 })(globalThis);
